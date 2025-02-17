@@ -1,0 +1,14 @@
+# User-specific stuff:
+.idea*
+sendgrid.env
+.DS_Store
+Excel/
+Key/
+tblCities.sql
+tblCountries.sql
+tblStates.sql
+uploads/
+lib/*
+SquareNowWeb/vendor/
+vendor.zip
+vendor/
