@@ -1,4 +1,7 @@
 <?php
+namespace LeaveBalance;
+
+require_once(__DIR__ . '/LeaveBalanceComponent.php');
 
 $f3->route('POST /ApplyLeave',
     function($f3) {
@@ -32,6 +35,47 @@ $f3->route('GET /GetLeaveBalance',
                 ),
                 JSON_FORCE_OBJECT
             );
+        }
+    }
+);
+
+$f3->route('GET /leave-balance',
+    function($f3) {
+        header('Content-Type: application/json');
+        $decoded_items = json_decode($f3->get('BODY'), true);
+        if (!$decoded_items == NULL && isset($decoded_items['employeeID'])) {
+            $leaveBalance = new LeaveBalanceComponent();
+            if($leaveBalance->loadEmployeeDetails($decoded_items)) {
+                $leaveBalance->getLeaveBalanceInfo();
+            } else {
+                echo json_encode(array(
+                    "status" => "error",
+                    "message_text" => "Invalid input parameters"
+                ), JSON_FORCE_OBJECT);
+            }
+        } else {
+            echo json_encode(array(
+                "status" => "error",
+                "message_text" => "Invalid input parameters"
+            ), JSON_FORCE_OBJECT);
+        }
+    }
+);
+
+$f3->route('GET /leave-balance/@employeeID',
+    function($f3, $params) {
+        header('Content-Type: application/json');
+        $data = array(
+            'employeeID' => $params['employeeID']
+        );
+        $leaveBalance = new LeaveBalanceComponent();
+        if($leaveBalance->loadEmployeeDetails($data)) {
+            $leaveBalance->getLeaveBalanceInfo();
+        } else {
+            echo json_encode(array(
+                "status" => "error",
+                "message_text" => "Invalid input parameters"
+            ), JSON_FORCE_OBJECT);
         }
     }
 );
