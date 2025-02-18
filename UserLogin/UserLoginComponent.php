@@ -21,7 +21,16 @@ class UserMaster{
         try
         {
         
-            $queryUserLogin = "SELECT tblE.employeeID, tblE.empID, tblE.employeeName, tblLB.CasualLeave, tblLB.MedicalLeave, PrivilegeLeave, tblLB.MaternityLeave, tblLB.SpecialCasualLeave, tblLB.CompensatoryOff, tblLB.SpecialLeaveBloodDonation, tblLB.LeaveOnPrivateAffairs FROM tblEmployee tblE inner join tblLeaveBalance tblLB on tblLB.employeeID = tblE.employeeID WHERE tblE.employeePhone='$this->UserName' and tblE.employeePassword='$this->UserPassword'";
+            $queryUserLogin = "SELECT tblE.employeeID, tblE.empID, tblE.employeeName, 
+                tblLB.CasualLeave, tblLB.MedicalLeave, PrivilegeLeave, tblLB.MaternityLeave, 
+                tblLB.SpecialCasualLeave, tblLB.CompensatoryOff, tblLB.SpecialLeaveBloodDonation, 
+                tblLB.LeaveOnPrivateAffairs, tblB.branchUniqueID, tblB.branchName, 
+                tblB.branchAddress, tblB.branchLatitude, tblB.branchLongitude
+                FROM tblEmployee tblE 
+                INNER JOIN tblLeaveBalance tblLB ON tblLB.employeeID = tblE.employeeID
+                INNER JOIN tblmapEmp tblM ON tblM.employeeID = tblE.employeeID
+                INNER JOIN tblBranch tblB ON tblB.branchID = tblM.branchID
+                WHERE tblE.employeePhone='$this->UserName' AND tblE.employeePassword='$this->UserPassword'";
             $rsd = mysqli_query($connect_var,$queryUserLogin);
             $resultArr=Array();
             $count=0;
@@ -40,6 +49,11 @@ class UserMaster{
                     $resultArr['SpecialLeaveBloodDonation'] = $rs['SpecialLeaveBloodDonation'];
                     $resultArr['LeaveOnPrivateAffairs'] = $rs['LeaveOnPrivateAffairs'];
                     $resultArr['TotalLeave'] = $rs['CasualLeave'] + $rs['MedicalLeave'] + $rs['PrivilegeLeave'] + $rs['SpecialCasualLeave'] + $rs['CompensatoryOff'] + $rs['SpecialLeaveBloodDonation'] + $rs['LeaveOnPrivateAffairs'];
+                    $resultArr['branchUniqueID'] = $rs['branchUniqueID'];
+                    $resultArr['branchName'] = $rs['branchName'];
+                    $resultArr['branchAddress'] = $rs['branchAddress'];
+                    $resultArr['branchLatitude'] = $rs['branchLatitude'];
+                    $resultArr['branchLongitude'] = $rs['branchLongitude'];
                     $count++;
                }  
             }
