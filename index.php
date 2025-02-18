@@ -17,7 +17,8 @@ require 'UserLogin/UserLoginRouter.php';
 require 'UserLogin/UserLoginComponent.php';
 require 'DailyQuote/DailyQuoteRouter.php';
 require 'DailyQuote/DailyQuoteComponent.php';
-
+require 'LeaveBalance/LeaveBalanceRouter.php';
+require 'LeaveBalance/LeaveBalanceComponent.php';
 
 $f3->route('GET /',
 	function($f3) {
