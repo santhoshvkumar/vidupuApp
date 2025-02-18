@@ -15,8 +15,10 @@ $f3->config('config.ini');
 
 require 'UserLogin/UserLoginRouter.php';
 require 'UserLogin/UserLoginComponent.php';
-require 'LeaveBalance/ApplyLeaveRouter.php';
-require 'LeaveBalance/ApplyLeaveComponent.php';
+require 'DailyQuote/DailyQuoteRouter.php';
+require 'DailyQuote/DailyQuoteComponent.php';
+// require 'LeaveBalance/ApplyLeaveRouter.php';
+// require 'LeaveBalance/ApplyLeaveComponent.php';
 $f3->route('GET /',
 	function($f3) {
 		echo "Hey There";
