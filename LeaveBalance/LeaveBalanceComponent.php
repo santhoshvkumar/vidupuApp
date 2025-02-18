@@ -68,24 +68,36 @@ class ApplyLeaveMaster {
         include('config.inc');
         header('Content-Type: application/json');
         try {
-            // Check for existing leave applications in the given period
-            $queryCheckOverlap = "SELECT COUNT(*) as overlap_count 
+            // Check for existing leave applications in the given period, including adjacent days
+            $queryCheckOverlap = "SELECT COUNT(*) as overlap_count, GROUP_CONCAT(DISTINCT typeOfLeave) as leave_types 
                                 FROM tblApplyLeave 
                                 WHERE employeeID = '$this->empID' 
-                                AND ((fromDate BETWEEN '$this->fromDate' AND '$this->toDate') 
-                                OR (toDate BETWEEN '$this->fromDate' AND '$this->toDate')
-                                OR ('$this->fromDate' BETWEEN fromDate AND toDate))";
-            
+                                AND (
+                                    (fromDate BETWEEN DATE_SUB('$this->fromDate', INTERVAL 1 DAY) AND DATE_ADD('$this->toDate', INTERVAL 1 DAY))
+                                    OR (toDate BETWEEN DATE_SUB('$this->fromDate', INTERVAL 1 DAY) AND DATE_ADD('$this->toDate', INTERVAL 1 DAY))
+                                    OR ('$this->fromDate' BETWEEN DATE_SUB(fromDate, INTERVAL 1 DAY) AND DATE_ADD(toDate, INTERVAL 1 DAY))
+                                )";
+            echo $queryCheckOverlap;
             $overlapResult = mysqli_query($connect_var, $queryCheckOverlap);
             $overlapData = mysqli_fetch_assoc($overlapResult);
             
             if ($overlapData['overlap_count'] > 0) {
-                echo json_encode(array(
-                    "status" => "warning",
-                    "message_text" => "Leave application already exists for the selected date range"
-                ), JSON_FORCE_OBJECT);
-                mysqli_close($connect_var);
-                return;
+                $existingLeaveTypes = explode(',', $overlapData['leave_types']);
+                if (!in_array($this->leaveType, $existingLeaveTypes)) {
+                    echo json_encode(array(
+                        "status" => "warning",
+                        "message_text" => "Cannot apply different leave types on consecutive days. Existing leave type(s): " . $overlapData['leave_types']
+                    ), JSON_FORCE_OBJECT);
+                    mysqli_close($connect_var);
+                    return;
+                } else {
+                    echo json_encode(array(
+                        "status" => "warning",
+                        "message_text" => "Leave application already exists for the selected date range"
+                    ), JSON_FORCE_OBJECT);
+                    mysqli_close($connect_var);
+                    return;
+                }
             }
 
             $queryApplyLeave = "INSERT INTO tblApplyLeave (employeeID, fromDate, toDate, typeOfLeave, reason, createdOn, status)VALUES ('$this->empID', '$this->fromDate', '$this->toDate', '$this->leaveType', '$this->leaveReason', CURRENT_DATE(), 'Yet To Be Approved')";
