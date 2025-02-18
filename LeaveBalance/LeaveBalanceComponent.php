@@ -63,7 +63,40 @@ class ApplyLeaveMaster {
             ), JSON_FORCE_OBJECT);
         }
     }
+    public function getLeaveHistoryInfo() {
+        include('config.inc');
+        header('Content-Type: application/json');
+        try {
+            $queryLeaveHistory = "SELECT applyLeaveID, fromDate, toDate, typeOfLeave, reason, status FROM tblApplyLeave WHERE employeeID = '$this->empID' ORDER by applyLeaveID DESC";
+            $rsd = mysqli_query($connect_var, $queryLeaveHistory);
+            $resultArr = array();
+            $count = 0;
+            while($rs = mysqli_fetch_assoc($rsd)) {
+                $resultArr[] = $rs;
+                $count++;
+            }
+            mysqli_close($connect_var);
 
+            if($count > 0) {
+                echo json_encode(array(
+                    "status" => "success",
+                    "data" => $resultArr,
+                    "record_count" => $count
+                ));
+            } else {
+                echo json_encode(array(
+                    "status" => "failure",
+                    "record_count" => $count,
+                    "message_text" => "No leave balance found for employee ID: $this->empID"
+                ), JSON_FORCE_OBJECT);
+            }
+        } catch(PDOException $e) {
+            echo json_encode(array(
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ), JSON_FORCE_OBJECT);
+        }
+    }
     public function applyForLeave() {
         include('config.inc');
         header('Content-Type: application/json');
@@ -77,7 +110,6 @@ class ApplyLeaveMaster {
                                     OR (toDate BETWEEN DATE_SUB('$this->fromDate', INTERVAL 1 DAY) AND DATE_ADD('$this->toDate', INTERVAL 1 DAY))
                                     OR ('$this->fromDate' BETWEEN DATE_SUB(fromDate, INTERVAL 1 DAY) AND DATE_ADD(toDate, INTERVAL 1 DAY))
                                 )";
-            echo $queryCheckOverlap;
             $overlapResult = mysqli_query($connect_var, $queryCheckOverlap);
             $overlapData = mysqli_fetch_assoc($overlapResult);
             
@@ -132,6 +164,18 @@ function getLeaveBalance(array $data) {
     $leaveObject = new ApplyLeaveMaster;
     if($leaveObject->loadEmployeeDetails($data)) {
         $leaveObject->getLeaveBalanceInfo();
+    } else {
+        echo json_encode(array(
+            "status" => "error",
+            "message_text" => "Invalid Input Parameters"
+        ), JSON_FORCE_OBJECT);
+    }
+}
+
+function getLeaveHistory(array $data) {
+    $leaveObject = new ApplyLeaveMaster;
+    if($leaveObject->loadEmployeeDetails($data)) {
+        $leaveObject->getLeaveHistoryInfo();
     } else {
         echo json_encode(array(
             "status" => "error",
