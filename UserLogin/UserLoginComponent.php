@@ -21,7 +21,7 @@ class UserMaster{
         try
         {
         
-            $queryUserLogin = "SELECT tblE.employeeID, tblE.empID, tblE.employeeName, tblLB.causalLeave, tblLB.MedicalLeave, tblLB.PrivilageLeave, tblLB.MaternityLeave FROM tblEmployee tblE inner join tblLeaveBalance tblLB on tblLB.employeeID = tblE.employeeID WHERE tblE.employeePhone='$this->UserName' and tblE.employeePassword='$this->UserPassword'";
+            $queryUserLogin = "SELECT tblE.employeeID, tblE.empID, tblE.employeeName, tblLB.CasualLeave, tblLB.MedicalLeave, PrivilegeLeave, tblLB.MaternityLeave, tblLB.SpecialCasualLeave, tblLB.CompensatoryOff, tblLB.SpecialLeaveBloodDonation, tblLB.LeaveOnPrivateAffairs FROM tblEmployee tblE inner join tblLeaveBalance tblLB on tblLB.employeeID = tblE.employeeID WHERE tblE.employeePhone='$this->UserName' and tblE.employeePassword='$this->UserPassword'";
             $rsd = mysqli_query($connect_var,$queryUserLogin);
             $resultArr=Array();
             $count=0;
@@ -31,11 +31,15 @@ class UserMaster{
                     $getEmployeeName = $rs['employeeName'];
                     $resultArr['employeeName'] = $getEmployeeName;
                     $resultArr['employeeID'] = $rs['employeeID'];
-                    $resultArr['causalLeave'] = $rs['causalLeave'];
+                    $resultArr['causalLeave'] = $rs['CasualLeave'];
                     $resultArr['MedicalLeave'] = $rs['MedicalLeave'];
-                    $resultArr['PrivilageLeave'] = $rs['PrivilageLeave'];
+                    $resultArr['PrivilageLeave'] = $rs['PrivilegeLeave'];
                     $resultArr['MaternityLeave'] = $rs['MaternityLeave'];
-                    $resultArr['TotalLeave'] = $rs['causalLeave'] + $rs['MedicalLeave'] + $rs['PrivilageLeave'] + $rs['MaternityLeave'];
+                    $resultArr['SpecialCasualLeave'] = $rs['SpecialCasualLeave'];   
+                    $resultArr['CompensatoryOff'] = $rs['CompensatoryOff'];
+                    $resultArr['SpecialLeaveBloodDonation'] = $rs['SpecialLeaveBloodDonation'];
+                    $resultArr['LeaveOnPrivateAffairs'] = $rs['LeaveOnPrivateAffairs'];
+                    $resultArr['TotalLeave'] = $rs['CasualLeave'] + $rs['MedicalLeave'] + $rs['PrivilegeLeave'] + $rs['MaternityLeave'] + $rs['SpecialCasualLeave'] + $rs['CompensatoryOff'] + $rs['SpecialLeaveBloodDonation'] + $rs['LeaveOnPrivateAffairs'];
                     $count++;
                }  
             }

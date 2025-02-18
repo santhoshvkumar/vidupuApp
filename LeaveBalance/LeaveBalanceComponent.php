@@ -116,4 +116,16 @@ function applyLeave(array $data) {
     }
 }
 
+function getLeaveBalance(array $data) {
+    $leaveObject = new ApplyLeaveMaster;
+    if($leaveObject->loadEmployeeDetails($data)) {
+        $leaveObject->getLeaveBalanceInfo();
+    } else {
+        echo json_encode(array(
+            "status" => "error",
+            "message_text" => "Invalid Input Parameters"
+        ), JSON_FORCE_OBJECT);
+    }
+}
+
 ?> 
