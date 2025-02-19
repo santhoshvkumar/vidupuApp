@@ -2,6 +2,7 @@
 
 header('Access-Control-Allow-Origin: *');
 header("Access-Control-Allow-Headers: Origin, X-Requested-With, Content-Type, Accept");
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE');
  
 ini_set('display_startup_errors', 1);
 ini_set('display_errors', 1);
@@ -21,6 +22,8 @@ require 'LeaveBalance/LeaveBalanceRouter.php';
 require 'LeaveBalance/LeaveBalanceComponent.php';
 require 'Profile/ProfileRouter.php';
 require 'Profile/ProfileComponent.php';
+require 'LeaveHistory/LeaveHistoryRouter.php';
+require 'LeaveHistory/LeaveHistoryComponent.php';
 
 $f3->route('GET /',
 	function($f3) {
@@ -29,5 +32,9 @@ $f3->route('GET /',
 	}
 );
 
+// LeaveHistory routes
+$f3->route('GET /leave-history', 'LeaveHistory\LeaveHistoryRouter->getAllLeaveHistory');
+$f3->route('GET /leave-history/@employeeID', 'LeaveHistory\LeaveHistoryRouter->getLeaveHistoryByEmployee');
+$f3->route('PUT /cancel-leave', 'LeaveHistory\LeaveHistoryRouter->cancelLeave');
 
 $f3->run();
