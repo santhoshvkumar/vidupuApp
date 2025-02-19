@@ -69,7 +69,7 @@ class ApplyLeaveMaster {
         try {
             $queryLeaveHistory = "SELECT applyLeaveID, fromDate, toDate, typeOfLeave, reason, status FROM tblApplyLeave WHERE employeeID = '$this->empID' ORDER by applyLeaveID DESC";
             $rsd = mysqli_query($connect_var, $queryLeaveHistory);
-            $resultArr = array();
+            $resultArr = Array();
             $count = 0;
             while($rs = mysqli_fetch_assoc($rsd)) {
                 $resultArr[] = $rs;
@@ -80,8 +80,8 @@ class ApplyLeaveMaster {
             if($count > 0) {
                 echo json_encode(array(
                     "status" => "success",
-                    "data" => $resultArr,
-                    "record_count" => $count
+                    "result" => $resultArr,
+                    "record_count" => $count,
                 ));
             } else {
                 echo json_encode(array(
