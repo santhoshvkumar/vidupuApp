@@ -21,7 +21,7 @@ class UserMaster{
         try
         {
         
-            $queryUserLogin = "SELECT tblE.employeeID, tblE.empID, tblE.employeeName, 
+            $queryUserLogin = "SELECT tblE.employeeID, tblE.empID, tblE.employeeName, tblE.employeePhoto,
                 tblLB.CasualLeave, tblLB.MedicalLeave, PrivilegeLeave, tblLB.MaternityLeave, 
                 tblLB.SpecialCasualLeave, tblLB.CompensatoryOff, tblLB.SpecialLeaveBloodDonation, 
                 tblLB.LeaveOnPrivateAffairs, tblB.branchUniqueID, tblB.branchName, 
@@ -41,6 +41,7 @@ class UserMaster{
                     $getEmployeeName = $rs['employeeName'];
                     $resultArr['employeeName'] = $getEmployeeName;
                     $resultArr['employeeID'] = $rs['employeeID'];
+                    $resultArr['employeePhoto'] = $rs['employeePhoto'];
                     $resultArr['causalLeave'] = $rs['CasualLeave'];
                     $resultArr['MedicalLeave'] = $rs['MedicalLeave'];
                     $resultArr['PrivilageLeave'] = $rs['PrivilegeLeave'];
