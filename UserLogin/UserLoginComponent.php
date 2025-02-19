@@ -25,7 +25,7 @@ class UserMaster{
                 tblLB.CasualLeave, tblLB.MedicalLeave, PrivilegeLeave, tblLB.MaternityLeave, 
                 tblLB.SpecialCasualLeave, tblLB.CompensatoryOff, tblLB.SpecialLeaveBloodDonation, 
                 tblLB.LeaveOnPrivateAffairs, tblB.branchUniqueID, tblB.branchName, 
-                tblB.branchAddress, tblB.branchLatitude, tblB.branchLongitude
+                tblB.branchAddress, tblB.branchLatitude, tblB.branchLongitude, tblB.branchRadius
                 FROM tblEmployee tblE 
                 INNER JOIN tblLeaveBalance tblLB ON tblLB.employeeID = tblE.employeeID
                 INNER JOIN tblmapEmp tblM ON tblM.employeeID = tblE.employeeID
@@ -55,6 +55,7 @@ class UserMaster{
                     $resultArr['branchAddress'] = $rs['branchAddress'];
                     $resultArr['branchLatitude'] = $rs['branchLatitude'];
                     $resultArr['branchLongitude'] = $rs['branchLongitude'];
+                    $resultArr['branchRadius'] = $rs['branchRadius'];
                     $count++;
                }  
             }
