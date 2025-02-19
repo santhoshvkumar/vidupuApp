@@ -67,7 +67,7 @@ class ApplyLeaveMaster {
         include('config.inc');
         header('Content-Type: application/json');
         try {
-            $queryLeaveHistory = "SELECT applyLeaveID, fromDate, toDate, typeOfLeave, reason, status FROM tblApplyLeave WHERE employeeID = '$this->empID' ORDER by applyLeaveID DESC";
+            $queryLeaveHistory = "SELECT applyLeaveID, fromDate, toDate, typeOfLeave, reason, status FROM tblApplyLeave WHERE employeeID = '$this->empID' and status != 'Cancelled' ORDER by applyLeaveID DESC";
             $rsd = mysqli_query($connect_var, $queryLeaveHistory);
             $resultArr = array();
             $count = 0;
