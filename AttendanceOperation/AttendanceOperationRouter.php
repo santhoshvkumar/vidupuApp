@@ -36,4 +36,21 @@ $f3->route('POST /Checkin',
     }
 );
 
+$f3->route('POST /Checkout',
+    function($f3) {
+        header('Content-Type: application/json');
+        $decoded_items = json_decode($f3->get('BODY'), true);
+        if (!$decoded_items == NULL) {
+            checkOut($decoded_items);
+        } else {
+            echo json_encode(
+                array(
+                    "status" => "error Checkout",
+                    "message_text" => "Invalid input parameters"
+                ),
+                JSON_FORCE_OBJECT
+            );
+        }
+    }
+);
 ?>
