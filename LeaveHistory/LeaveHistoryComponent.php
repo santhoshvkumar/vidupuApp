@@ -61,6 +61,7 @@ class LeaveHistoryComponent {
             $data = json_decode($rawData, true);
             
             if (!isset($data['applyLeaveID']) || !isset($data['employeeID']) || !isset($data['typeOfLeave'])) {
+                error_log("Missing required fields. Received data: " . print_r($data, true));
                 echo json_encode([
                     'status' => 'error',
                     'message' => 'Missing required fields',
@@ -72,23 +73,6 @@ class LeaveHistoryComponent {
             $leaveID = $data['applyLeaveID'];
             $employeeID = $data['employeeID'];
             $typeOfLeave = $data['typeOfLeave'];
-
-            // Check current status first
-            $checkQuery = "SELECT status FROM tblApplyLeave WHERE applyLeaveID = " . (int)$leaveID;
-            $checkResult = mysqli_query($connect_var, $checkQuery);
-            $currentRecord = mysqli_fetch_assoc($checkResult);
-
-            if (!$currentRecord) {
-                throw new \Exception("Leave record not found");
-            }
-
-            if ($currentRecord['status'] === 'Cancelled') {
-                echo json_encode([
-                    'status' => 'error',
-                    'message' => 'Leave is already cancelled'
-                ]);
-                return;
-            }
 
             // Start transaction
             mysqli_begin_transaction($connect_var);
@@ -107,6 +91,10 @@ class LeaveHistoryComponent {
                 throw new \Exception("Failed to update leave status: " . mysqli_error($connect_var));
             }
 
+            if (mysqli_affected_rows($connect_var) === 0) {
+                throw new \Exception("No leave records were updated. The leave might already be cancelled.");
+            }
+
             // Map leave types to database columns
             $leaveColumnMap = [
                 'Casual Leave' => 'CasualLeave',
@@ -116,23 +104,15 @@ class LeaveHistoryComponent {
                 'Leave On Private Affairs' => 'LeaveOnPrivateAffairs',
                 'Medical Leave' => 'MedicalLeave',
                 'Privilege Leave' => 'PrivilegeLeave',
-                'Maternity Leave' => 'MaternityLeave'
+                'Maternity Leave' => 'MaternityLeave',
+                'Sick Leave' => 'MedicalLeave'
             ];
 
-            $columnName = $leaveColumnMap[$typeOfLeave];
-
-            // Increment leave balance
-            $balanceQuery = "UPDATE tblleavebalance 
-                            SET $columnName = $columnName + 1 
-                            WHERE EmployeeID = '" . mysqli_real_escape_string($connect_var, $employeeID) . "' 
-                            AND Year = YEAR(CURRENT_DATE)";
-            
-            error_log("Executing balance update query: " . $balanceQuery);
-            $balanceResult = mysqli_query($connect_var, $balanceQuery);
-            
-            if (!$balanceResult) {
-                throw new \Exception("Failed to update leave balance: " . mysqli_error($connect_var));
+            if (!isset($leaveColumnMap[$typeOfLeave])) {
+                throw new \Exception("Invalid leave type: " . $typeOfLeave);
             }
+
+            $columnName = $leaveColumnMap[$typeOfLeave];
 
             // Commit transaction
             mysqli_commit($connect_var);
