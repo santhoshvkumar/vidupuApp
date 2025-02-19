@@ -1,22 +1,11 @@
 <?php
+namespace LeaveBalance;
 
-class ApplyLeaveMaster {
-    public $empID;
-    public $employeeName;
-    public $leaveBalance;
-    public $companyID;
+class LeaveBalanceComponent {
+    public $employeeID;
     
     public function loadEmployeeDetails(array $data) {
-        $this->empID = $data['empID'];
-        return true;
-    }
-
-    public function loadApplyLeaveDetails(array $data) {
-        $this->empID = $data['empID'];
-        $this->fromDate = $data['fromDate'];
-        $this->toDate = $data['toDate'];
-        $this->leaveType = $data['leaveType'];
-        $this->leaveReason = $data['leaveReason'];
+        $this->employeeID = $data['employeeID'];
         return true;
     }
 
@@ -24,11 +13,26 @@ class ApplyLeaveMaster {
         include('config.inc');
         header('Content-Type: application/json');
         try {
-            $queryLeaveBalance = "SELECT tblE.empID, tblL.leaveBalance 
-                                FROM tblEmployee tblE 
-                                LEFT JOIN tblLeaveBalance tblL ON tblE.empID = tblL.empID 
-                                WHERE tblE.empID = '$this->empID' 
-                                AND tblE.companyID = '$this->companyID'";
+            $queryLeaveBalance = "SELECT 
+                                    e.employeeID,
+                                    e.employeeName,
+                                    me.branchID,
+                                    b.branchName,
+                                    lb.CasualLeave,
+                                    lb.SpecialCasualLeave,
+                                    lb.CompensatoryOff,
+                                    lb.SpecialLeaveBloodDonation,
+                                    lb.LeaveOnPrivateAffairs,
+                                    lb.MedicalLeave,
+                                    lb.PrivilegeLeave,
+                                    lb.MaternityLeave,
+                                    lb.Year
+                                FROM tblEmployee e 
+                                LEFT JOIN tblmapEmp me ON e.employeeID = me.employeeID 
+                                LEFT JOIN tblBranch b ON me.branchID = b.branchID
+                                LEFT JOIN tblLeaveBalance lb ON e.employeeID = lb.EmployeeID 
+                                    AND lb.Year = YEAR(CURRENT_DATE)
+                                WHERE e.employeeID = '$this->employeeID'";
                                 
             $rsd = mysqli_query($connect_var, $queryLeaveBalance);
             $resultArr = array();
@@ -36,7 +40,7 @@ class ApplyLeaveMaster {
             
             while($rs = mysqli_fetch_assoc($rsd)) {
                 $resultArr = $rs;
-                if(isset($rs['empID'])) {
+                if(isset($rs['employeeID'])) {
                     $count++;
                 }
             }
@@ -52,10 +56,13 @@ class ApplyLeaveMaster {
             } else {
                 echo json_encode(array(
                     "status" => "failure",
-                    "record_count" => $count,
-                    "message_text" => "No leave balance found for employee ID: $this->empID"
+                    "record_count" => 0,
+                    "message_text" => "No employee found with ID: $this->employeeID"
                 ), JSON_FORCE_OBJECT);
             }
+<<<<<<< HEAD
+        } catch(Exception $e) {
+=======
         } catch(PDOException $e) {
             echo json_encode(array(
                 "status" => "error",
@@ -140,6 +147,7 @@ class ApplyLeaveMaster {
                 "message_text" => "Leave applied successfully"
             ), JSON_FORCE_OBJECT);
         } catch(PDOException $e) {
+>>>>>>> 782a4156724660228da06b05b7b7a8d371c71960
             echo json_encode(array(
                 "status" => "error",
                 "message_text" => $e->getMessage()
