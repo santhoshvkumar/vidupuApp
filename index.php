@@ -16,13 +16,20 @@ $f3->config('config.ini');
 
 require 'UserLogin/UserLoginRouter.php';
 require 'UserLogin/UserLoginComponent.php';
+
 require 'DailyQuote/DailyQuoteRouter.php';
 require 'DailyQuote/DailyQuoteComponent.php';
 // Commenting out LeaveBalance temporarily
 require 'LeaveBalance/LeaveBalanceRouter.php';
 require 'LeaveBalance/LeaveBalanceComponent.php';
+
 require 'Profile/ProfileRouter.php';
 require 'Profile/ProfileComponent.php';
+
+require 'AttendanceOperation/AttendanceOperationRouter.php';
+require 'AttendanceOperation/AttendanceOperationComponent.php';
+
+
 // require 'LeaveHistory/LeaveHistoryRouter.php';
 // require 'LeaveHistory/LeaveHistoryComponent.php';
 // require 'Attendance/AttendanceRouter.php';
