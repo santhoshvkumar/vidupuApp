@@ -60,19 +60,17 @@ class LeaveHistoryComponent {
             
             $data = json_decode($rawData, true);
             
-            if (!isset($data['applyLeaveID']) || !isset($data['employeeID']) || !isset($data['typeOfLeave'])) {
-                error_log("Missing required fields. Received data: " . print_r($data, true));
+            if (!isset($data['applyLeaveID'])) {
+                error_log("Missing applyLeaveID. Received data: " . print_r($data, true));
                 echo json_encode([
                     'status' => 'error',
-                    'message' => 'Missing required fields',
+                    'message' => 'Missing applyLeaveID',
                     'received_data' => $data
                 ]);
                 return;
             }
 
-            $leaveID = $data['applyLeaveID'];
-            $employeeID = $data['employeeID'];
-            $typeOfLeave = $data['typeOfLeave'];
+            $leaveID = (int)$data['applyLeaveID'];
 
             // Start transaction
             mysqli_begin_transaction($connect_var);
@@ -80,8 +78,7 @@ class LeaveHistoryComponent {
             // Update leave status to cancelled
             $updateQuery = "UPDATE tblApplyLeave 
                            SET status = 'Cancelled' 
-                           WHERE applyLeaveID = " . (int)$leaveID . " 
-                           AND employeeID = '" . mysqli_real_escape_string($connect_var, $employeeID) . "'
+                           WHERE applyLeaveID = $leaveID 
                            AND status != 'Cancelled'";
             
             error_log("Executing update query: " . $updateQuery);
@@ -94,25 +91,6 @@ class LeaveHistoryComponent {
             if (mysqli_affected_rows($connect_var) === 0) {
                 throw new \Exception("No leave records were updated. The leave might already be cancelled.");
             }
-
-            // Map leave types to database columns
-            $leaveColumnMap = [
-                'Casual Leave' => 'CasualLeave',
-                'Special Casual Leave' => 'SpecialCasualLeave',
-                'Compensatory Off' => 'CompensatoryOff',
-                'Special Leave Blood Donation' => 'SpecialLeaveBloodDonation',
-                'Leave On Private Affairs' => 'LeaveOnPrivateAffairs',
-                'Medical Leave' => 'MedicalLeave',
-                'Privilege Leave' => 'PrivilegeLeave',
-                'Maternity Leave' => 'MaternityLeave',
-                'Sick Leave' => 'MedicalLeave'
-            ];
-
-            if (!isset($leaveColumnMap[$typeOfLeave])) {
-                throw new \Exception("Invalid leave type: " . $typeOfLeave);
-            }
-
-            $columnName = $leaveColumnMap[$typeOfLeave];
 
             // Commit transaction
             mysqli_commit($connect_var);
