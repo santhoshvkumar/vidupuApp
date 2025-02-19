@@ -1,11 +1,22 @@
 <?php
-namespace LeaveBalance;
 
-class LeaveBalanceComponent {
-    public $employeeID;
+class ApplyLeaveMaster {
+    public $empID;
+    public $employeeName;
+    public $leaveBalance;
+    public $companyID;
     
     public function loadEmployeeDetails(array $data) {
-        $this->employeeID = $data['employeeID'];
+        $this->empID = $data['empID'];
+        return true;
+    }
+
+    public function loadApplyLeaveDetails(array $data) {
+        $this->empID = $data['empID'];
+        $this->fromDate = $data['fromDate'];
+        $this->toDate = $data['toDate'];
+        $this->leaveType = $data['leaveType'];
+        $this->leaveReason = $data['leaveReason'];
         return true;
     }
 
@@ -13,26 +24,11 @@ class LeaveBalanceComponent {
         include('config.inc');
         header('Content-Type: application/json');
         try {
-            $queryLeaveBalance = "SELECT 
-                                    e.employeeID,
-                                    e.employeeName,
-                                    me.branchID,
-                                    b.branchName,
-                                    lb.CasualLeave,
-                                    lb.SpecialCasualLeave,
-                                    lb.CompensatoryOff,
-                                    lb.SpecialLeaveBloodDonation,
-                                    lb.LeaveOnPrivateAffairs,
-                                    lb.MedicalLeave,
-                                    lb.PrivilegeLeave,
-                                    lb.MaternityLeave,
-                                    lb.Year
-                                FROM tblEmployee e 
-                                LEFT JOIN tblmapEmp me ON e.employeeID = me.employeeID 
-                                LEFT JOIN tblBranch b ON me.branchID = b.branchID
-                                LEFT JOIN tblLeaveBalance lb ON e.employeeID = lb.EmployeeID 
-                                    AND lb.Year = YEAR(CURRENT_DATE)
-                                WHERE e.employeeID = '$this->employeeID'";
+            $queryLeaveBalance = "SELECT tblE.empID, tblL.leaveBalance 
+                                FROM tblEmployee tblE 
+                                LEFT JOIN tblLeaveBalance tblL ON tblE.empID = tblL.empID 
+                                WHERE tblE.empID = '$this->empID' 
+                                AND tblE.companyID = '$this->companyID'";
                                 
             $rsd = mysqli_query($connect_var, $queryLeaveBalance);
             $resultArr = array();
@@ -40,7 +36,7 @@ class LeaveBalanceComponent {
             
             while($rs = mysqli_fetch_assoc($rsd)) {
                 $resultArr = $rs;
-                if(isset($rs['employeeID'])) {
+                if(isset($rs['empID'])) {
                     $count++;
                 }
             }
@@ -50,19 +46,16 @@ class LeaveBalanceComponent {
             if($count > 0) {
                 echo json_encode(array(
                     "status" => "success",
-                    "data" => $resultArr,
+                    "result" => $resultArr,
                     "record_count" => $count
                 ));
             } else {
                 echo json_encode(array(
                     "status" => "failure",
-                    "record_count" => 0,
-                    "message_text" => "No employee found with ID: $this->employeeID"
+                    "record_count" => $count,
+                    "message_text" => "No leave balance found for employee ID: $this->empID"
                 ), JSON_FORCE_OBJECT);
             }
-<<<<<<< HEAD
-        } catch(Exception $e) {
-=======
         } catch(PDOException $e) {
             echo json_encode(array(
                 "status" => "error",
@@ -76,7 +69,7 @@ class LeaveBalanceComponent {
         try {
             $queryLeaveHistory = "SELECT applyLeaveID, fromDate, toDate, typeOfLeave, reason, status FROM tblApplyLeave WHERE employeeID = '$this->empID' ORDER by applyLeaveID DESC";
             $rsd = mysqli_query($connect_var, $queryLeaveHistory);
-            $resultArr = Array();
+            $resultArr = array();
             $count = 0;
             while($rs = mysqli_fetch_assoc($rsd)) {
                 $resultArr[] = $rs;
@@ -88,7 +81,7 @@ class LeaveBalanceComponent {
                 echo json_encode(array(
                     "status" => "success",
                     "result" => $resultArr,
-                    "record_count" => $count,
+                    "record_count" => $count
                 ));
             } else {
                 echo json_encode(array(
@@ -147,7 +140,6 @@ class LeaveBalanceComponent {
                 "message_text" => "Leave applied successfully"
             ), JSON_FORCE_OBJECT);
         } catch(PDOException $e) {
->>>>>>> 782a4156724660228da06b05b7b7a8d371c71960
             echo json_encode(array(
                 "status" => "error",
                 "message_text" => $e->getMessage()

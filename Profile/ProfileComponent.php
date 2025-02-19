@@ -31,7 +31,7 @@ class ProfileMaster{
                 echo json_encode(array("status"=>"success","message_text"=>"Password Changed Successfully"),JSON_FORCE_OBJECT);
             }
             else{
-                echo json_encode(array("status"=>"error","message_text"=>"Invalid Password"),JSON_FORCE_OBJECT);
+                echo json_encode(array("status"=>"error","message_text"=>"Kindly Make sure your current password is correct"),JSON_FORCE_OBJECT);
             }
         }
         catch(Exception $e){
