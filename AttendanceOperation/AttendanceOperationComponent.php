@@ -13,7 +13,6 @@ class AttendanceOperationMaster{
         try{
             $queryCancelLeave = "Update tblApplyLeave set status = 'Cancelled' where applyLeaveID = '$this->applyLeaveID'";
             $rsd = mysqli_query($connect_var,$queryCancelLeave);
-            echo $queryCancelLeave;
             mysqli_close($connect_var);
             echo json_encode(array("status"=>"success","message_text"=>"Leave Cancelled Successfully"),JSON_FORCE_OBJECT);
 
