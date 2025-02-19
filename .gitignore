@@ -8,7 +8,6 @@ tblCities.sql
 tblCountries.sql
 tblStates.sql
 uploads/
-lib/*
 SquareNowWeb/vendor/
 vendor.zip
 vendor/

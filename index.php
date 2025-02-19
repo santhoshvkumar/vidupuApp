@@ -19,6 +19,8 @@ require 'DailyQuote/DailyQuoteRouter.php';
 require 'DailyQuote/DailyQuoteComponent.php';
 require 'LeaveBalance/LeaveBalanceRouter.php';
 require 'LeaveBalance/LeaveBalanceComponent.php';
+require 'Profile/ProfileRouter.php';
+require 'Profile/ProfileComponent.php';
 
 $f3->route('GET /',
 	function($f3) {

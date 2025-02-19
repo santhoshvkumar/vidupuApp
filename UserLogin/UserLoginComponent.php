@@ -31,6 +31,7 @@ class UserMaster{
                 INNER JOIN tblmapEmp tblM ON tblM.employeeID = tblE.employeeID
                 INNER JOIN tblBranch tblB ON tblB.branchID = tblM.branchID
                 WHERE tblE.employeePhone='$this->UserName' AND tblE.employeePassword='$this->UserPassword'";
+            //echo $queryUserLogin;
             $rsd = mysqli_query($connect_var,$queryUserLogin);
             $resultArr=Array();
             $count=0;
