@@ -18,12 +18,22 @@ require 'UserLogin/UserLoginRouter.php';
 require 'UserLogin/UserLoginComponent.php';
 require 'DailyQuote/DailyQuoteRouter.php';
 require 'DailyQuote/DailyQuoteComponent.php';
-require 'LeaveBalance/LeaveBalanceRouter.php';
-require 'LeaveBalance/LeaveBalanceComponent.php';
+// Commenting out LeaveBalance temporarily
+// require 'LeaveBalance/LeaveBalanceRouter.php';
+// require 'LeaveBalance/LeaveBalanceComponent.php';
 require 'Profile/ProfileRouter.php';
 require 'Profile/ProfileComponent.php';
 require 'LeaveHistory/LeaveHistoryRouter.php';
 require 'LeaveHistory/LeaveHistoryComponent.php';
+require 'Attendance/AttendanceRouter.php';
+require 'Attendance/AttendanceComponent.php';
+
+// Initialize routers
+$leaveHistoryRouter = new LeaveHistory\LeaveHistoryRouter();
+$leaveHistoryRouter->init($f3);
+
+$attendanceRouter = new Attendance\AttendanceRouter();
+$attendanceRouter->init($f3);
 
 $f3->route('GET /',
 	function($f3) {
@@ -31,10 +41,5 @@ $f3->route('GET /',
 		
 	}
 );
-
-// LeaveHistory routes
-$f3->route('GET /leave-history', 'LeaveHistory\LeaveHistoryRouter->getAllLeaveHistory');
-$f3->route('GET /leave-history/@employeeID', 'LeaveHistory\LeaveHistoryRouter->getLeaveHistoryByEmployee');
-$f3->route('PUT /cancel-leave', 'LeaveHistory\LeaveHistoryRouter->cancelLeave');
 
 $f3->run();

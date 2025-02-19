@@ -6,9 +6,11 @@ class LeaveHistoryRouter {
 
     public function __construct() {
         $this->leaveHistoryComponent = new LeaveHistoryComponent();
-        
+    }
+
+    // Initialize routes
+    public function init($f3) {
         // Define routes
-        global $f3;
         $f3->route('GET /leave-history', [$this, 'getAllLeaveHistory']);
         $f3->route('GET /leave-history/@employeeID', [$this, 'getLeaveHistoryByEmployee']);
         $f3->route('PUT /cancel-leave', [$this, 'cancelLeave']);
