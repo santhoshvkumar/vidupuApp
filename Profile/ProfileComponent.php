@@ -2,9 +2,11 @@
 class ProfileMaster{
     public $EmployeeID;
     public $EmployeePassword;
+    public $NewPassword;
     public function loadChangePassword($decoded_items){
         $this->EmployeeID = $decoded_items['EmployeeID'];
         $this->EmployeePassword = $decoded_items['EmployeePassword'];
+        $this->NewPassword = $decoded_items['NewPassword'];
         return true;
     }
     public function changePassword() {
@@ -18,9 +20,13 @@ class ProfileMaster{
             $resultArr=Array();
             $userExist=0;
             while($rs = mysqli_fetch_assoc($rsd)){
-               if(isset($rs['empID']))
+               if(isset($rs['empID'])){
                    $userExist=1;
+                   $queryUpdatePassword = "Update tblEmployee set employeePassword = '$this->NewPassword' where employeeID = '$this->EmployeeID'";
+                   $rsdUpdatePassword = mysqli_query($connect_var,$queryUpdatePassword);
+                }
             }
+            mysqli_close($connect_var);
             if($userExist==1){
                 echo json_encode(array("status"=>"success","message_text"=>"Password Changed Successfully"),JSON_FORCE_OBJECT);
             }
