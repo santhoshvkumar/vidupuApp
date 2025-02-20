@@ -1,11 +1,11 @@
 <?php
 /*****************   Get Leave for Approval  *******************/
-$f3->route('POST /GetLeaveforApproval',
+$f3->route('POST /GetLeavesforApproval',
     function($f3) {
         header('Content-Type: application/json');
         $decoded_items = json_decode($f3->get('BODY'), true);
         if (!$decoded_items == NULL) {
-            getLeaveforApproval($decoded_items);
+            getLeavesforApproval($decoded_items);
         } else {
             echo json_encode(array(
                 "status" => "error Getting Leave for Approval",

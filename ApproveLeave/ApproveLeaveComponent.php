@@ -9,17 +9,11 @@ class ApproveLeaveMaster {
     public $reason;
     public $status;
     public $employeeID;
-    public $managerID;
-
     /**
      * Set manager ID for leave approval
      * @param string $managerID
      * @return bool
      */
-    public function setManagerID($managerID) {
-        $this->managerID = $managerID;
-        return true;
-    }
 
     public function loadLeaveforApproval($decoded_items) {
         $this->employeeID = $decoded_items['employeeID']; 
@@ -76,7 +70,7 @@ class ApproveLeaveMaster {
             INNER JOIN 
                 tblApplyLeave tblL ON tblE.employeeID = tblL.employeeID
             WHERE 
-                tblE.employeeID = '" . mysqli_real_escape_string($connect_var, $this->managerID) . "'  
+                tblE.managerID = '" . mysqli_real_escape_string($connect_var, $this->employeeID) . "'  
                 AND tblL.status = 'Yet To Be Approved'";
     
             $rsd = mysqli_query($connect_var, $queryLeaveApproval);
@@ -282,10 +276,14 @@ class ApproveLeaveMaster {
 }
 
 
-function getLeaveforApproval($decoded_items) {
+function getLeavesforApproval($decoded_items) {
     $leaveObject = new ApproveLeaveMaster();
-    $leaveObject->loadLeaveforApproval($decoded_items);
-    $leaveObject->getLeaveforApprovalInfo();
+    if($leaveObject->loadLeaveforApproval($decoded_items)){
+        $leaveObject->getLeaveforApprovalInfo();
+    }
+    else{
+        echo json_encode(array("status"=>"error","message_text"=>"Invalid Input Parameters"),JSON_FORCE_OBJECT);
+    }
 }
 
 function approvedLeave($decoded_items) {
