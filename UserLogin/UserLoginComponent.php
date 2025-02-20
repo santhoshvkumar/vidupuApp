@@ -21,18 +21,17 @@ class UserMaster{
         try
         {
         
-            $queryUserLogin = "SELECT tblE.employeeID, tblE.empID, tblE.employeeName, tblE.managerID, tblE.employeePhoto,
+            $queryUserLogin = "SELECT tblE.employeeID, tblE.empID, tblE.employeeName, tblE.managerID, tblE.employeePhoto, tblE.managerID,
                 tblLB.CasualLeave, tblLB.MedicalLeave, PrivilegeLeave, tblLB.MaternityLeave, 
                 tblLB.SpecialCasualLeave, tblLB.CompensatoryOff, tblLB.SpecialLeaveBloodDonation, 
                 tblLB.LeaveOnPrivateAffairs, tblB.branchUniqueID, tblB.branchName, 
                 tblB.branchAddress, tblB.branchLatitude, tblB.branchLongitude, tblB.branchRadius,
-                EXISTS(SELECT 1 FROM tblEmployee e2 WHERE e2.managerID = tblE.employeeID) as IsManager
+                tblE.isManager
                 FROM tblEmployee tblE 
                 INNER JOIN tblLeaveBalance tblLB ON tblLB.employeeID = tblE.employeeID
                 INNER JOIN tblmapEmp tblM ON tblM.employeeID = tblE.employeeID
                 INNER JOIN tblBranch tblB ON tblB.branchID = tblM.branchID
                 WHERE tblE.employeePhone='$this->UserName' AND tblE.employeePassword='$this->UserPassword'";
-            //echo $queryUserLogin;
             $rsd = mysqli_query($connect_var,$queryUserLogin);
             $resultArr=Array();
             $count=0;
@@ -43,6 +42,7 @@ class UserMaster{
                     $resultArr['employeeName'] = $getEmployeeName;
                     $resultArr['employeeID'] = $rs['employeeID'];
                     $resultArr['employeePhoto'] = $rs['employeePhoto'];
+                    $resultArr['managerID'] = $rs['managerID'];
                     $resultArr['causalLeave'] = $rs['CasualLeave'];
                     $resultArr['MedicalLeave'] = $rs['MedicalLeave'];
                     $resultArr['PrivilageLeave'] = $rs['PrivilegeLeave'];
@@ -58,7 +58,7 @@ class UserMaster{
                     $resultArr['branchLatitude'] = $rs['branchLatitude'];
                     $resultArr['branchLongitude'] = $rs['branchLongitude'];
                     $resultArr['branchRadius'] = $rs['branchRadius'];
-                    $resultArr['IsManager'] = $rs['IsManager'];
+                    $resultArr['IsManager'] = $rs['isManager'];
                     $count++;
                }  
             }
