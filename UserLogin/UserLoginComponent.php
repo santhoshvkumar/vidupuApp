@@ -32,7 +32,7 @@ class UserMaster{
                 INNER JOIN tblmapEmp tblM ON tblM.employeeID = tblE.employeeID
                 INNER JOIN tblBranch tblB ON tblB.branchID = tblM.branchID
                 WHERE tblE.employeePhone='$this->UserName' AND tblE.employeePassword='$this->UserPassword'";
-            echo $queryUserLogin;
+            //echo $queryUserLogin;
             $rsd = mysqli_query($connect_var,$queryUserLogin);
             $resultArr=Array();
             $count=0;
@@ -58,7 +58,6 @@ class UserMaster{
                     $resultArr['branchLatitude'] = $rs['branchLatitude'];
                     $resultArr['branchLongitude'] = $rs['branchLongitude'];
                     $resultArr['branchRadius'] = $rs['branchRadius'];
-                    $resultArr['managerID'] = $rs['managerID'];
                     $resultArr['IsManager'] = $rs['IsManager'];
                     $count++;
                }  
