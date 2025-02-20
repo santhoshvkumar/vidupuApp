@@ -27,8 +27,29 @@ class ApproveLeaveMaster {
     }
 
     public function loadApprovedLeave($decoded_items) {
+        if (!isset($decoded_items['applyLeaveID']) || !isset($decoded_items['status'])) {
+            return false;
+        }
         $this->applyLeaveID = $decoded_items['applyLeaveID'];
-        $this->typeOfLeave = $decoded_items['typeOfLeave'];
+        $this->status = $decoded_items['status'];
+        return true;
+    }
+
+    public function loadRejectedLeave($decoded_items) {
+        if (!isset($decoded_items['applyLeaveID']) || !isset($decoded_items['status'])) {
+            return false;
+        }
+        $this->applyLeaveID = $decoded_items['applyLeaveID'];
+        $this->status = $decoded_items['status'];
+        return true;
+    }
+
+    public function loadHoldLeave($decoded_items) {
+        if (!isset($decoded_items['applyLeaveID']) || !isset($decoded_items['status'])) {
+            return false;
+        }
+        $this->applyLeaveID = $decoded_items['applyLeaveID'];
+        $this->status = $decoded_items['status'];
         return true;
     }
 
@@ -200,7 +221,66 @@ class ApproveLeaveMaster {
             ), JSON_FORCE_OBJECT);
         }
     }
+
+    public function rejectedHoldLeave() {
+        include('config.inc');
+        header('Content-Type: application/json');
+        try {
+            if (!$connect_var) {
+                throw new Exception("Database connection failed");
+            }
+
+            // Get leave details
+            $queryGetLeave = "SELECT applyLeaveID, typeOfLeave, employeeID, status 
+                             FROM tblApplyLeave 
+                             WHERE applyLeaveID = '" . mysqli_real_escape_string($connect_var, $this->applyLeaveID) . "'";
+                             
+            $rsd = mysqli_query($connect_var, $queryGetLeave);
+            
+            if (!$rsd) {
+                throw new Exception(mysqli_error($connect_var));
+            }
+            
+            if (mysqli_num_rows($rsd) > 0) {
+                $leaveDetails = mysqli_fetch_assoc($rsd);
+                
+                // Update leave status to Rejected/On Hold
+                $updateQuery = "UPDATE tblApplyLeave 
+                              SET status = '" . mysqli_real_escape_string($connect_var, $this->status) . "' 
+                              WHERE applyLeaveID = '" . mysqli_real_escape_string($connect_var, $this->applyLeaveID) . "'";
+                
+                $updateResult = mysqli_query($connect_var, $updateQuery);
+                
+                if (!$updateResult) {
+                    throw new Exception(mysqli_error($connect_var));
+                }
+                
+                mysqli_close($connect_var);
+                
+                echo json_encode(array(
+                    "status" => "success",
+                    "message_text" => "Leave " . strtolower($this->status) . " successfully",
+                    "leaveID" => $leaveDetails['applyLeaveID'],
+                    "leaveType" => $leaveDetails['typeOfLeave'],
+                    "currentStatus" => $this->status
+                ));
+                
+            } else {
+                echo json_encode(array(
+                    "status" => "failure", 
+                    "message_text" => "No leave found with ID: " . $this->applyLeaveID
+                ), JSON_FORCE_OBJECT);
+            }
+            
+        } catch(Exception $e) {
+            echo json_encode(array(
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ), JSON_FORCE_OBJECT);
+        }
+    }
 }
+
 
 function getLeaveforApproval($decoded_items) {
     $leaveObject = new ApproveLeaveMaster();
@@ -211,6 +291,21 @@ function getLeaveforApproval($decoded_items) {
 function approvedLeave($decoded_items) {
     $leaveObject = new ApproveLeaveMaster();
     $leaveObject->loadApprovedLeave($decoded_items);
+    $leaveObject->applyLeaveID = $decoded_items['applyLeaveID'];
+    $leaveObject->status = $decoded_items['status'];
     $leaveObject->approvedLeaveInfo();
 }
 
+function processRejectedLeave($decoded_items) {
+    $leaveObject = new ApproveLeaveMaster();
+    $leaveObject->loadRejectedLeave($decoded_items);
+    $leaveObject->rejectedHoldLeave();
+}
+
+function processHoldLeave($decoded_items) {
+    $leaveObject = new ApproveLeaveMaster();
+    $leaveObject->loadHoldLeave($decoded_items);
+    $leaveObject->rejectedHoldLeave();
+}
+
+?>
