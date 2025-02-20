@@ -21,17 +21,18 @@ class UserMaster{
         try
         {
         
-            $queryUserLogin = "SELECT tblE.employeeID, tblE.empID, tblE.employeeName, tblE.employeePhoto,
+            $queryUserLogin = "SELECT tblE.employeeID, tblE.empID, tblE.employeeName, tblE.managerID, tblE.employeePhoto,
                 tblLB.CasualLeave, tblLB.MedicalLeave, PrivilegeLeave, tblLB.MaternityLeave, 
                 tblLB.SpecialCasualLeave, tblLB.CompensatoryOff, tblLB.SpecialLeaveBloodDonation, 
                 tblLB.LeaveOnPrivateAffairs, tblB.branchUniqueID, tblB.branchName, 
-                tblB.branchAddress, tblB.branchLatitude, tblB.branchLongitude, tblB.branchRadius
+                tblB.branchAddress, tblB.branchLatitude, tblB.branchLongitude, tblB.branchRadius,
+                EXISTS(SELECT 1 FROM tblEmployee e2 WHERE e2.managerID = tblE.employeeID) as IsManager
                 FROM tblEmployee tblE 
                 INNER JOIN tblLeaveBalance tblLB ON tblLB.employeeID = tblE.employeeID
                 INNER JOIN tblmapEmp tblM ON tblM.employeeID = tblE.employeeID
                 INNER JOIN tblBranch tblB ON tblB.branchID = tblM.branchID
                 WHERE tblE.employeePhone='$this->UserName' AND tblE.employeePassword='$this->UserPassword'";
-            //echo $queryUserLogin;
+            echo $queryUserLogin;
             $rsd = mysqli_query($connect_var,$queryUserLogin);
             $resultArr=Array();
             $count=0;
@@ -57,6 +58,8 @@ class UserMaster{
                     $resultArr['branchLatitude'] = $rs['branchLatitude'];
                     $resultArr['branchLongitude'] = $rs['branchLongitude'];
                     $resultArr['branchRadius'] = $rs['branchRadius'];
+                    $resultArr['managerID'] = $rs['managerID'];
+                    $resultArr['IsManager'] = $rs['IsManager'];
                     $count++;
                }  
             }
