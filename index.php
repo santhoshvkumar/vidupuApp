@@ -29,6 +29,9 @@ require 'Profile/ProfileComponent.php';
 require 'AttendanceOperation/AttendanceOperationRouter.php';
 require 'AttendanceOperation/AttendanceOperationComponent.php';
 
+require 'ApproveLeave/ApproveLeaveRouter.php';
+require 'ApproveLeave/ApproveLeaveComponent.php';
+
 
 // require 'LeaveHistory/LeaveHistoryRouter.php';
 // require 'LeaveHistory/LeaveHistoryComponent.php';
