@@ -21,7 +21,7 @@ class UserMaster{
         try
         {
         
-            $queryUserLogin = "SELECT tblE.employeeID, tblE.empID, tblE.employeeName, tblE.managerID, tblE.employeePhoto, tblE.managerID,
+            $queryUserLogin = "SELECT tblE.employeeID, tblE.empID, tblE.employeeName, tblE.managerID, tblE.employeePhoto,
                 tblLB.CasualLeave, tblLB.MedicalLeave, PrivilegeLeave, tblLB.MaternityLeave, 
                 tblLB.SpecialCasualLeave, tblLB.CompensatoryOff, tblLB.SpecialLeaveBloodDonation, 
                 tblLB.LeaveOnPrivateAffairs, tblB.branchUniqueID, tblB.branchName, 
