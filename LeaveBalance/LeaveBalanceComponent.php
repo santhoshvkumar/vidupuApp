@@ -16,6 +16,7 @@ class ApplyLeaveMaster {
         $this->fromDate = $data['fromDate'];
         $this->toDate = $data['toDate'];
         $this->leaveType = $data['leaveType'];
+        $this->leaveDuration = $data['leaveDuration'];
         $this->leaveReason = $data['leaveReason'];
         return true;
     }
@@ -67,7 +68,7 @@ class ApplyLeaveMaster {
         include('config.inc');
         header('Content-Type: application/json');
         try {
-            $queryLeaveHistory = "SELECT applyLeaveID, fromDate, toDate, typeOfLeave, reason, status FROM tblApplyLeave WHERE employeeID = '$this->empID' and status != 'Cancelled' ORDER by applyLeaveID DESC";
+            $queryLeaveHistory = "SELECT applyLeaveID, fromDate, toDate, leaveDuration, typeOfLeave, reason, status FROM tblApplyLeave WHERE employeeID = '$this->empID' and status != 'Cancelled' ORDER by applyLeaveID DESC";
             $rsd = mysqli_query($connect_var, $queryLeaveHistory);
             $resultArr = array();
             $count = 0;
@@ -101,6 +102,70 @@ class ApplyLeaveMaster {
         include('config.inc');
         header('Content-Type: application/json');
         try {
+            // For Casual Leave validation
+            if ($this->leaveType === 'Casual Leave') {
+                // Get current year's start and mid dates
+                $currentYear = date('Y');
+                $yearStart = "$currentYear-01-01";
+                $yearMid = "$currentYear-07-01";
+                $yearEnd = "$currentYear-12-31";
+                
+                // Check total casual leaves taken in the year
+                $queryCasualLeaves = "SELECT 
+                    SUM(CASE 
+                        WHEN fromDate >= '$yearStart' AND toDate <= '$yearMid' THEN leaveDuration
+                        ELSE 0 
+                    END) as first_half_leaves,
+                    SUM(CASE 
+                        WHEN fromDate >= '$yearMid' AND toDate <= '$yearEnd' THEN leaveDuration
+                        ELSE 0 
+                    END) as second_half_leaves
+                    FROM tblApplyLeave 
+                    WHERE employeeID = '$this->empID' 
+                    AND typeOfLeave = 'Casual Leave'
+                    AND status != 'Cancelled'
+                    AND fromDate >= '$yearStart'";
+                $casualResult = mysqli_query($connect_var, $queryCasualLeaves);
+                $casualData = mysqli_fetch_assoc($casualResult);
+                
+                $firstHalfLeaves = floatval($casualData['first_half_leaves']);
+                $secondHalfLeaves = floatval($casualData['second_half_leaves']);
+                
+                // Check if the leave spans across half years
+                $isFirstHalf = strtotime($this->fromDate) < strtotime($yearMid);
+                $isSecondHalf = strtotime($this->toDate) >= strtotime($yearMid);
+                
+                if ($isFirstHalf && $isSecondHalf) {
+                    echo json_encode(array(
+                        "status" => "warning",
+                        "message_text" => "Casual Leave cannot span across half years"
+                    ), JSON_FORCE_OBJECT);
+                    mysqli_close($connect_var);
+                    return;
+                }
+                 // Validate against half-year limits
+            if ($isFirstHalf) {
+                if (($firstHalfLeaves + $this->leaveDuration) > 10) {
+                    echo json_encode(array(
+                        "status" => "warning",
+                        "message_text" => "Cannot exceed 10 days of Casual Leave in first half of the year"
+                    ), JSON_FORCE_OBJECT);
+                    mysqli_close($connect_var);
+                    return;
+                }
+            } else {
+                $availableSecondHalf = 10 + (10 - $firstHalfLeaves); // Unused first half leaves added to second half
+                if (($secondHalfLeaves + $this->leaveDuration) > $availableSecondHalf) {
+                    echo json_encode(array(
+                        "status" => "warning",
+                        "message_text" => "Exceeds available Casual Leave balance for second half of the year"
+                    ), JSON_FORCE_OBJECT);
+                        mysqli_close($connect_var);
+                        return;
+                    }
+                }
+            }
+
             // Check for existing leave applications in the given period, including adjacent days
             $queryCheckOverlap = "SELECT COUNT(*) as overlap_count, GROUP_CONCAT(DISTINCT typeOfLeave) as leave_types 
                                 FROM tblApplyLeave 
@@ -133,13 +198,20 @@ class ApplyLeaveMaster {
                 }
             }
 
-            $queryApplyLeave = "INSERT INTO tblApplyLeave (employeeID, fromDate, toDate, typeOfLeave, reason, createdOn, status)VALUES ('$this->empID', '$this->fromDate', '$this->toDate', '$this->leaveType', '$this->leaveReason', CURRENT_DATE(), 'Yet To Be Approved')";
+            $queryApplyLeave = "INSERT INTO tblApplyLeave (employeeID, fromDate, toDate, leaveDuration, typeOfLeave, reason, createdOn, status)VALUES ('$this->empID', '$this->fromDate', '$this->toDate', '$this->leaveDuration', '$this->leaveType', '$this->leaveReason', CURRENT_DATE(), 'Yet To Be Approved')";
             $rsd = mysqli_query($connect_var, $queryApplyLeave);
+            if($rsd) {
+                echo json_encode(array(
+                    "status" => "success",
+                    "message_text" => "Leave applied successfully"
+                ), JSON_FORCE_OBJECT);
+            } else {
+                echo json_encode(array(
+                    "status" => "error",
+                    "message_text" => "Leave application failed"
+                ), JSON_FORCE_OBJECT);
+            }
             mysqli_close($connect_var);
-            echo json_encode(array(
-                "status" => "success",
-                "message_text" => "Leave applied successfully"
-            ), JSON_FORCE_OBJECT);
         } catch(PDOException $e) {
             echo json_encode(array(
                 "status" => "error",

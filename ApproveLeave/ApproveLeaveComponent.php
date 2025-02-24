@@ -104,7 +104,7 @@ class ApproveLeaveMaster {
             }
 
             // Get leave details
-            $queryGetLeave = "SELECT applyLeaveID, typeOfLeave, employeeID, status 
+            $queryGetLeave = "SELECT applyLeaveID, typeOfLeave, employeeID, status, leaveDuration
                              FROM tblApplyLeave 
                              WHERE applyLeaveID = '" . mysqli_real_escape_string($connect_var, $this->applyLeaveID) . "'";
                              
@@ -118,7 +118,7 @@ class ApproveLeaveMaster {
                 $leaveDetails = mysqli_fetch_assoc($rsd);
                 $leaveType = $leaveDetails['typeOfLeave'];
                 $employeeID = $leaveDetails['employeeID'];
-                
+                $leaveDuration = $leaveDetails['leaveDuration'];
                 // Update leave status
                 $updateQuery = "UPDATE tblApplyLeave 
                               SET status = '" . mysqli_real_escape_string($connect_var, $this->status) . "' 
@@ -136,28 +136,28 @@ class ApproveLeaveMaster {
                     $updateQuery = "";
                     switch ($leaveType) {
                         case 'Casual Leave':
-                            $updateQuery = "UPDATE tblLeaveBalance SET CasualLeave = CasualLeave - 1 WHERE employeeID = ?";
+                            $updateQuery = "UPDATE tblLeaveBalance SET CasualLeave = CasualLeave - $leaveDuration WHERE employeeID = ?";
                             break;
                         case 'Special Casual Leave':
-                            $updateQuery = "UPDATE tblLeaveBalance SET SpecialCasualLeave = SpecialCasualLeave - 1 WHERE employeeID = ?";
+                            $updateQuery = "UPDATE tblLeaveBalance SET SpecialCasualLeave = SpecialCasualLeave - $leaveDuration WHERE employeeID = ?";
                             break;
                         case 'Compensatory Off':
-                            $updateQuery = "UPDATE tblLeaveBalance SET CompensatoryOff = CompensatoryOff - 1 WHERE employeeID = ?";
+                            $updateQuery = "UPDATE tblLeaveBalance SET CompensatoryOff = CompensatoryOff - $leaveDuration WHERE employeeID = ?";
                             break;
                         case 'Special Leave for Blood Donation':
-                            $updateQuery = "UPDATE tblLeaveBalance SET SpecialLeaveBloodDonation = SpecialLeaveBloodDonation - 1 WHERE employeeID = ?";
+                            $updateQuery = "UPDATE tblLeaveBalance SET SpecialLeaveBloodDonation = SpecialLeaveBloodDonation - $leaveDuration WHERE employeeID = ?";
                             break;
                         case 'Leave on Private Affairs':
-                            $updateQuery = "UPDATE tblLeaveBalance SET LeaveOnPrivateAffairs = LeaveOnPrivateAffairs - 1 WHERE employeeID = ?";
+                            $updateQuery = "UPDATE tblLeaveBalance SET LeaveOnPrivateAffairs = LeaveOnPrivateAffairs - $leaveDuration WHERE employeeID = ?";
                             break;
                         case 'Medical Leave':
-                            $updateQuery = "UPDATE tblLeaveBalance SET MedicalLeave = MedicalLeave - 1 WHERE employeeID = ?";
+                            $updateQuery = "UPDATE tblLeaveBalance SET 	MedicalLeave = 	MedicalLeave - $leaveDuration WHERE employeeID = ?";
                             break;
                         case 'Privilege Leave':
-                            $updateQuery = "UPDATE tblLeaveBalance SET PrivilegeLeave = PrivilegeLeave - 1 WHERE employeeID = ?";
+                            $updateQuery = "UPDATE tblLeaveBalance SET PrivilegeLeave = PrivilegeLeave - $leaveDuration WHERE employeeID = ?";
                             break;
                         case 'Maternity Leave':
-                            $updateQuery = "UPDATE tblLeaveBalance SET MaternityLeave = MaternityLeave - 1 WHERE employeeID = ?";
+                            $updateQuery = "UPDATE tblLeaveBalance SET MaternityLeave = MaternityLeave - $leaveDuration WHERE employeeID = ?";
                             break;
                         default:
                             throw new Exception("Invalid leave type: " . $leaveType);

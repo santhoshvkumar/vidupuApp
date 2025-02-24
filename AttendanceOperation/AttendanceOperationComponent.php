@@ -24,13 +24,12 @@ class AttendanceOperationMaster{
         $currentDate = date('Y-m-d');
         $currentTime = date('H:i:s');
         $queryCheckIn = "INSERT INTO tblAttendance (employeeID, attendanceDate, checkInTime) VALUES ('$this->empID', '$currentDate', '$currentTime')";
-        echo $queryCheckIn;
         $rsd = mysqli_query($connect_var,$queryCheckIn);
         
         // $rsd = mysqli_stmt_execute($stmt);
         // mysqli_stmt_close($stmt);
         mysqli_close($connect_var);
-        echo json_encode(array("status"=>"success","message_text"=>"CheckIn Successfully"),JSON_FORCE_OBJECT);
+        echo json_encode(array("status"=>"success","message_text"=>"CheckIn Successfully","CheckInTime"=>$currentTime),JSON_FORCE_OBJECT);
         }
         catch(Exception $e){
             echo json_encode(array("status"=>"error","message_text"=>"Error Checking In"),JSON_FORCE_OBJECT);
