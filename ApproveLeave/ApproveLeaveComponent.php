@@ -104,21 +104,21 @@ class ApproveLeaveMaster {
             }
 
             // Get leave details
-            $queryGetLeave = "SELECT applyLeaveID, typeOfLeave, employeeID, status, leaveDuration
-                             FROM tblApplyLeave 
-                             WHERE applyLeaveID = '" . mysqli_real_escape_string($connect_var, $this->applyLeaveID) . "'";
+            $queryGetLeave = "SELECT applyLeaveID, typeOfLeave, employeeID, status, 
+                              DATEDIFF(toDate, fromDate) + 1 as NoOfDays 
+                              FROM tblApplyLeave 
+                              WHERE applyLeaveID = ?";
                              
-            $rsd = mysqli_query($connect_var, $queryGetLeave);
+            $stmt = mysqli_prepare($connect_var, $queryGetLeave);
+            mysqli_stmt_bind_param($stmt, "s", $this->applyLeaveID);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
             
-            if (!$rsd) {
-                throw new Exception(mysqli_error($connect_var));
-            }
-            
-            if (mysqli_num_rows($rsd) > 0) {
-                $leaveDetails = mysqli_fetch_assoc($rsd);
+            if (mysqli_num_rows($result) > 0) {
+                $leaveDetails = mysqli_fetch_assoc($result);
                 $leaveType = $leaveDetails['typeOfLeave'];
                 $employeeID = $leaveDetails['employeeID'];
-                $leaveDuration = $leaveDetails['leaveDuration'];
+                $leaveDuration = $leaveDetails['NoOfDays'];
                 // Update leave status
                 $updateQuery = "UPDATE tblApplyLeave 
                               SET status = '" . mysqli_real_escape_string($connect_var, $this->status) . "' 
@@ -132,7 +132,28 @@ class ApproveLeaveMaster {
 
                 // Update leave balance only if status is Approved
                 if ($this->status === 'Approved') {
-                    // Determine which leave balance to update based on leave type
+                    // Special handling for Maternity Leave
+                    if ($leaveType === 'Maternity Leave') {
+                        // Update numberOfMaternityApplicable in tblEmployee
+                        $updateEmployeeQuery = "UPDATE tblEmployee 
+                                             SET numberOfMaternityApplicable = numberOfMaternityApplicable - 1 
+                                             WHERE employeeID = ?";
+                        $stmt = mysqli_prepare($connect_var, $updateEmployeeQuery);
+                        if (!$stmt) {
+                            throw new Exception(mysqli_error($connect_var));
+                        }
+                        
+                        mysqli_stmt_bind_param($stmt, "s", $employeeID);
+                        $updateResult = mysqli_stmt_execute($stmt);
+                        
+                        if (!$updateResult) {
+                            throw new Exception(mysqli_error($connect_var));
+                        }
+                        
+                        mysqli_stmt_close($stmt);
+                    }
+
+                    // Regular leave balance update
                     $updateQuery = "";
                     switch ($leaveType) {
                         case 'Casual Leave':
@@ -206,6 +227,82 @@ class ApproveLeaveMaster {
             ), JSON_FORCE_OBJECT);
         }
     }
+
+    public function processMaternityLeaveStatus() {
+        include('config.inc');
+        header('Content-Type: application/json');
+        try {
+            if (!$connect_var) {
+                throw new Exception("Database connection failed");
+            }
+
+            // Get leave details
+            $queryGetLeave = "SELECT applyLeaveID, typeOfLeave, employeeID, status, 
+                              DATEDIFF(toDate, fromDate) + 1 as NoOfDays 
+                              FROM tblApplyLeave 
+                              WHERE applyLeaveID = ? AND typeOfLeave = 'Maternity Leave'";
+                             
+            $stmt = mysqli_prepare($connect_var, $queryGetLeave);
+            mysqli_stmt_bind_param($stmt, "s", $this->applyLeaveID);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+            
+            if (mysqli_num_rows($result) > 0) {
+                $leaveDetails = mysqli_fetch_assoc($result);
+                $employeeID = $leaveDetails['employeeID'];
+                $leaveDuration = $leaveDetails['NoOfDays'];
+
+                // Start transaction
+                mysqli_begin_transaction($connect_var);
+                
+                try {
+                    // Update leave status
+                    $updateLeaveQuery = "UPDATE tblApplyLeave 
+                                       SET status = ? 
+                                       WHERE applyLeaveID = ?";
+                    $stmt = mysqli_prepare($connect_var, $updateLeaveQuery);
+                    mysqli_stmt_bind_param($stmt, "ss", $this->status, $this->applyLeaveID);
+                    mysqli_stmt_execute($stmt);
+
+                    // Update maternity count in leave balance table (not employee table)
+                    $updateEmployeeQuery = "UPDATE tblLeaveBalance 
+                                          SET numberOfMaternityApplicable = numberOfMaternityApplicable - 1,
+                                              MaternityLeave = MaternityLeave - ? 
+                                          WHERE employeeID = ?";
+                    $stmt = mysqli_prepare($connect_var, $updateEmployeeQuery);
+                    mysqli_stmt_bind_param($stmt, "is", $leaveDuration, $employeeID);
+                    mysqli_stmt_execute($stmt);
+
+                    // Commit transaction
+                    mysqli_commit($connect_var);
+
+                    echo json_encode(array(
+                        "status" => "success",
+                        "message_text" => "Maternity leave approved successfully",
+                        "leaveID" => $leaveDetails['applyLeaveID']
+                    ));
+
+                } catch (Exception $e) {
+                    // Rollback transaction on error
+                    mysqli_rollback($connect_var);
+                    throw $e;
+                }
+            } else {
+                echo json_encode(array(
+                    "status" => "failure",
+                    "message_text" => "Invalid maternity leave request"
+                ), JSON_FORCE_OBJECT);
+            }
+            
+            mysqli_close($connect_var);
+
+        } catch(Exception $e) {
+            echo json_encode(array(
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ), JSON_FORCE_OBJECT);
+        }
+    }
 }
 
 
@@ -246,6 +343,19 @@ function processHoldLeave($decoded_items) {
     }
     else{
         echo json_encode(array("status"=>"error","message_text"=>"Invalid Input Parameters"),JSON_FORCE_OBJECT);
+    }
+}
+
+function approveMaternityLeave($decoded_items) {
+    $leaveObject = new ApproveLeaveMaster();
+    if($leaveObject->loadLeaveStatus($decoded_items)){
+        $leaveObject->processMaternityLeaveStatus();
+    }
+    else{
+        echo json_encode(array(
+            "status" => "error",
+            "message_text" => "Invalid Input Parameters"
+        ), JSON_FORCE_OBJECT);
     }
 }
 
