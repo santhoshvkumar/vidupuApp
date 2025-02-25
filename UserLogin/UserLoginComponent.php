@@ -21,8 +21,8 @@ class UserMaster{
         try
         {
         
-            $queryUserLogin = "SELECT tblE.employeeID, tblE.empID, tblE.employeeName, tblE.managerID, tblE.employeePhoto,
-                tblLB.CasualLeave, tblLB.MedicalLeave, PrivilegeLeave, tblLB.MaternityLeave, 
+            $queryUserLogin = "SELECT tblE.employeeID, tblE.empID, tblE.employeeName, tblE.managerID, tblE.employeePhoto, 
+                tblLB.CasualLeave, tblLB.MedicalLeave, PrivilegeLeave, tblLB.NoOfMaternityLeave, 
                 tblLB.SpecialCasualLeave, tblLB.CompensatoryOff, tblLB.SpecialLeaveBloodDonation, 
                 tblLB.LeaveOnPrivateAffairs, tblB.branchUniqueID, tblB.branchName, 
                 tblB.branchAddress, tblB.branchLatitude, tblB.branchLongitude, tblB.branchRadius,
@@ -46,7 +46,7 @@ class UserMaster{
                     $resultArr['causalLeave'] = $rs['CasualLeave'];
                     $resultArr['MedicalLeave'] = $rs['MedicalLeave'];
                     $resultArr['PrivilageLeave'] = $rs['PrivilegeLeave'];
-                    $resultArr['MaternityLeave'] = $rs['MaternityLeave'];
+                    $resultArr['NoOfMaternityLeave'] = $rs['NoOfMaternityLeave'];
                     $resultArr['SpecialCasualLeave'] = $rs['SpecialCasualLeave'];   
                     $resultArr['CompensatoryOff'] = $rs['CompensatoryOff'];
                     $resultArr['SpecialLeaveBloodDonation'] = $rs['SpecialLeaveBloodDonation'];
