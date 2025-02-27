@@ -21,18 +21,60 @@ class AttendanceOperationMaster{
         include('config.inc');  
         header('Content-Type: application/json');
         try{
-        $currentDate = date('Y-m-d');
-        $currentTime = date('H:i:s');
-        $queryCheckIn = "INSERT INTO tblAttendance (employeeID, attendanceDate, checkInTime) VALUES ('$this->empID', '$currentDate', '$currentTime')";
-        $rsd = mysqli_query($connect_var,$queryCheckIn);
-        
-        // $rsd = mysqli_stmt_execute($stmt);
-        // mysqli_stmt_close($stmt);
-        mysqli_close($connect_var);
-        echo json_encode(array("status"=>"success","message_text"=>"CheckIn Successfully","CheckInTime"=>$currentTime),JSON_FORCE_OBJECT);
+            $currentDate = date('Y-m-d');
+            $currentTime = date('H:i:s');
+            
+            // Check for any existing unchecked-out attendance record
+            $checkExisting = "SELECT attendanceDate, checkInTime FROM tblAttendance 
+                            WHERE employeeID = '$this->empID' 
+                            AND checkOutTime IS NULL
+                            ORDER BY attendanceDate DESC, checkInTime DESC
+                            LIMIT 1";
+            $result = mysqli_query($connect_var, $checkExisting);
+            
+            if(mysqli_num_rows($result) > 0) {
+                // Attendance record exists, return existing check-in time
+                $row = mysqli_fetch_assoc($result);
+                mysqli_close($connect_var);
+                echo json_encode(array(
+                    "status" => "success",
+                    "data" => array(
+                        "message_text" => "Already Checked In",
+                        "attendanceDate" =>  $row['attendanceDate'],
+                        "checkInTime" => $row['checkInTime'],
+                        "attendanceDateTime" => $row['attendanceDate']."T".$row['checkInTime']
+                    )
+                ), JSON_FORCE_OBJECT);
+                return;
+            }
+            
+            // No existing attendance, create new record
+            $queryCheckIn = "INSERT INTO tblAttendance (employeeID, attendanceDate, checkInTime) 
+                           VALUES ('$this->empID', CURDATE(), CURRENT_TIME())";
+            $rsd = mysqli_query($connect_var, $queryCheckIn);
+            
+            // Get the actual inserted values
+            $getInsertedValues = "SELECT attendanceDate, checkInTime 
+                                FROM tblAttendance 
+                                WHERE employeeID = '$this->empID'
+                                ORDER BY attendanceDate DESC, checkInTime DESC
+                                LIMIT 1";
+            $result = mysqli_query($connect_var, $getInsertedValues);
+            $row = mysqli_fetch_assoc($result);
+            
+            mysqli_close($connect_var);
+            echo json_encode(array(
+                "status" => "success",
+                "data" => array(
+                    "message_text" => "CheckIn Successfully",
+                    "attendanceDate" => $row['attendanceDate'],
+                    "checkInTime" => $row['checkInTime'],
+                    "attendanceDateTime" => $row['attendanceDate']."T".$row['checkInTime']
+                )
+            ), JSON_FORCE_OBJECT);
         }
         catch(Exception $e){
-            echo json_encode(array("status"=>"error","message_text"=>"Error Checking In"),JSON_FORCE_OBJECT);
+            echo json_encode(array("status" => "error", "message_text" => "Error Checking In"), JSON_FORCE_OBJECT);
         }
     }
     public function checkOutOnGivenDate(){
@@ -43,13 +85,13 @@ class AttendanceOperationMaster{
             $currentDate = date('Y-m-d');
             // Update checkout time and calculate total working hours
             $queryCheckOut = "UPDATE tblAttendance 
-                            SET checkOutTime = '$currentTime',
-                                TotalWorkingHour = TIMEDIFF('$currentTime', checkInTime)
+                            SET checkOutTime = CURRENT_TIME(),
+                                TotalWorkingHour = TIMEDIFF(CURRENT_TIME(), checkInTime)
                             WHERE employeeID = '$this->empID' 
-                            AND attendanceDate = '$currentDate'
                             AND checkOutTime IS NULL 
                             ORDER BY checkInTime DESC 
                             LIMIT 1";
+            //echo $queryCheckOut;
             $rsd = mysqli_query($connect_var,$queryCheckOut);
             
             // Check if any row was actually updated
