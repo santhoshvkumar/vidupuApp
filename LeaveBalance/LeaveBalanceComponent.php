@@ -184,15 +184,18 @@ class ApplyLeaveMaster {
                                     ) as conflict_type
                                 FROM tblApplyLeave 
                                 WHERE employeeID = '$this->empID' 
-                                AND status != 'Cancelled'
+                                AND status NOT IN ('Cancelled', 'Rejected')
                                 AND (
-                                    -- Check for overlapping dates
+                                    -- Check for overlapping dates only
                                     (fromDate BETWEEN '$this->fromDate' AND '$this->toDate')
                                     OR (toDate BETWEEN '$this->fromDate' AND '$this->toDate')
                                     OR ('$this->fromDate' BETWEEN fromDate AND toDate)
-                                    -- Check for adjacent dates
-                                    OR DATE_SUB(fromDate, INTERVAL 1 DAY) = '$this->toDate'
-                                    OR DATE_ADD(toDate, INTERVAL 1 DAY) = '$this->fromDate'
+                                    -- Check for adjacent dates only if it's a different leave type
+                                    OR (
+                                        (DATE_SUB(fromDate, INTERVAL 1 DAY) = '$this->toDate'
+                                        OR DATE_ADD(toDate, INTERVAL 1 DAY) = '$this->fromDate')
+                                        AND typeOfLeave != '$this->leaveType'
+                                    )
                                 )";
             $overlapResult = mysqli_query($connect_var, $queryCheckOverlap);
             $overlapData = mysqli_fetch_assoc($overlapResult);
@@ -201,21 +204,17 @@ class ApplyLeaveMaster {
                 $existingLeaveTypes = explode(',', $overlapData['leave_types']);
                 $conflictType = $overlapData['conflict_type'];
                 
-                if (!in_array($this->leaveType, $existingLeaveTypes)) {
-                    $message = ($conflictType == 1) 
-                        ? "Cannot apply different leave types on overlapping days"
-                        : "Cannot apply different leave types on consecutive days";
-                        
-                    echo json_encode(array(
-                        "status" => "warning",
-                        "message_text" => $message . ". Existing leave type(s): " . $overlapData['leave_types']
-                    ), JSON_FORCE_OBJECT);
-                    mysqli_close($connect_var);
-                    return;
-                } else if ($conflictType == 1) {
+                if ($conflictType == 1) {
                     echo json_encode(array(
                         "status" => "warning",
                         "message_text" => "Leave application already exists for the selected date range"
+                    ), JSON_FORCE_OBJECT);
+                    mysqli_close($connect_var);
+                    return;
+                } else if ($conflictType == 2 && !in_array($this->leaveType, $existingLeaveTypes)) {
+                    echo json_encode(array(
+                        "status" => "warning",
+                        "message_text" => "Cannot apply different leave types on consecutive days. Existing leave type(s): " . $overlapData['leave_types']
                     ), JSON_FORCE_OBJECT);
                     mysqli_close($connect_var);
                     return;
