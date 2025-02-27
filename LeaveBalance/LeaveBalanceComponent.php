@@ -166,29 +166,53 @@ class ApplyLeaveMaster {
                 }
             }
 
-            // Check for existing leave applications in the given period, including adjacent days
-            $queryCheckOverlap = "SELECT COUNT(*) as overlap_count, GROUP_CONCAT(DISTINCT typeOfLeave) as leave_types 
+            // Check for existing leave applications in the given period and adjacent days
+            $queryCheckOverlap = "SELECT 
+                                    COUNT(*) as overlap_count, 
+                                    GROUP_CONCAT(DISTINCT typeOfLeave) as leave_types,
+                                    MIN(
+                                        CASE 
+                                            WHEN (fromDate BETWEEN '$this->fromDate' AND '$this->toDate') 
+                                            OR (toDate BETWEEN '$this->fromDate' AND '$this->toDate')
+                                            OR ('$this->fromDate' BETWEEN fromDate AND toDate)
+                                        THEN 1 
+                                        WHEN (DATE_SUB(fromDate, INTERVAL 1 DAY) = '$this->toDate' 
+                                            OR DATE_ADD(toDate, INTERVAL 1 DAY) = '$this->fromDate')
+                                        THEN 2
+                                        ELSE 0 
+                                        END
+                                    ) as conflict_type
                                 FROM tblApplyLeave 
                                 WHERE employeeID = '$this->empID' 
                                 AND status != 'Cancelled'
                                 AND (
-                                    (fromDate BETWEEN DATE_SUB('$this->fromDate', INTERVAL 1 DAY) AND DATE_ADD('$this->toDate', INTERVAL 1 DAY))
-                                    OR (toDate BETWEEN DATE_SUB('$this->fromDate', INTERVAL 1 DAY) AND DATE_ADD('$this->toDate', INTERVAL 1 DAY))
-                                    OR ('$this->fromDate' BETWEEN DATE_SUB(fromDate, INTERVAL 1 DAY) AND DATE_ADD(toDate, INTERVAL 1 DAY))
+                                    -- Check for overlapping dates
+                                    (fromDate BETWEEN '$this->fromDate' AND '$this->toDate')
+                                    OR (toDate BETWEEN '$this->fromDate' AND '$this->toDate')
+                                    OR ('$this->fromDate' BETWEEN fromDate AND toDate)
+                                    -- Check for adjacent dates
+                                    OR DATE_SUB(fromDate, INTERVAL 1 DAY) = '$this->toDate'
+                                    OR DATE_ADD(toDate, INTERVAL 1 DAY) = '$this->fromDate'
                                 )";
             $overlapResult = mysqli_query($connect_var, $queryCheckOverlap);
             $overlapData = mysqli_fetch_assoc($overlapResult);
             
             if ($overlapData['overlap_count'] > 0) {
                 $existingLeaveTypes = explode(',', $overlapData['leave_types']);
+                $conflictType = $overlapData['conflict_type'];
+                
                 if (!in_array($this->leaveType, $existingLeaveTypes)) {
+                    $message = ($conflictType == 1) 
+                        ? "Cannot apply different leave types on overlapping days"
+                        : "Cannot apply different leave types on consecutive days";
+                        
                     echo json_encode(array(
                         "status" => "warning",
-                        "message_text" => "Cannot apply different leave types on consecutive days. Existing leave type(s): " . $overlapData['leave_types']
+                        "message_text" => $message . ". Existing leave type(s): " . $overlapData['leave_types']
                     ), JSON_FORCE_OBJECT);
                     mysqli_close($connect_var);
                     return;
-                } else {
+                } else if ($conflictType == 1) {
                     echo json_encode(array(
                         "status" => "warning",
                         "message_text" => "Leave application already exists for the selected date range"
