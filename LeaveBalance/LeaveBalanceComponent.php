@@ -170,7 +170,7 @@ class ApplyLeaveMaster {
             $queryCheckOverlap = "SELECT COUNT(*) as overlap_count, GROUP_CONCAT(DISTINCT typeOfLeave) as leave_types 
                                 FROM tblApplyLeave 
                                 WHERE employeeID = '$this->empID' 
-                                AND status != 'Cancelled'
+                                AND status != 'Cancelled' AND status != 'Rejected'
                                 AND (
                                     (fromDate BETWEEN DATE_SUB('$this->fromDate', INTERVAL 1 DAY) AND DATE_ADD('$this->toDate', INTERVAL 1 DAY))
                                     OR (toDate BETWEEN DATE_SUB('$this->fromDate', INTERVAL 1 DAY) AND DATE_ADD('$this->toDate', INTERVAL 1 DAY))
@@ -193,7 +193,7 @@ class ApplyLeaveMaster {
                     $queryExactOverlap = "SELECT COUNT(*) as exact_overlap 
                                         FROM tblApplyLeave 
                                         WHERE employeeID = '$this->empID' 
-                                        AND status != 'Cancelled'
+                                        AND status != 'Cancelled' AND status != 'Rejected'
                                         AND (
                                             (fromDate <= '$this->toDate' AND toDate >= '$this->fromDate')
                                         )";
