@@ -189,12 +189,26 @@ class ApplyLeaveMaster {
                     mysqli_close($connect_var);
                     return;
                 } else {
-                    echo json_encode(array(
-                        "status" => "warning",
-                        "message_text" => "Leave application already exists for the selected date range"
-                    ), JSON_FORCE_OBJECT);
-                    mysqli_close($connect_var);
-                    return;
+                    // Check if this is actually an overlapping leave or just consecutive
+                    $queryExactOverlap = "SELECT COUNT(*) as exact_overlap 
+                                        FROM tblApplyLeave 
+                                        WHERE employeeID = '$this->empID' 
+                                        AND status != 'Cancelled'
+                                        AND (
+                                            (fromDate <= '$this->toDate' AND toDate >= '$this->fromDate')
+                                        )";
+                    $exactOverlapResult = mysqli_query($connect_var, $queryExactOverlap);
+                    $exactOverlapData = mysqli_fetch_assoc($exactOverlapResult);
+                    
+                    if ($exactOverlapData['exact_overlap'] > 0) {
+                        echo json_encode(array(
+                            "status" => "warning",
+                            "message_text" => "Leave application already exists for the selected date range"
+                        ), JSON_FORCE_OBJECT);
+                        mysqli_close($connect_var);
+                        return;
+                    }
+                    // If no exact overlap, allow the consecutive leave of the same type
                 }
             }
 
