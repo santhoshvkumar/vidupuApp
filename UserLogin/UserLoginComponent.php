@@ -12,6 +12,7 @@ class UserMaster{
     public function loadLoginUser(array $data){
         $this->UserName = $data['EmployeePhone'];
         $this->UserPassword = $data['EmployeePassword'];
+        $this->UserToken = $data['UserToken'];
         return true;
     }
 
@@ -59,6 +60,12 @@ class UserMaster{
                     $resultArr['branchLongitude'] = $rs['branchLongitude'];
                     $resultArr['branchRadius'] = $rs['branchRadius'];
                     $resultArr['IsManager'] = $rs['isManager'];
+                    
+                    // Update UserToken in database
+                    $updateToken = "UPDATE tblEmployee SET userToken = '$this->UserToken' 
+                                  WHERE employeeID = '" . $rs['employeeID'] . "'";
+                    mysqli_query($connect_var, $updateToken);
+                    
                     $count++;
                }  
             }
