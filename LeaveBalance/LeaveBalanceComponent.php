@@ -213,6 +213,7 @@ class ApplyLeaveMaster {
             }
 
             $queryApplyLeave = "INSERT INTO tblApplyLeave (employeeID, fromDate, toDate, leaveDuration, typeOfLeave, reason, createdOn, status)VALUES ('$this->empID', '$this->fromDate', '$this->toDate', '$this->leaveDuration', '$this->leaveType', '$this->leaveReason', CURRENT_DATE(), 'Yet To Be Approved')";
+            echo $queryApplyLeave;
             $rsd = mysqli_query($connect_var, $queryApplyLeave);
             if($rsd) {
                 echo json_encode(array(
