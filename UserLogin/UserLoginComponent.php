@@ -32,12 +32,21 @@ class UserMaster{
                 INNER JOIN tblLeaveBalance tblLB ON tblLB.employeeID = tblE.employeeID
                 INNER JOIN tblmapEmp tblM ON tblM.employeeID = tblE.employeeID
                 INNER JOIN tblBranch tblB ON tblB.branchID = tblM.branchID
-                WHERE tblE.employeePhone='$this->UserName' AND tblE.employeePassword='$this->UserPassword'";
-            $rsd = mysqli_query($connect_var,$queryUserLogin);
+                  WHERE tblE.employeePhone=? AND tblE.employeePassword=?";
+            
+            $stmt = mysqli_prepare($connect_var, $queryUserLogin);
+            
+            mysqli_stmt_bind_param($stmt, "ss", $this->UserName, $this->UserPassword);
+            
+            mysqli_stmt_execute($stmt);
+            
+            $result = mysqli_stmt_get_result($stmt);
+            
+            // $rsd = mysqli_query($connect_var,$queryUserLogin);
             $resultArr=Array();
             $count=0;
             $userExist=0;
-            while($rs = mysqli_fetch_assoc($rsd)){
+            while($rs = mysqli_fetch_assoc($result)){
                if(isset($rs['empID'])){
                     $getEmployeeName = $rs['employeeName'];
                     $resultArr['employeeName'] = $getEmployeeName;
