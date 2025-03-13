@@ -22,29 +22,22 @@ class UserMaster{
         try
         {
         
-            $queryUserLogin = "SELECT tblE.employeeID, tblE.empID, tblE.employeeName, tblE.managerID, tblE.employeePhoto, tblE.isManager, 
+            $queryUserLogin = "SELECT tblE.employeeID, tblE.empID, tblE.employeeName, tblE.managerID, tblE.employeePhoto, 
                 tblLB.CasualLeave, tblLB.MedicalLeave, PrivilegeLeave, tblLB.NoOfMaternityLeave, 
                 tblLB.SpecialCasualLeave, tblLB.CompensatoryOff, tblLB.SpecialLeaveBloodDonation, 
                 tblLB.LeaveOnPrivateAffairs, tblB.branchUniqueID, tblB.branchName, 
-                tblB.branchAddress, tblB.branchLatitude, tblB.branchLongitude, tblB.branchRadius 
+                tblB.branchAddress, tblB.branchLatitude, tblB.branchLongitude, tblB.branchRadius,
+                tblE.isManager
                 FROM tblEmployee tblE 
                 INNER JOIN tblLeaveBalance tblLB ON tblLB.employeeID = tblE.employeeID
                 INNER JOIN tblmapEmp tblM ON tblM.employeeID = tblE.employeeID
                 INNER JOIN tblBranch tblB ON tblB.branchID = tblM.branchID
-                WHERE tblE.employeePhone=? AND tblE.employeePassword=?";
-            
-            $stmt = mysqli_prepare($connect_var, $queryUserLogin);
-            
-            mysqli_stmt_bind_param($stmt, "ss", $this->UserName, $this->UserPassword);
-            
-            mysqli_stmt_execute($stmt);
-            
-            $result = mysqli_stmt_get_result($stmt);
-            
+                WHERE tblE.employeePhone='$this->UserName' AND tblE.employeePassword='$this->UserPassword'";
+            $rsd = mysqli_query($connect_var,$queryUserLogin);
             $resultArr=Array();
             $count=0;
             $userExist=0;
-            while($rs = mysqli_fetch_assoc($result)){
+            while($rs = mysqli_fetch_assoc($rsd)){
                if(isset($rs['empID'])){
                     $getEmployeeName = $rs['employeeName'];
                     $resultArr['employeeName'] = $getEmployeeName;
@@ -68,13 +61,10 @@ class UserMaster{
                     $resultArr['branchRadius'] = $rs['branchRadius'];
                     $resultArr['IsManager'] = $rs['isManager'];
                     
-                    $updateQuery = "UPDATE tblEmployee SET userToken = ? WHERE employeeID = ?";
-                    $updateStmt = mysqli_prepare($connect_var, $updateQuery);
-                    mysqli_stmt_bind_param($updateStmt, "ss", $this->UserToken, $rs['employeeID']);
-                    mysqli_stmt_execute($updateStmt);
-                    
-                    mysqli_stmt_close($stmt);
-                    mysqli_stmt_close($updateStmt);
+                    // Update UserToken in database
+                    $updateToken = "UPDATE tblEmployee SET userToken = '$this->UserToken' 
+                                  WHERE employeeID = '" . $rs['employeeID'] . "'";
+                    mysqli_query($connect_var, $updateToken);
                     
                     $count++;
                }  
