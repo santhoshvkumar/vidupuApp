@@ -14,24 +14,34 @@ class ProfileMaster{
         header('Content-Type: application/json');
         try
         {
-        
-            $queryUserLogin = "Select * from tblEmployee where employeeID = '$this->EmployeeID' and employeePassword = '$this->EmployeePassword'";
-            $rsd = mysqli_query($connect_var,$queryUserLogin);
-            $resultArr=Array();
-            $userExist=0;
-            while($rs = mysqli_fetch_assoc($rsd)){
-               if(isset($rs['empID'])){
-                   $userExist=1;
-                   $queryUpdatePassword = "Update tblEmployee set employeePassword = '$this->NewPassword' where employeeID = '$this->EmployeeID'";
-                   $rsdUpdatePassword = mysqli_query($connect_var,$queryUpdatePassword);
+            // Check user credentials with prepared statement
+            $queryUserLogin = "SELECT empID FROM tblEmployee WHERE employeeID = ? AND employeePassword = ?";
+            $stmt = mysqli_prepare($connect_var, $queryUserLogin);
+            mysqli_stmt_bind_param($stmt, "ss", $this->EmployeeID, $this->EmployeePassword);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+            
+            $userExist = 0;
+            if ($rs = mysqli_fetch_assoc($result)) {
+                if (isset($rs['empID'])) {
+                    $userExist = 1;
+                    
+                    // Update password with prepared statement
+                    $queryUpdatePassword = "UPDATE tblEmployee SET employeePassword = ? WHERE employeeID = ?";
+                    $updateStmt = mysqli_prepare($connect_var, $queryUpdatePassword);
+                    mysqli_stmt_bind_param($updateStmt, "ss", $this->NewPassword, $this->EmployeeID);
+                    mysqli_stmt_execute($updateStmt);
+                    mysqli_stmt_close($updateStmt);
                 }
             }
+            
+            mysqli_stmt_close($stmt);
             mysqli_close($connect_var);
-            if($userExist==1){
-                echo json_encode(array("status"=>"success","message_text"=>"Password Changed Successfully"),JSON_FORCE_OBJECT);
-            }
-            else{
-                echo json_encode(array("status"=>"error","message_text"=>"Kindly Make sure your current password is correct"),JSON_FORCE_OBJECT);
+
+            if ($userExist == 1) {
+                echo json_encode(array("status" => "success", "message_text" => "Password Changed Successfully"), JSON_FORCE_OBJECT);
+            } else {
+                echo json_encode(array("status" => "error", "message_text" => "Kindly Make sure your current password is correct"), JSON_FORCE_OBJECT);
             }
         }
         catch(Exception $e){
