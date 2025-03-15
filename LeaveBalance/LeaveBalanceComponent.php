@@ -35,7 +35,7 @@ class ApplyLeaveMaster {
                                 LEFT JOIN tblLeaveBalance tblL ON tblE.empID = tblL.empID 
                                 WHERE tblE.empID = ? 
                                 AND tblE.companyID = ?";
-                                
+                                 
             $stmt = mysqli_prepare($connect_var, $queryLeaveBalance);
             mysqli_stmt_bind_param($stmt, "ss", $this->empID, $this->companyID);
             mysqli_stmt_execute($stmt);
@@ -130,14 +130,6 @@ class ApplyLeaveMaster {
                 "message_text" => $e->getMessage()
             ), JSON_FORCE_OBJECT);
         }
-    }
-
-    private function getPublicUrl($filePath) {
-        // Convert server file path to public URL
-        // Assuming your uploads directory is accessible via web
-        $baseUrl = 'http://your-domain.com/vidupuApi/uploads/certificates/';
-        $fileName = basename($filePath);
-        return $baseUrl . $fileName;
     }
 
     public function applyForLeave() {
@@ -251,86 +243,49 @@ class ApplyLeaveMaster {
                 }
             }
 
+            // Checking for overlapping leave
             $queryCheckOverlap = "SELECT COUNT(*) as overlap_count, GROUP_CONCAT(DISTINCT typeOfLeave) as leave_types 
                                 FROM tblApplyLeave 
                                 WHERE employeeID = ? 
-                                AND status NOT IN ('Cancelled', 'Rejected')
-                                AND (
-                                    (fromDate BETWEEN DATE_SUB(?, INTERVAL 1 DAY) AND DATE_ADD(?, INTERVAL 1 DAY))
-                                    OR (toDate BETWEEN DATE_SUB(?, INTERVAL 1 DAY) AND DATE_ADD(?, INTERVAL 1 DAY))
-                                    OR (? BETWEEN DATE_SUB(fromDate, INTERVAL 1 DAY) AND DATE_ADD(toDate, INTERVAL 1 DAY))
-                                )";
-            
+                                AND ((fromDate BETWEEN ? AND ?) 
+                                OR (toDate BETWEEN ? AND ?)) 
+                                AND status != 'Cancelled'";
             $stmt = mysqli_prepare($connect_var, $queryCheckOverlap);
-            mysqli_stmt_bind_param($stmt, "ssssss", 
-                $this->empID, 
-                $this->fromDate, $this->toDate,
-                $this->fromDate, $this->toDate,
-                $this->fromDate);
+            mysqli_stmt_bind_param($stmt, "sssss", $this->empID, $this->fromDate, $this->toDate, $this->fromDate, $this->toDate);
             mysqli_stmt_execute($stmt);
             $result = mysqli_stmt_get_result($stmt);
-            $overlapData = mysqli_fetch_assoc($result);
+            $overlap = mysqli_fetch_assoc($result);
             mysqli_stmt_close($stmt);
             
-            if ($overlapData['overlap_count'] > 0) {
-                $existingLeaveTypes = explode(',', $overlapData['leave_types']);
-                if (!in_array($this->leaveType, $existingLeaveTypes)) {
-                    echo json_encode(array(
-                        "status" => "warning",
-                        "message_text" => "Cannot apply different leave types on consecutive days. Existing leave type(s): " . $overlapData['leave_types']
-                    ), JSON_FORCE_OBJECT);
-                    mysqli_close($connect_var);
-                    return;
-                } else {
-                    $queryExactOverlap = "SELECT COUNT(*) as exact_overlap 
-                                        FROM tblApplyLeave 
-                                        WHERE employeeID = '$this->empID' 
-                                        AND status != 'Cancelled' AND status != 'Rejected'
-                                        AND (
-                                            (fromDate <= '$this->toDate' AND toDate >= '$this->fromDate')
-                                        )";
-                    $exactOverlapResult = mysqli_query($connect_var, $queryExactOverlap);
-                    $exactOverlapData = mysqli_fetch_assoc($exactOverlapResult);
-                    
-                    if ($exactOverlapData['exact_overlap'] > 0) {
-                        echo json_encode(array(
-                            "status" => "warning",
-                            "message_text" => "Leave application already exists for the selected date range"
-                        ), JSON_FORCE_OBJECT);
-                        mysqli_close($connect_var);
-                        return;
-                    }
-                }
+            if ($overlap['overlap_count'] > 0) {
+                echo json_encode(array(
+                    "status" => "warning",
+                    "message_text" => "Leave overlaps with previously applied leaves. Types: " . $overlap['leave_types']
+                ), JSON_FORCE_OBJECT);
+                mysqli_close($connect_var);
+                return;
             }
 
-            $queryApplyLeave = "INSERT INTO tblApplyLeave (employeeID, fromDate, toDate, leaveDuration, typeOfLeave, reason, createdOn, status) 
-                               VALUES (?, ?, ?, ?, ?, ?, CURRENT_DATE(), 'Yet To Be Approved')";
-            
-            $stmt = mysqli_prepare($connect_var, $queryApplyLeave);
-            mysqli_stmt_bind_param($stmt, "sssdss", 
-                $this->empID, 
-                $this->fromDate, 
-                $this->toDate, 
-                $this->leaveDuration, 
-                $this->leaveType, 
-                $this->leaveReason);
-            
-            if(mysqli_stmt_execute($stmt)) {
-                error_log("Leave application successful");
+            // Insert Leave Application
+            $queryInsertLeave = "INSERT INTO tblApplyLeave (employeeID, fromDate, toDate, leaveDuration, typeOfLeave, reason, status)
+                                VALUES (?, ?, ?, ?, ?, ?, 'Pending')";
+            $stmt = mysqli_prepare($connect_var, $queryInsertLeave);
+            mysqli_stmt_bind_param($stmt, "ssssss", $this->empID, $this->fromDate, $this->toDate, $this->leaveDuration, $this->leaveType, $this->leaveReason);
+            if (mysqli_stmt_execute($stmt)) {
                 echo json_encode(array(
                     "status" => "success",
                     "message_text" => "Leave applied successfully"
-                ), JSON_FORCE_OBJECT);
+                ));
             } else {
-                error_log("Leave application failed: " . mysqli_error($connect_var));
-                throw new Exception("Leave application failed: " . mysqli_error($connect_var));
+                echo json_encode(array(
+                    "status" => "error",
+                    "message_text" => "Error applying for leave: " . mysqli_error($connect_var)
+                ));
             }
-            
             mysqli_stmt_close($stmt);
             mysqli_close($connect_var);
-        } 
-        catch(Exception $e) {
-            error_log("Exception in apply leave: " . $e->getMessage());
+        } catch (Exception $e) {
+            error_log("Exception in applyForLeave: " . $e->getMessage());
             echo json_encode(array(
                 "status" => "error",
                 "message_text" => $e->getMessage()
@@ -341,23 +296,9 @@ class ApplyLeaveMaster {
     public function uploadLeaveCertificate(array $data) {
         include('config.inc');
         header('Content-Type: application/json');
-        
         try {
             if (!isset($data['applyLeaveID']) || !isset($data['certificateType'])) {
                 throw new Exception("Missing required fields");
-            }
-
-            $applyLeaveID = $data['applyLeaveID'];
-            $certificateType = $data['certificateType'];
-
-            // Define upload directory with correct Windows path
-            $uploadDir = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'certificates' . DIRECTORY_SEPARATOR;
-            
-            // Create directory if it doesn't exist
-            if (!file_exists($uploadDir)) {
-                if (!mkdir($uploadDir, 0777, true)) {
-                    throw new Exception("Failed to create upload directory");
-                }
             }
 
             if (!isset($_FILES['file'])) {
@@ -365,14 +306,14 @@ class ApplyLeaveMaster {
             }
 
             $file = $_FILES['file'];
-            
+
             // Validate file
             if ($file['error'] !== UPLOAD_ERR_OK) {
                 throw new Exception('File upload error: ' . $file['error']);
             }
 
             $fileExtension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-            
+
             // Validate file type
             $allowedTypes = ['jpg', 'jpeg', 'png', 'pdf'];
             if (!in_array($fileExtension, $allowedTypes)) {
@@ -380,40 +321,30 @@ class ApplyLeaveMaster {
             }
 
             // Generate unique filename
-            $fileName = $applyLeaveID . '_' . $certificateType . '_' . time() . '.' . $fileExtension;
-            $targetPath = $uploadDir . $fileName;
-
-            // Store relative path in database (more portable)
-            $dbPath = 'uploads/certificates/' . $fileName;
+            $fileName = $data['applyLeaveID'] . '_' . $data['certificateType'] . '_' . time() . '.' . $fileExtension;
+            $targetPath = 'uploads/certificates/' . $fileName;
 
             // Move and validate file
             if (!move_uploaded_file($file['tmp_name'], $targetPath)) {
                 throw new Exception('Failed to save file. Path: ' . $targetPath);
             }
 
-            // Update database
-            $columnName = ($certificateType === 'Medical') ? 'MedicalCertificatePath' : 'FitnessCertificatePath';
-            $dateColumn = ($certificateType === 'Medical') ? 'MedicalCertificateUploadDate' : 'FitnessCertificateUploadDate';
+            // Update database with the file path
+            $columnName = ($data['certificateType'] === 'Medical') ? 'MedicalCertificatePath' : 'FitnessCertificatePath';
+            $dateColumn = ($data['certificateType'] === 'Medical') ? 'MedicalCertificateUploadDate' : 'FitnessCertificateUploadDate';
 
             $queryUpdateCertificate = "UPDATE tblApplyLeave 
-                                     SET $columnName = ?,
+                                     SET $columnName = ?, 
                                          $dateColumn = CURRENT_TIMESTAMP
                                      WHERE applyLeaveID = ?";
-
             $stmt = mysqli_prepare($connect_var, $queryUpdateCertificate);
-            mysqli_stmt_bind_param($stmt, "si", $dbPath, $applyLeaveID);
+            mysqli_stmt_bind_param($stmt, "si", $targetPath, $data['applyLeaveID']);
             
-            if(mysqli_stmt_execute($stmt)) {
-                // Get the server URL dynamically
-                $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://';
-                $host = $_SERVER['HTTP_HOST'];
-                $baseUrl = $protocol . $host . '/Vidupu/vidupuApi/';
-                
+            if (mysqli_stmt_execute($stmt)) {
                 echo json_encode(array(
                     "status" => "success",
                     "message_text" => "Certificate uploaded successfully",
-                    "file_path" => $dbPath,
-                    "public_url" => $baseUrl . $dbPath
+                    "file_path" => $targetPath
                 ));
             } else {
                 throw new Exception('Failed to update database: ' . mysqli_error($connect_var));
@@ -421,64 +352,15 @@ class ApplyLeaveMaster {
             
             mysqli_stmt_close($stmt);
             mysqli_close($connect_var);
-
-        } catch(Exception $e) {
+        } catch (Exception $e) {
             error_log("Exception in uploadLeaveCertificate: " . $e->getMessage());
             echo json_encode(array(
                 "status" => "error",
                 "message_text" => $e->getMessage()
-            ));
+            ), JSON_FORCE_OBJECT);
         }
     }
-
-    private function getPublicUrl($dbPath) {
-        // Get the server URL dynamically
-        $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://';
-        $host = $_SERVER['HTTP_HOST'];
-        $baseUrl = $protocol . $host . '/Vidupu/vidupuApi/';
-        return $baseUrl . $dbPath;
-    }
+    
+    
 }
-
-function applyLeave(array $data) {
-    $leaveObject = new ApplyLeaveMaster();
-    if($leaveObject->loadApplyLeaveDetails($data)) {
-        $leaveObject->applyForLeave();
-    } else {
-        echo json_encode(array(
-            "status" => "error",
-            "message_text" => "Invalid Input Parameters"
-        ), JSON_FORCE_OBJECT);
-    }
-}
-
-function getLeaveBalance(array $data) {
-    $leaveObject = new ApplyLeaveMaster();
-    if($leaveObject->loadEmployeeDetails($data)) {
-        $leaveObject->getLeaveBalanceInfo();
-    } else {
-        echo json_encode(array(
-            "status" => "error",
-            "message_text" => "Invalid Input Parameters"
-        ), JSON_FORCE_OBJECT);
-    }
-}
-
-function getLeaveHistory(array $data) {
-    $leaveObject = new ApplyLeaveMaster();
-    if($leaveObject->loadEmployeeDetails($data)) {
-        $leaveObject->getLeaveHistoryInfo();
-    } else {
-        echo json_encode(array(
-            "status" => "error",
-            "message_text" => "Invalid Input Parameters"
-        ), JSON_FORCE_OBJECT);
-    }
-}
-
-function uploadLeaveCertificate(array $data) {
-    $leaveObject = new ApplyLeaveMaster();
-    $leaveObject->uploadLeaveCertificate($data);
-}
-
 ?>
