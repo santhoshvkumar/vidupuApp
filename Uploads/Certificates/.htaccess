@@ -1,0 +1,14 @@
+# Deny access to PHP files
+<FilesMatch "\.php$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# Allow access to images and PDFs
+<FilesMatch "\.(jpg|jpeg|png|pdf)$">
+    Order Allow,Deny
+    Allow from all
+</FilesMatch>
+
+# Prevent directory listing
+Options -Indexes 
