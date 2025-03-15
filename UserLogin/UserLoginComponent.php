@@ -1,8 +1,5 @@
 <?php
-ini_set('display_errors', 1);
-ini_set('log_errors', 1);
-error_log("Request received: " . print_r($_POST, true));
-
+ 
 class UserMaster{
     public $User_ID;
     public $UserName;
@@ -11,17 +8,8 @@ class UserMaster{
     public $DatabaseName;
     public $GeneralCompanyID;
     public $GeneralAdminID;
-    public $UserToken;
-    public $DeviceId;
     
     public function loadLoginUser(array $data){
-        error_log("loadLoginUser called with: " . print_r($data, true));
-        
-        if (!isset($data['EmployeePhone']) || !isset($data['EmployeePassword'])) {
-            error_log("Missing required fields");
-            return false;
-        }
-        
         $this->UserName = $data['EmployeePhone'];
         $this->UserPassword = $data['EmployeePassword'];
         $this->UserToken = $data['UserToken'];
@@ -33,30 +21,13 @@ class UserMaster{
         header('Content-Type: application/json');
         try
         {
-            // First, update the user's token and device ID
-            if($this->UserToken && $this->DeviceId) {
-                $updateTokenQuery = "UPDATE tblEmployee SET 
-                    userToken = ?, 
-                    deviceId = ?,
-                    lastTokenUpdate = NOW() 
-                    WHERE employeePhone = ?";
-                
-                $stmt = $conn->prepare($updateTokenQuery);
-                $stmt->bind_param("sss", $this->UserToken, $this->DeviceId, $this->UserName);
-                $stmt->execute();
-                error_log("Token update result: " . ($stmt->affected_rows > 0 ? "Success" : "Failed"));
-            }
-
-            // Modified query to include userToken and deviceId
-            $queryUserLogin = "SELECT 
-                tblE.employeeID, tblE.empID, tblE.employeeName, tblE.managerID, 
-                tblE.employeePhoto, tblE.userToken, tblE.deviceId,
-                tblLB.CasualLeave, tblLB.MedicalLeave, PrivilegeLeave, 
-                tblLB.NoOfMaternityLeave, tblLB.SpecialCasualLeave, 
-                tblLB.CompensatoryOff, tblLB.SpecialLeaveBloodDonation, 
+        
+            $queryUserLogin = "SELECT tblE.employeeID, tblE.empID, tblE.employeeName, tblE.managerID, tblE.employeePhoto, 
+                tblLB.CasualLeave, tblLB.MedicalLeave, PrivilegeLeave, tblLB.NoOfMaternityLeave, 
+                tblLB.SpecialCasualLeave, tblLB.CompensatoryOff, tblLB.SpecialLeaveBloodDonation, 
                 tblLB.LeaveOnPrivateAffairs, tblB.branchUniqueID, tblB.branchName, 
-                tblB.branchAddress, tblB.branchLatitude, tblB.branchLongitude, 
-                tblB.branchRadius, tblE.isManager
+                tblB.branchAddress, tblB.branchLatitude, tblB.branchLongitude, tblB.branchRadius,
+                tblE.isManager
                 FROM tblEmployee tblE 
                 INNER JOIN tblLeaveBalance tblLB ON tblLB.employeeID = tblE.employeeID
                 INNER JOIN tblmapEmp tblM ON tblM.employeeID = tblE.employeeID
@@ -107,31 +78,17 @@ class UserMaster{
                     $count++;
                }  
             }
+ 
         
-            mysqli_close($connect_var);
+        mysqli_close($connect_var);
 
-            if($count > 0) {
-                echo json_encode(array(
-                    "status" => "success",
-                    "record_count" => $count,
-                    "result" => $resultArr,
-                    "token" => $resultArr['userToken'],
-                    "deviceId" => $resultArr['deviceId']
-                ));
-            } else {
-                echo json_encode(array(
-                    "status" => "failure",
-                    "record_count" => $count,
-                    "message_text" => "No user with userPhoneNumber='$this->UserName'"
-                ), JSON_FORCE_OBJECT);
-            }
+        if($count>0)
+            echo json_encode(array("status"=>"success","record_count"=>$count,"result"=>$resultArr));
+        else
+            echo json_encode(array("status"=>"failure","record_count"=>$count,"message_text"=>"No user with userPhoneNumber='$this->UserName'"),JSON_FORCE_OBJECT);
         }   
         catch(PDOException $e) {
-            error_log("Exception in LoginUserTempInfo: " . $e->getMessage());
-            echo json_encode(array(
-                "status" => "error",
-                "message_text" => $e->getMessage()
-            ), JSON_FORCE_OBJECT);
+            echo json_encode(array("status"=>"error","message_text"=>$e->getMessage()),JSON_FORCE_OBJECT);
         }
     }
 
@@ -139,24 +96,13 @@ class UserMaster{
 
 
 function loginUserTemp(array $data){
-    error_log("=== Login Attempt Start ===");
-    error_log("Raw input data: " . print_r($data, true));
-    error_log("POST data: " . print_r($_POST, true));
-    
     $userObject = new UserMaster;
     if($userObject->loadLoginUser($data)){
-        error_log("Login validation passed");
         $userObject->LoginUserTempInfo();
     }
     else {
-        error_log("Login validation failed");
-        echo json_encode(array(
-            "status" => "error On Login User temp Info",
-            "message_text" => "Invalid Input Parameters",
-            "debug_data" => $data  // This will show what data was received
-        ), JSON_FORCE_OBJECT);
+         echo json_encode(array("status"=>"error On Login User temp Info","message_text"=>"Invalid Input Parameters"),JSON_FORCE_OBJECT);
     }
-    error_log("=== Login Attempt End ===");
 }
 
 
