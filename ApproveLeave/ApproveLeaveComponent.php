@@ -130,6 +130,42 @@ class ApproveLeaveMaster {
                     throw new Exception(mysqli_error($connect_var));
                 }
 
+                // Get user's Expo push token
+                $queryUserToken = "SELECT userToken FROM tblEmployee WHERE employeeID = ?";
+                $stmt = mysqli_prepare($connect_var, $queryUserToken);
+                mysqli_stmt_bind_param($stmt, "s", $employeeID);
+                mysqli_stmt_execute($stmt);
+                $tokenResult = mysqli_stmt_get_result($stmt);
+                $userTokenData = mysqli_fetch_assoc($tokenResult);
+                
+                if ($userTokenData && !empty($userTokenData['userToken'])) {
+                    // Prepare notification message
+                    $notificationMessage = "Your leave request has been " . strtolower($this->status);
+                    
+                    // Send push notification via Expo
+                    $ch = curl_init('https://exp.host/--/api/v2/push/send');
+                    curl_setopt($ch, CURLOPT_POST, true);
+                    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                        'Content-Type: application/json',
+                    ]);
+                    
+                    $notificationData = [
+                        'to' => $userTokenData['userToken'],
+                        'title' => 'Leave Status Update',
+                        'body' => $notificationMessage,
+                        'data' => [
+                            'leaveID' => $this->applyLeaveID,
+                            'status' => $this->status
+                        ]
+                    ];
+                    
+                    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($notificationData));
+                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                    
+                    $response = curl_exec($ch);
+                    curl_close($ch);
+                }
+
                 // Update leave balance only if status is Approved
                 if ($this->status === 'Approved') {
                     // Special handling for Maternity Leave

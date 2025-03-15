@@ -37,6 +37,32 @@ class AttendanceOperationMaster{
             $currentDate = date('Y-m-d');
             $currentTime = date('H:i:s');
             
+            // First check if there's a completed attendance record for today
+            $checkCompleted = "SELECT attendanceDate, checkInTime, checkOutTime 
+                             FROM tblAttendance 
+                             WHERE employeeID = '$this->empID' 
+                             AND attendanceDate = CURDATE()
+                             AND checkOutTime IS NOT NULL
+                             LIMIT 1";
+            $completedResult = mysqli_query($connect_var, $checkCompleted);
+            
+            if(mysqli_num_rows($completedResult) > 0) {
+                // Already has completed attendance for today
+                $row = mysqli_fetch_assoc($completedResult);
+                mysqli_close($connect_var);
+                echo json_encode(array(
+                    "status" => "success",
+                    "data" => array(
+                        "message_text" => "Already Checked Out Done",
+                        "attendanceDate" => $row['attendanceDate'],
+                        "checkInTime" => $row['checkInTime'],
+                        "checkOutTime" => $row['checkOutTime'],
+                        "attendanceDateTime" => $row['attendanceDate']."T".$row['checkInTime']
+                    )
+                ), JSON_FORCE_OBJECT);
+                return;
+            }
+            
             // Check for any existing unchecked-out attendance record
             $checkExisting = "SELECT attendanceDate, checkInTime FROM tblAttendance 
                             WHERE employeeID = '$this->empID' 

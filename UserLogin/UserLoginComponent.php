@@ -24,9 +24,7 @@ class UserMaster{
         
         $this->UserName = $data['EmployeePhone'];
         $this->UserPassword = $data['EmployeePassword'];
-        $this->UserToken = $data['UserToken'] ?? null;
-        $this->DeviceId = $data['DeviceId'] ?? null;
-        error_log("User credentials set - Phone: {$this->UserName}, Token: {$this->UserToken}, DeviceId: {$this->DeviceId}");
+        $this->UserToken = $data['UserToken'];
         return true;
     }
 
@@ -63,47 +61,49 @@ class UserMaster{
                 INNER JOIN tblLeaveBalance tblLB ON tblLB.employeeID = tblE.employeeID
                 INNER JOIN tblmapEmp tblM ON tblM.employeeID = tblE.employeeID
                 INNER JOIN tblBranch tblB ON tblB.branchID = tblM.branchID
-                WHERE tblE.employeePhone = ? AND tblE.employeePassword = ?";
+                  WHERE tblE.employeePhone=? AND tblE.employeePassword=?";
             
-            error_log("Executing login query for user: " . $this->UserName);
+            $stmt = mysqli_prepare($connect_var, $queryUserLogin);
             
-            $stmt = $conn->prepare($queryUserLogin);
-            $stmt->bind_param("ss", $this->UserName, $this->UserPassword);
-            $stmt->execute();
-            $result = $stmt->get_result();
+            mysqli_stmt_bind_param($stmt, "ss", $this->UserName, $this->UserPassword);
             
-            $resultArr = Array();
-            $count = 0;
+            mysqli_stmt_execute($stmt);
             
+            $result = mysqli_stmt_get_result($stmt);
+            
+            // $rsd = mysqli_query($connect_var,$queryUserLogin);
+            $resultArr=Array();
+            $count=0;
+            $userExist=0;
             while($rs = mysqli_fetch_assoc($result)){
                if(isset($rs['empID'])){
-                    $resultArr = array(
-                        'employeeName' => $rs['employeeName'],
-                        'employeeID' => $rs['employeeID'],
-                        'employeePhoto' => $rs['employeePhoto'],
-                        'managerID' => $rs['managerID'],
-                        'userToken' => $rs['userToken'],
-                        'deviceId' => $rs['deviceId'],
-                        'causalLeave' => $rs['CasualLeave'],
-                        'MedicalLeave' => $rs['MedicalLeave'],
-                        'PrivilageLeave' => $rs['PrivilegeLeave'],
-                        'NoOfMaternityLeave' => $rs['NoOfMaternityLeave'],
-                        'SpecialCasualLeave' => $rs['SpecialCasualLeave'],
-                        'CompensatoryOff' => $rs['CompensatoryOff'],
-                        'SpecialLeaveBloodDonation' => $rs['SpecialLeaveBloodDonation'],
-                        'LeaveOnPrivateAffairs' => $rs['LeaveOnPrivateAffairs'],
-                        'TotalLeave' => $rs['CasualLeave'] + $rs['MedicalLeave'] + 
-                            $rs['PrivilegeLeave'] + $rs['SpecialCasualLeave'] + 
-                            $rs['CompensatoryOff'] + $rs['SpecialLeaveBloodDonation'] + 
-                            $rs['LeaveOnPrivateAffairs'],
-                        'branchUniqueID' => $rs['branchUniqueID'],
-                        'branchName' => $rs['branchName'],
-                        'branchAddress' => $rs['branchAddress'],
-                        'branchLatitude' => $rs['branchLatitude'],
-                        'branchLongitude' => $rs['branchLongitude'],
-                        'branchRadius' => $rs['branchRadius'],
-                        'IsManager' => $rs['isManager']
-                    );
+                    $getEmployeeName = $rs['employeeName'];
+                    $resultArr['employeeName'] = $getEmployeeName;
+                    $resultArr['employeeID'] = $rs['employeeID'];
+                    $resultArr['employeePhoto'] = $rs['employeePhoto'];
+                    $resultArr['managerID'] = $rs['managerID'];
+                    $resultArr['causalLeave'] = $rs['CasualLeave'];
+                    $resultArr['MedicalLeave'] = $rs['MedicalLeave'];
+                    $resultArr['PrivilageLeave'] = $rs['PrivilegeLeave'];
+                    $resultArr['NoOfMaternityLeave'] = $rs['NoOfMaternityLeave'];
+                    $resultArr['SpecialCasualLeave'] = $rs['SpecialCasualLeave'];   
+                    $resultArr['CompensatoryOff'] = $rs['CompensatoryOff'];
+                    $resultArr['SpecialLeaveBloodDonation'] = $rs['SpecialLeaveBloodDonation'];
+                    $resultArr['LeaveOnPrivateAffairs'] = $rs['LeaveOnPrivateAffairs'];
+                    $resultArr['TotalLeave'] = $rs['CasualLeave'] + $rs['MedicalLeave'] + $rs['PrivilegeLeave'] + $rs['SpecialCasualLeave'] + $rs['CompensatoryOff'] + $rs['SpecialLeaveBloodDonation'] + $rs['LeaveOnPrivateAffairs'];
+                    $resultArr['branchUniqueID'] = $rs['branchUniqueID'];
+                    $resultArr['branchName'] = $rs['branchName'];
+                    $resultArr['branchAddress'] = $rs['branchAddress'];
+                    $resultArr['branchLatitude'] = $rs['branchLatitude'];
+                    $resultArr['branchLongitude'] = $rs['branchLongitude'];
+                    $resultArr['branchRadius'] = $rs['branchRadius'];
+                    $resultArr['IsManager'] = $rs['isManager'];
+                    
+                    // Update UserToken in database
+                    $updateToken = "UPDATE tblEmployee SET userToken = '$this->UserToken' 
+                                  WHERE employeeID = '" . $rs['employeeID'] . "'";
+                    mysqli_query($connect_var, $updateToken);
+                    
                     $count++;
                }  
             }
