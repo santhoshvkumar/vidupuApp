@@ -5,6 +5,11 @@ class ApplyLeaveMaster {
     public $employeeName;
     public $leaveBalance;
     public $companyID;
+    public $fromDate;
+    public $toDate;
+    public $leaveType;
+    public $leaveDuration;
+    public $leaveReason;
     
     public function loadEmployeeDetails(array $data) {
         $this->empID = $data['empID'];
@@ -17,7 +22,7 @@ class ApplyLeaveMaster {
         $this->toDate = $data['toDate'];
         $this->leaveType = $data['leaveType'];
         $this->leaveDuration = $data['leaveDuration'];
-        $this->leaveReason = $data['leaveReason'];
+        $this->leaveReason = $data['reason'];
         return true;
     }
 
@@ -28,20 +33,25 @@ class ApplyLeaveMaster {
             $queryLeaveBalance = "SELECT tblE.empID, tblL.leaveBalance 
                                 FROM tblEmployee tblE 
                                 LEFT JOIN tblLeaveBalance tblL ON tblE.empID = tblL.empID 
-                                WHERE tblE.empID = '$this->empID' 
-                                AND tblE.companyID = '$this->companyID'";
+                                WHERE tblE.empID = ? 
+                                AND tblE.companyID = ?";
                                 
-            $rsd = mysqli_query($connect_var, $queryLeaveBalance);
+            $stmt = mysqli_prepare($connect_var, $queryLeaveBalance);
+            mysqli_stmt_bind_param($stmt, "ss", $this->empID, $this->companyID);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+            
             $resultArr = array();
             $count = 0;
             
-            while($rs = mysqli_fetch_assoc($rsd)) {
+            while($rs = mysqli_fetch_assoc($result)) {
                 $resultArr = $rs;
                 if(isset($rs['empID'])) {
                     $count++;
                 }
             }
             
+            mysqli_stmt_close($stmt);
             mysqli_close($connect_var);
 
             if($count > 0) {
@@ -54,7 +64,7 @@ class ApplyLeaveMaster {
                 echo json_encode(array(
                     "status" => "failure",
                     "record_count" => $count,
-                    "message_text" => "No leave balance found for employee ID: $this->empID"
+                    "message_text" => "No leave balance found for employee ID: " . htmlspecialchars($this->empID)
                 ), JSON_FORCE_OBJECT);
             }
         } catch(PDOException $e) {
@@ -64,18 +74,41 @@ class ApplyLeaveMaster {
             ), JSON_FORCE_OBJECT);
         }
     }
+
     public function getLeaveHistoryInfo() {
         include('config.inc');
         header('Content-Type: application/json');
         try {
-            $queryLeaveHistory = "SELECT applyLeaveID, fromDate, toDate, leaveDuration, typeOfLeave, reason, status FROM tblApplyLeave WHERE employeeID = '$this->empID' and status != 'Cancelled' ORDER by applyLeaveID DESC";
-            $rsd = mysqli_query($connect_var, $queryLeaveHistory);
+            $queryLeaveHistory = "SELECT applyLeaveID, fromDate, toDate, leaveDuration, 
+                                typeOfLeave, reason, status, 
+                                MedicalCertificatePath, MedicalCertificateUploadDate,
+                                FitnessCertificatePath, FitnessCertificateUploadDate 
+                                FROM tblApplyLeave 
+                                WHERE employeeID = ? 
+                                AND status != 'Cancelled' 
+                                ORDER BY applyLeaveID DESC";
+                                
+            $stmt = mysqli_prepare($connect_var, $queryLeaveHistory);
+            mysqli_stmt_bind_param($stmt, "s", $this->empID);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+            
             $resultArr = array();
             $count = 0;
-            while($rs = mysqli_fetch_assoc($rsd)) {
+            
+            while($rs = mysqli_fetch_assoc($result)) {
+                // Convert file paths to URLs
+                if (!empty($rs['MedicalCertificatePath'])) {
+                    $rs['MedicalCertificateUrl'] = $this->getPublicUrl($rs['MedicalCertificatePath']);
+                }
+                if (!empty($rs['FitnessCertificatePath'])) {
+                    $rs['FitnessCertificateUrl'] = $this->getPublicUrl($rs['FitnessCertificatePath']);
+                }
                 $resultArr[] = $rs;
                 $count++;
             }
+            
+            mysqli_stmt_close($stmt);
             mysqli_close($connect_var);
 
             if($count > 0) {
@@ -88,7 +121,7 @@ class ApplyLeaveMaster {
                 echo json_encode(array(
                     "status" => "failure",
                     "record_count" => $count,
-                    "message_text" => "No leave balance found for employee ID: $this->empID"
+                    "message_text" => "No leave history found for employee ID: " . htmlspecialchars($this->empID)
                 ), JSON_FORCE_OBJECT);
             }
         } catch(PDOException $e) {
@@ -98,40 +131,92 @@ class ApplyLeaveMaster {
             ), JSON_FORCE_OBJECT);
         }
     }
+
+    private function getPublicUrl($filePath) {
+        // Convert server file path to public URL
+        // Assuming your uploads directory is accessible via web
+        $baseUrl = 'http://your-domain.com/vidupuApi/uploads/certificates/';
+        $fileName = basename($filePath);
+        return $baseUrl . $fileName;
+    }
+
     public function applyForLeave() {
         include('config.inc');
         header('Content-Type: application/json');
         try {
-            // For Casual Leave validation
+            error_log("Attempting to apply leave - Type: " . $this->leaveType . 
+                     ", EmpID: " . $this->empID . 
+                     ", From: " . $this->fromDate . 
+                     ", To: " . $this->toDate);
+
+            // Check for consecutive PLs if this is a Privilege Leave
+            if ($this->leaveType === 'Privilege Leave') {
+                $queryLastTwoLeaves = "SELECT typeOfLeave 
+                                    FROM tblApplyLeave 
+                                    WHERE employeeID = ? 
+                                    AND status NOT IN ('Cancelled', 'Rejected')
+                                    ORDER BY applyLeaveID DESC
+                                    LIMIT 2";
+                
+                $stmt = mysqli_prepare($connect_var, $queryLastTwoLeaves);
+                mysqli_stmt_bind_param($stmt, "s", $this->empID);
+                mysqli_stmt_execute($stmt);
+                $result = mysqli_stmt_get_result($stmt);
+                
+                $lastTwoLeaves = [];
+                while ($row = mysqli_fetch_assoc($result)) {
+                    $lastTwoLeaves[] = $row['typeOfLeave'];
+                }
+                mysqli_stmt_close($stmt);
+
+                // Show warning only if both last leaves were PL
+                if (count($lastTwoLeaves) == 2 && 
+                    $lastTwoLeaves[0] === 'Privilege Leave' && 
+                    $lastTwoLeaves[1] === 'Privilege Leave') {
+                    echo json_encode(array(
+                        "status" => "warning",
+                        "message_text" => "You are applying for Privilege Leave after two consecutive PLs. Do you want to continue?",
+                        "require_confirmation" => true
+                    ), JSON_FORCE_OBJECT);
+                    mysqli_close($connect_var);
+                    return;
+                }
+            }
+
             if ($this->leaveType === 'Casual Leave') {
-                // Get current year's start and mid dates
                 $currentYear = date('Y');
                 $yearStart = "$currentYear-01-01";
                 $yearMid = "$currentYear-07-01";
                 $yearEnd = "$currentYear-12-31";
                 
-                // Check total casual leaves taken in the year
                 $queryCasualLeaves = "SELECT 
                     SUM(CASE 
-                        WHEN fromDate >= '$yearStart' AND toDate <= '$yearMid' THEN leaveDuration
+                        WHEN fromDate >= ? AND toDate <= ? THEN leaveDuration
                         ELSE 0 
                     END) as first_half_leaves,
                     SUM(CASE 
-                        WHEN fromDate >= '$yearMid' AND toDate <= '$yearEnd' THEN leaveDuration
+                        WHEN fromDate >= ? AND toDate <= ? THEN leaveDuration
                         ELSE 0 
                     END) as second_half_leaves
                     FROM tblApplyLeave 
-                    WHERE employeeID = '$this->empID' 
+                    WHERE employeeID = ? 
                     AND typeOfLeave = 'Casual Leave'
                     AND status != 'Cancelled'
-                    AND fromDate >= '$yearStart'";
-                $casualResult = mysqli_query($connect_var, $queryCasualLeaves);
-                $casualData = mysqli_fetch_assoc($casualResult);
+                    AND fromDate >= ?";
+                    
+                $stmt = mysqli_prepare($connect_var, $queryCasualLeaves);
+                mysqli_stmt_bind_param($stmt, "ssssss", 
+                    $yearStart, $yearMid, 
+                    $yearMid, $yearEnd,
+                    $this->empID, $yearStart);
+                mysqli_stmt_execute($stmt);
+                $result = mysqli_stmt_get_result($stmt);
+                $casualData = mysqli_fetch_assoc($result);
+                mysqli_stmt_close($stmt);
                 
                 $firstHalfLeaves = floatval($casualData['first_half_leaves']);
                 $secondHalfLeaves = floatval($casualData['second_half_leaves']);
                 
-                // Check if the leave spans across half years
                 $isFirstHalf = strtotime($this->fromDate) < strtotime($yearMid);
                 $isSecondHalf = strtotime($this->toDate) >= strtotime($yearMid);
                 
@@ -143,41 +228,49 @@ class ApplyLeaveMaster {
                     mysqli_close($connect_var);
                     return;
                 }
-                 // Validate against half-year limits
-            if ($isFirstHalf) {
-                if (($firstHalfLeaves + $this->leaveDuration) > 10) {
-                    echo json_encode(array(
-                        "status" => "warning",
-                        "message_text" => "Cannot exceed 10 days of Casual Leave in first half of the year"
-                    ), JSON_FORCE_OBJECT);
-                    mysqli_close($connect_var);
-                    return;
-                }
-            } else {
-                $availableSecondHalf = 10 + (10 - $firstHalfLeaves); // Unused first half leaves added to second half
-                if (($secondHalfLeaves + $this->leaveDuration) > $availableSecondHalf) {
-                    echo json_encode(array(
-                        "status" => "warning",
-                        "message_text" => "Exceeds available Casual Leave balance for second half of the year"
-                    ), JSON_FORCE_OBJECT);
+
+                if ($isFirstHalf) {
+                    if (($firstHalfLeaves + $this->leaveDuration) > 10) {
+                        echo json_encode(array(
+                            "status" => "warning",
+                            "message_text" => "Cannot exceed 10 days of Casual Leave in first half of the year"
+                        ), JSON_FORCE_OBJECT);
+                        mysqli_close($connect_var);
+                        return;
+                    }
+                } else {
+                    $availableSecondHalf = 10 + (10 - $firstHalfLeaves);
+                    if (($secondHalfLeaves + $this->leaveDuration) > $availableSecondHalf) {
+                        echo json_encode(array(
+                            "status" => "warning",
+                            "message_text" => "Exceeds available Casual Leave balance for second half of the year"
+                        ), JSON_FORCE_OBJECT);
                         mysqli_close($connect_var);
                         return;
                     }
                 }
             }
 
-            // Check for existing leave applications in the given period, including adjacent days
             $queryCheckOverlap = "SELECT COUNT(*) as overlap_count, GROUP_CONCAT(DISTINCT typeOfLeave) as leave_types 
                                 FROM tblApplyLeave 
-                                WHERE employeeID = '$this->empID' 
-                                AND status != 'Cancelled' AND status != 'Rejected'
+                                WHERE employeeID = ? 
+                                AND status NOT IN ('Cancelled', 'Rejected')
                                 AND (
-                                    (fromDate BETWEEN DATE_SUB('$this->fromDate', INTERVAL 1 DAY) AND DATE_ADD('$this->toDate', INTERVAL 1 DAY))
-                                    OR (toDate BETWEEN DATE_SUB('$this->fromDate', INTERVAL 1 DAY) AND DATE_ADD('$this->toDate', INTERVAL 1 DAY))
-                                    OR ('$this->fromDate' BETWEEN DATE_SUB(fromDate, INTERVAL 1 DAY) AND DATE_ADD(toDate, INTERVAL 1 DAY))
+                                    (fromDate BETWEEN DATE_SUB(?, INTERVAL 1 DAY) AND DATE_ADD(?, INTERVAL 1 DAY))
+                                    OR (toDate BETWEEN DATE_SUB(?, INTERVAL 1 DAY) AND DATE_ADD(?, INTERVAL 1 DAY))
+                                    OR (? BETWEEN DATE_SUB(fromDate, INTERVAL 1 DAY) AND DATE_ADD(toDate, INTERVAL 1 DAY))
                                 )";
-            $overlapResult = mysqli_query($connect_var, $queryCheckOverlap);
-            $overlapData = mysqli_fetch_assoc($overlapResult);
+            
+            $stmt = mysqli_prepare($connect_var, $queryCheckOverlap);
+            mysqli_stmt_bind_param($stmt, "ssssss", 
+                $this->empID, 
+                $this->fromDate, $this->toDate,
+                $this->fromDate, $this->toDate,
+                $this->fromDate);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+            $overlapData = mysqli_fetch_assoc($result);
+            mysqli_stmt_close($stmt);
             
             if ($overlapData['overlap_count'] > 0) {
                 $existingLeaveTypes = explode(',', $overlapData['leave_types']);
@@ -189,7 +282,6 @@ class ApplyLeaveMaster {
                     mysqli_close($connect_var);
                     return;
                 } else {
-                    // Check if this is actually an overlapping leave or just consecutive
                     $queryExactOverlap = "SELECT COUNT(*) as exact_overlap 
                                         FROM tblApplyLeave 
                                         WHERE employeeID = '$this->empID' 
@@ -208,35 +300,148 @@ class ApplyLeaveMaster {
                         mysqli_close($connect_var);
                         return;
                     }
-                    // If no exact overlap, allow the consecutive leave of the same type
                 }
             }
 
-            $queryApplyLeave = "INSERT INTO tblApplyLeave (employeeID, fromDate, toDate, leaveDuration, typeOfLeave, reason, createdOn, status)VALUES ('$this->empID', '$this->fromDate', '$this->toDate', '$this->leaveDuration', '$this->leaveType', '$this->leaveReason', CURRENT_DATE(), 'Yet To Be Approved')";
-            $rsd = mysqli_query($connect_var, $queryApplyLeave);
-            if($rsd) {
+            $queryApplyLeave = "INSERT INTO tblApplyLeave (employeeID, fromDate, toDate, leaveDuration, typeOfLeave, reason, createdOn, status) 
+                               VALUES (?, ?, ?, ?, ?, ?, CURRENT_DATE(), 'Yet To Be Approved')";
+            
+            $stmt = mysqli_prepare($connect_var, $queryApplyLeave);
+            mysqli_stmt_bind_param($stmt, "sssdss", 
+                $this->empID, 
+                $this->fromDate, 
+                $this->toDate, 
+                $this->leaveDuration, 
+                $this->leaveType, 
+                $this->leaveReason);
+            
+            if(mysqli_stmt_execute($stmt)) {
+                error_log("Leave application successful");
                 echo json_encode(array(
                     "status" => "success",
                     "message_text" => "Leave applied successfully"
                 ), JSON_FORCE_OBJECT);
             } else {
-                echo json_encode(array(
-                    "status" => "error",
-                    "message_text" => "Leave application failed"
-                ), JSON_FORCE_OBJECT);
+                error_log("Leave application failed: " . mysqli_error($connect_var));
+                throw new Exception("Leave application failed: " . mysqli_error($connect_var));
             }
+            
+            mysqli_stmt_close($stmt);
             mysqli_close($connect_var);
-        } catch(PDOException $e) {
+        } 
+        catch(Exception $e) {
+            error_log("Exception in apply leave: " . $e->getMessage());
             echo json_encode(array(
                 "status" => "error",
                 "message_text" => $e->getMessage()
             ), JSON_FORCE_OBJECT);
         }
     }
+
+    public function uploadLeaveCertificate(array $data) {
+        include('config.inc');
+        header('Content-Type: application/json');
+        
+        try {
+            if (!isset($data['applyLeaveID']) || !isset($data['certificateType'])) {
+                throw new Exception("Missing required fields");
+            }
+
+            $applyLeaveID = $data['applyLeaveID'];
+            $certificateType = $data['certificateType'];
+
+            // Define upload directory with correct Windows path
+            $uploadDir = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'certificates' . DIRECTORY_SEPARATOR;
+            
+            // Create directory if it doesn't exist
+            if (!file_exists($uploadDir)) {
+                if (!mkdir($uploadDir, 0777, true)) {
+                    throw new Exception("Failed to create upload directory");
+                }
+            }
+
+            if (!isset($_FILES['file'])) {
+                throw new Exception('No file uploaded');
+            }
+
+            $file = $_FILES['file'];
+            
+            // Validate file
+            if ($file['error'] !== UPLOAD_ERR_OK) {
+                throw new Exception('File upload error: ' . $file['error']);
+            }
+
+            $fileExtension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+            
+            // Validate file type
+            $allowedTypes = ['jpg', 'jpeg', 'png', 'pdf'];
+            if (!in_array($fileExtension, $allowedTypes)) {
+                throw new Exception('Invalid file type. Allowed types: ' . implode(', ', $allowedTypes));
+            }
+
+            // Generate unique filename
+            $fileName = $applyLeaveID . '_' . $certificateType . '_' . time() . '.' . $fileExtension;
+            $targetPath = $uploadDir . $fileName;
+
+            // Store relative path in database (more portable)
+            $dbPath = 'uploads/certificates/' . $fileName;
+
+            // Move and validate file
+            if (!move_uploaded_file($file['tmp_name'], $targetPath)) {
+                throw new Exception('Failed to save file. Path: ' . $targetPath);
+            }
+
+            // Update database
+            $columnName = ($certificateType === 'Medical') ? 'MedicalCertificatePath' : 'FitnessCertificatePath';
+            $dateColumn = ($certificateType === 'Medical') ? 'MedicalCertificateUploadDate' : 'FitnessCertificateUploadDate';
+
+            $queryUpdateCertificate = "UPDATE tblApplyLeave 
+                                     SET $columnName = ?,
+                                         $dateColumn = CURRENT_TIMESTAMP
+                                     WHERE applyLeaveID = ?";
+
+            $stmt = mysqli_prepare($connect_var, $queryUpdateCertificate);
+            mysqli_stmt_bind_param($stmt, "si", $dbPath, $applyLeaveID);
+            
+            if(mysqli_stmt_execute($stmt)) {
+                // Get the server URL dynamically
+                $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://';
+                $host = $_SERVER['HTTP_HOST'];
+                $baseUrl = $protocol . $host . '/Vidupu/vidupuApi/';
+                
+                echo json_encode(array(
+                    "status" => "success",
+                    "message_text" => "Certificate uploaded successfully",
+                    "file_path" => $dbPath,
+                    "public_url" => $baseUrl . $dbPath
+                ));
+            } else {
+                throw new Exception('Failed to update database: ' . mysqli_error($connect_var));
+            }
+            
+            mysqli_stmt_close($stmt);
+            mysqli_close($connect_var);
+
+        } catch(Exception $e) {
+            error_log("Exception in uploadLeaveCertificate: " . $e->getMessage());
+            echo json_encode(array(
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ));
+        }
+    }
+
+    private function getPublicUrl($dbPath) {
+        // Get the server URL dynamically
+        $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://';
+        $host = $_SERVER['HTTP_HOST'];
+        $baseUrl = $protocol . $host . '/Vidupu/vidupuApi/';
+        return $baseUrl . $dbPath;
+    }
 }
 
 function applyLeave(array $data) {
-    $leaveObject = new ApplyLeaveMaster;
+    $leaveObject = new ApplyLeaveMaster();
     if($leaveObject->loadApplyLeaveDetails($data)) {
         $leaveObject->applyForLeave();
     } else {
@@ -248,7 +453,7 @@ function applyLeave(array $data) {
 }
 
 function getLeaveBalance(array $data) {
-    $leaveObject = new ApplyLeaveMaster;
+    $leaveObject = new ApplyLeaveMaster();
     if($leaveObject->loadEmployeeDetails($data)) {
         $leaveObject->getLeaveBalanceInfo();
     } else {
@@ -260,7 +465,7 @@ function getLeaveBalance(array $data) {
 }
 
 function getLeaveHistory(array $data) {
-    $leaveObject = new ApplyLeaveMaster;
+    $leaveObject = new ApplyLeaveMaster();
     if($leaveObject->loadEmployeeDetails($data)) {
         $leaveObject->getLeaveHistoryInfo();
     } else {
@@ -271,4 +476,9 @@ function getLeaveHistory(array $data) {
     }
 }
 
-?> 
+function uploadLeaveCertificate(array $data) {
+    $leaveObject = new ApplyLeaveMaster();
+    $leaveObject->uploadLeaveCertificate($data);
+}
+
+?>

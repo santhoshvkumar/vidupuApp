@@ -53,3 +53,39 @@ $f3->route('POST /GetLeaveHistory',
         }
     }
 );
+
+/*****************   Upload Medical Certificate  *******************/
+$f3->route('POST /UploadCertificate',
+    function($f3) {
+        header('Content-Type: application/json');
+        header('Access-Control-Allow-Origin: *');
+        header('Access-Control-Allow-Methods: POST');
+        header('Access-Control-Allow-Headers: Content-Type');
+        
+        try {
+            // Validate request
+            if (!isset($_POST['applyLeaveID']) || !isset($_POST['certificateType'])) {
+                throw new Exception("Missing required fields");
+            }
+
+            if (!isset($_FILES['file'])) {
+                throw new Exception("No file uploaded");
+            }
+
+            $data = [
+                'applyLeaveID' => $_POST['applyLeaveID'],
+                'certificateType' => $_POST['certificateType']
+            ];
+
+            uploadLeaveCertificate($data);
+
+        } catch (Exception $e) {
+            error_log("Upload error: " . $e->getMessage());
+            echo json_encode(array(
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ));
+        }
+    }
+);
+/*****************  End Upload Medical Certificate *****************/
