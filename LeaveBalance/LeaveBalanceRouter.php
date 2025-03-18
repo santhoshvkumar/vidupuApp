@@ -54,38 +54,22 @@ $f3->route('POST /GetLeaveHistory',
     }
 );
 
-/*****************   Upload Medical Certificate  *******************/
-$f3->route('POST /UploadCertificate',
+$f3->route('POST /UploadLeaveCertificate',
     function($f3) {
         header('Content-Type: application/json');
-        header('Access-Control-Allow-Origin: *');
-        header('Access-Control-Allow-Methods: POST');
-        header('Access-Control-Allow-Headers: Content-Type');
-        
-        try {
-            // Validate request
-            if (!isset($_POST['applyLeaveID']) || !isset($_POST['certificateType'])) {
-                throw new Exception("Missing required fields");
-            }
-
-            if (!isset($_FILES['file'])) {
-                throw new Exception("No file uploaded");
-            }
-
-            $data = [
-                'applyLeaveID' => $_POST['applyLeaveID'],
-                'certificateType' => $_POST['certificateType']
-            ];
-
-            uploadLeaveCertificate($data);
-
-        } catch (Exception $e) {
-            error_log("Upload error: " . $e->getMessage());
-            echo json_encode(array(
-                "status" => "error",
-                "message_text" => $e->getMessage()
-            ));
+        $decoded_items = json_decode($f3->get('BODY'), true);           
+        if (!$decoded_items == NULL) {
+            uploadLeaveCertificate($decoded_items);
+        } else {
+            echo json_encode(
+                array(
+                    "status" => "error Upload Leave Certificate",  
+                    "message_text" => "Invalid input parameters"
+                ),
+                JSON_FORCE_OBJECT
+            );
         }
     }
-);
+);  
+
 /*****************  End Upload Medical Certificate *****************/
