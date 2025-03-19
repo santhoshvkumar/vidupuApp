@@ -48,6 +48,8 @@ class ApproveLeaveMaster {
                 tblL.reason,
                 tblL.createdOn,
                 tblL.status,
+                tblL.MedicalCertificatePath,
+                tblL.FitnessCertificatePath,
                 DATEDIFF(tblL.toDate, tblL.fromDate) + 1 as NoOfDays
             FROM 
                 tblEmployee tblE
@@ -67,6 +69,14 @@ class ApproveLeaveMaster {
             $count = 0;
             
             while($rs = mysqli_fetch_assoc($rsd)) {
+                // Convert certificate paths to full URLs if they exist
+                if (!empty($rs['MedicalCertificatePath'])) {
+                    $rs['MedicalCertificatePath'] = $this->getFullUrl($rs['MedicalCertificatePath']);
+                }
+                if (!empty($rs['FitnessCertificatePath'])) {
+                    $rs['FitnessCertificatePath'] = $this->getFullUrl($rs['FitnessCertificatePath']);
+                }
+                
                 $resultArr[] = $rs;
                 $count++;
             }
@@ -93,6 +103,28 @@ class ApproveLeaveMaster {
                 "message_text" => $e->getMessage()
             ), JSON_FORCE_OBJECT);
         }
+    }
+
+    // Add this helper method to convert relative paths to full URLs
+    private function getFullUrl($path) {
+        if (empty($path)) return null;
+        
+        // Get the server protocol (http or https)
+        $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) ? "https://" : "http://";
+        
+        // Get the server name and port
+        $serverUrl = $protocol . $_SERVER['HTTP_HOST'];
+        
+        // If the path already starts with http/https, return it as is
+        if (strpos($path, 'http://') === 0 || strpos($path, 'https://') === 0) {
+            return $path;
+        }
+        
+        // Remove any leading slashes from the path
+        $path = ltrim($path, '/');
+        
+        // Construct the full URL
+        return $serverUrl . '/' . $path;
     }
 
     public function processLeaveStatus() {
