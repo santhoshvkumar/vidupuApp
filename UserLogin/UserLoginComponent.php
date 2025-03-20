@@ -19,8 +19,8 @@ class UserMaster{
     public function LoginUserTempInfo(){
         include('config.inc');
         header('Content-Type: application/json');
-        error_reporting(E_ALL);
-        ini_set('display_errors', '1');
+        error_reporting( E_ALL );
+        ini_set('display_errors', 1);
         try
         {
         
