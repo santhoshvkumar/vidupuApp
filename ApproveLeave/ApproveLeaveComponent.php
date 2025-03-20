@@ -37,27 +37,13 @@ class ApproveLeaveMaster {
                 throw new Exception("Database connection failed");
             }
 
-            $queryLeaveApproval = "SELECT 
-                tblE.employeeID,
-                tblE.employeeName,
-                tblL.applyLeaveID,
-                tblE.empID,
-                tblL.fromDate,
-                tblL.toDate,
-                tblL.typeOfLeave,
-                tblL.reason,
-                tblL.createdOn,
-                tblL.status,
-                tblL.MedicalCertificatePath,
-                tblL.FitnessCertificatePath,
-                DATEDIFF(tblL.toDate, tblL.fromDate) + 1 as NoOfDays
-            FROM 
-                tblEmployee tblE
-            INNER JOIN 
-                tblApplyLeave tblL ON tblE.employeeID = tblL.employeeID
-            WHERE 
-                tblE.managerID = '" . mysqli_real_escape_string($connect_var, $this->employeeID) . "'  
-                AND tblL.status = 'Yet To Be Approved'";
+            $queryLeaveApproval = "SELECT DISTINCT a.applyLeaveID, a.employeeID as empID, e.employeeName, a.fromDate, a.toDate,
+                                  a.leaveDuration as NoOfDays, a.typeOfLeave, a.reason, a.status, a.createdOn,
+                                  a.MedicalCertificatePath, a.FitnessCertificatePath
+                                  FROM tblApplyLeave a
+                                  INNER JOIN tblEmployee e ON a.employeeID = e.empID
+                                  WHERE a.status = 'Yet To Be Approved'
+                                  ORDER BY a.applyLeaveID DESC";
     
             $rsd = mysqli_query($connect_var, $queryLeaveApproval);
             
@@ -136,7 +122,7 @@ class ApproveLeaveMaster {
             }
 
             // Get leave details
-            $queryGetLeave = "SELECT applyLeaveID, typeOfLeave, employeeID, status, 
+            $queryGetLeave = "SELECT applyLeaveID, typeOfLeave, employeeID, status, MedicalCertificatePath,
                               DATEDIFF(toDate, fromDate) + 1 as NoOfDays 
                               FROM tblApplyLeave 
                               WHERE applyLeaveID = ?";
@@ -151,6 +137,17 @@ class ApproveLeaveMaster {
                 $leaveType = $leaveDetails['typeOfLeave'];
                 $employeeID = $leaveDetails['employeeID'];
                 $leaveDuration = $leaveDetails['NoOfDays'];
+                
+                // Check if this is a medical leave being approved without a certificate
+                if ($this->status === 'Approved' && $leaveType === 'Medical Leave' && empty($leaveDetails['MedicalCertificatePath'])) {
+                    echo json_encode(array(
+                        "status" => "failure",
+                        "message_text" => "Cannot approve medical leave without a certificate"
+                    ), JSON_FORCE_OBJECT);
+                    mysqli_close($connect_var);
+                    return;
+                }
+                
                 // Update leave status
                 $updateQuery = "UPDATE tblApplyLeave 
                               SET status = '" . mysqli_real_escape_string($connect_var, $this->status) . "' 

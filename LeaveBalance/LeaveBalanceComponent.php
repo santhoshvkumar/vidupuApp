@@ -233,6 +233,47 @@ class ApplyLeaveMaster {
             ), JSON_FORCE_OBJECT);
         }
     }
+
+    public function updateLeaveStatus($applyLeaveID, $status) {
+        include('config.inc');
+        header('Content-Type: application/json');
+        
+        try {
+            // Validate the input
+            if (empty($applyLeaveID) || empty($status)) {
+                echo json_encode(array(
+                    "status" => "error",
+                    "message" => "Missing required parameters"
+                ), JSON_FORCE_OBJECT);
+                return;
+            }
+            
+            // Update the leave status in the database
+            $query = "UPDATE tblApplyLeave SET status = ? WHERE applyLeaveID = ?";
+            $stmt = mysqli_prepare($connect_var, $query);
+            mysqli_stmt_bind_param($stmt, "ss", $status, $applyLeaveID);
+            $result = mysqli_stmt_execute($stmt);
+            
+            if ($result) {
+                echo json_encode(array(
+                    "status" => "success",
+                    "message" => "Leave status updated successfully to " . $status
+                ), JSON_FORCE_OBJECT);
+            } else {
+                echo json_encode(array(
+                    "status" => "error",
+                    "message" => "Failed to update leave status: " . mysqli_error($connect_var)
+                ), JSON_FORCE_OBJECT);
+            }
+            
+            mysqli_close($connect_var);
+        } catch (Exception $e) {
+            echo json_encode(array(
+                "status" => "error",
+                "message" => $e->getMessage()
+            ), JSON_FORCE_OBJECT);
+        }
+    }
 }
 
 function applyLeave(array $data) {
@@ -271,62 +312,16 @@ function getLeaveHistory(array $data) {
     }
 }
 
-function uploadLeaveCertificate($data) {
-    include('config.inc');
-    header('Content-Type: application/json');
-    
-    try {
-      $applyLeaveID = $data['applyLeaveID'];
-      $certificateType = $data['certificateType'];
-      
-      // Check if file was uploaded successfully
-      if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
-        throw new Exception("File upload failed with error code: " . ($_FILES['file']['error'] ?? 'No file uploaded'));
-      }
-      
-      // Create directory for certificates if it doesn't exist
-      $uploadDir = '../uploads/certificates/';
-      if (!file_exists($uploadDir)) {
-        mkdir($uploadDir, 0777, true);
-      }
-      
-      // Generate unique filename to prevent overwriting
-      $originalFilename = basename($_FILES['file']['name']);
-      $fileExtension = pathinfo($originalFilename, PATHINFO_EXTENSION);
-      $newFilename = $applyLeaveID . '_' . strtolower($certificateType) . '_' . time() . '.' . $fileExtension;
-      $targetPath = $uploadDir . $newFilename;
-      
-      // Move uploaded file to target directory
-      if (!move_uploaded_file($_FILES['file']['tmp_name'], $targetPath)) {
-        throw new Exception("Failed to move uploaded file");
-      }
-      
-      // Save certificate path in database
-      $dbPath = 'uploads/certificates/' . $newFilename;
-      $columnName = $certificateType === 'Medical' ? 'MedicalCertificatePath' : 'FitnessCertificatePath';
-      
-      $queryUpdateCertificate = "UPDATE tblApplyLeave SET $columnName = '$dbPath' WHERE applyLeaveID = '$applyLeaveID'";
-      $result = mysqli_query($connect_var, $queryUpdateCertificate);
-      
-      if (!$result) {
-        // Delete file if database update fails
-        unlink($targetPath);
-        throw new Exception("Database error: " . mysqli_error($connect_var));
-      }
-      
-      echo json_encode(array(
-        "status" => "success",
-        "message_text" => "Certificate uploaded successfully",
-        "file_path" => $dbPath
-      ), JSON_FORCE_OBJECT);
-      
-    } catch (Exception $e) {
-      echo json_encode(array(
-        "status" => "error",
-        "message_text" => $e->getMessage()
-      ), JSON_FORCE_OBJECT);
+function updateLeaveStatus(array $data) {
+    $leaveObject = new ApplyLeaveMaster;
+    if (isset($data['applyLeaveID']) && isset($data['status'])) {
+        $leaveObject->updateLeaveStatus($data['applyLeaveID'], $data['status']);
+    } else {
+        echo json_encode(array(
+            "status" => "error",
+            "message" => "Invalid Input Parameters"
+        ), JSON_FORCE_OBJECT);
     }
-    
-    mysqli_close($connect_var);
-  }
+}
+
 ?> 
