@@ -12,7 +12,7 @@ class UserMaster{
     public function loadLoginUser(array $data){
         $this->UserName = $data['EmployeePhone'];
         $this->UserPassword = $data['EmployeePassword'];
-        $this->UserToken = $data['UserToken'];
+        $this->UserToken = $data['userToken'];
         return true;
     }
 
@@ -83,7 +83,7 @@ class UserMaster{
         mysqli_close($connect_var);
 
         if($count>0)
-            echo json_encode(array("status"=>"success","record_count"=>$count,"result"=>$resultArr, "updatedToken"=>$this->UserToken));
+            echo json_encode(array("status"=>"success","record_count"=>$count,"result"=>$resultArr, "updatedToken"=>$updateToken));
         else
             echo json_encode(array("status"=>"failure","record_count"=>$count,"message_text"=>"No user with userPhoneNumber='$this->UserName'"),JSON_FORCE_OBJECT);
         }   
