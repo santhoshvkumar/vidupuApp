@@ -83,7 +83,7 @@ class UserMaster{
         mysqli_close($connect_var);
 
         if($count>0)
-            echo json_encode(array("status"=>"success","record_count"=>$count,"result"=>$resultArr));
+            echo json_encode(array("status"=>"success","record_count"=>$count,"result"=>$resultArr, "updatedToken"=>$this->UserToken));
         else
             echo json_encode(array("status"=>"failure","record_count"=>$count,"message_text"=>"No user with userPhoneNumber='$this->UserName'"),JSON_FORCE_OBJECT);
         }   
