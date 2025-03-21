@@ -56,6 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     error_log("POST Data: " . print_r($_POST, true));
     error_log("FILES Data: " . print_r($_FILES, true));
 
+
     if (!empty($_FILES)) {
         if (isset($_FILES['file'])) {
             $file = $_FILES['file'];
@@ -272,3 +273,9 @@ if (isset($_GET['action']) && $_GET['action'] === 'getCertificate') {
     exit;
 }
 ?>
+
+
+
+
+
+
