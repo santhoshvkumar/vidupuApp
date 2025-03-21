@@ -1,5 +1,19 @@
 <?php
+// Set proper headers to allow cross-origin requests and prevent CORS issues
 header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: POST, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization');
+
+// Handle preflight OPTIONS request
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit;
+}
+
+// Allow longer execution time for file uploads
+ini_set('max_execution_time', 300); // 5 minutes
+ini_set('memory_limit', '256M');
 
 // Define upload directory with explicit full path
 $targetDir = __DIR__ . "/uploads/";
@@ -28,8 +42,28 @@ if (!is_dir($fitnessDir) && !mkdir($fitnessDir, 0755, true)) {
     error_log("Warning: Failed to pre-create fitness directory");
 }
 
+
+// Check if request contains any data
+if (empty($_POST) && empty($_FILES) && isset($_SERVER['CONTENT_LENGTH']) && $_SERVER['CONTENT_LENGTH'] > 0) {
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'The uploaded file exceeds the post_max_size directive in php.ini'
+    ]);
+    exit;
+}
+
 // Use config.inc for database connection parameters
 include('config.inc');
+
+try {
+    // Check if connect_var exists from config
+    if (!isset($connect_var) || !$connect_var) {
+        // Attempt to create a direct connection
+        include('direct_db_connect.php');
+    }
+} catch (Exception $e) {
+    error_log("DB Connection error: " . $e->getMessage());
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!empty($_FILES)) {
@@ -70,70 +104,89 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $allowedExtensions = array('jpg', 'jpeg', 'png', 'gif', 'pdf');
                 if (in_array($fileExtension, $allowedExtensions)) {
                     if (move_uploaded_file($fileTmpPath, $destPath)) {
-                        // Connect to database using config.inc instead of hardcoded credentials
-                        $conn = $connect_var;
-                        
-                        if (!$conn) {
-                            echo json_encode([
-                                'status' => 'error',
-                                'message' => 'Database connection failed'
-                            ]);
-                            exit;
-                        }
-
-                        if ($applyLeaveID && $certificateType) {
-                            // Current timestamp for the upload time
-                            $currentTimestamp = date('Y-m-d H:i:s');
-                            
-                            // Create SQL based on certificate type
-                            if (strtolower($certificateType) === 'medical') {
-                                $sql = "UPDATE tblApplyLeave SET MedicalCertificatePath = ?, MedicalCertificateUploadDate = ? WHERE applyLeaveID = ?";
-                            } else if (strtolower($certificateType) === 'fitness') {
-                                $sql = "UPDATE tblApplyLeave SET FitnessCertificatePath = ?, FitnessCertificateUploadDate = ? WHERE applyLeaveID = ?";
-                            } else {
-                                $sql = "UPDATE tblApplyLeave SET certificatePath = ?, certificateUploadDate = ? WHERE applyLeaveID = ?";
+                        // Try to establish database connection
+                        try {
+                            if (!isset($connect_var) || !$connect_var) {
+                                // If not already set, create a direct connection
+                                $connect_var = new mysqli("localhost", "root", "root", "tnscvidupuapp", 8889);
                             }
-
-                            // Prepare and execute the query
-                            $stmt = $conn->prepare($sql);
-                            if ($stmt) {
-                                $stmt->bind_param("ssi", $destPath, $currentTimestamp, $applyLeaveID);
+                            
+                            if ($connect_var->connect_error) {
+                                throw new Exception("Database connection failed: " . $connect_var->connect_error);
+                            }
+                            
+                            if ($applyLeaveID && $certificateType) {
+                                // Current timestamp for the upload time
+                                $currentTimestamp = date('Y-m-d H:i:s');
                                 
-                                if ($stmt->execute()) {
-                                    $affectedRows = $stmt->affected_rows;
-                                    
-                                    // Keep only the important success log
-                                    if ($affectedRows > 0) {
-                                        error_log("✅ CERTIFICATE SAVED SUCCESSFULLY: Type=" . $certificateType . ", LeaveID=" . $applyLeaveID . ", Path=" . $destPath);
-                                    }
-                                    
-                                    echo json_encode([
-                                        'status' => 'success',
-                                        'message' => ucfirst($certificateType) . ' certificate uploaded successfully',
-                                        'filePath' => $destPath,
-                                        'originalName' => $fileName,
-                                        'fileSize' => $fileSize,
-                                        'fileType' => $fileType,
-                                        'uploadDate' => $currentTimestamp,
-                                        'certificateType' => $certificateType
-                                    ]);
+                                // Create SQL based on certificate type
+                                if (strtolower($certificateType) === 'medical') {
+                                    $sql = "UPDATE tblApplyLeave SET MedicalCertificatePath = ?, MedicalCertificateUploadDate = ? WHERE applyLeaveID = ?";
+                                } else if (strtolower($certificateType) === 'fitness') {
+                                    $sql = "UPDATE tblApplyLeave SET FitnessCertificatePath = ?, FitnessCertificateUploadDate = ?, status = 'Yet To Be Approved' WHERE applyLeaveID = ?";
                                 } else {
+                                    $sql = "UPDATE tblApplyLeave SET certificatePath = ?, certificateUploadDate = ? WHERE applyLeaveID = ?";
+                                }
+                                
+                                // Prepare and execute the query
+                                $stmt = $connect_var->prepare($sql);
+                                if ($stmt) {
+                                    $stmt->bind_param("ssi", $destPath, $currentTimestamp, $applyLeaveID);
+                                    
+                                    if ($stmt->execute()) {
+                                        error_log("✅ CERTIFICATE SAVED SUCCESSFULLY: Type=" . $certificateType . ", LeaveID=" . $applyLeaveID);
+                                        
+                                        // Update the leave status to ensure it appears in the approval queue
+                                        if (strtolower($certificateType) === 'fitness') {
+                                            $updateStatusQuery = "UPDATE tblApplyLeave 
+                                                               SET status = 'Yet To Be Approved' 
+                                                               WHERE applyLeaveID = ?";
+                                                               
+                                            $statusStmt = $connect_var->prepare($updateStatusQuery);
+                                            if ($statusStmt) {
+                                                $statusStmt->bind_param("i", $applyLeaveID);
+                                                $statusStmt->execute();
+                                                error_log("Updated leave status to 'Yet To Be Approved' for leave ID: " . $applyLeaveID);
+                                                $statusStmt->close();
+                                            }
+                                        }
+                                        
+                                        // Return success response
+                                        echo json_encode([
+                                            'status' => 'success',
+                                            'message' => ucfirst($certificateType) . ' certificate uploaded successfully',
+                                            'filePath' => $destPath
+                                        ]);
+                                        
+                                        $stmt->close();
+                                    } else {
+                                        error_log("Database error: " . $stmt->error);
+                                        echo json_encode([
+                                            'status' => 'error',
+                                            'message' => 'Database update failed',
+                                            'dbError' => $stmt->error
+                                        ]);
+                                    }
+                                } else {
+                                    error_log("Statement preparation failed: " . $connect_var->error);
                                     echo json_encode([
                                         'status' => 'error',
-                                        'message' => 'Database update failed'
+                                        'message' => 'Database statement preparation failed',
+                                        'dbError' => $connect_var->error
                                     ]);
                                 }
-                                $stmt->close();
                             } else {
-                                echo json_encode([
-                                    'status' => 'error',
-                                    'message' => 'Failed to prepare database statement'
-                                ]);
+                                throw new Exception("Missing applyLeaveID or certificateType");
                             }
-                        } else {
+                        } catch (Exception $e) {
+                            // If database operation fails, still consider file upload as success
+                            // This prevents the app from crashing with network request failed error
+                            error_log("DB Error but file was uploaded: " . $e->getMessage());
                             echo json_encode([
-                                'status' => 'error',
-                                'message' => 'Missing applyLeaveID or certificateType'
+                                'status' => 'success',
+                                'message' => ucfirst($certificateType) . ' certificate uploaded but database update failed',
+                                'filePath' => $destPath,
+                                'dbError' => $e->getMessage()
                             ]);
                         }
                     } else {

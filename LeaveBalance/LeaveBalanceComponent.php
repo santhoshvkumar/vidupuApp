@@ -7,6 +7,12 @@ class ApplyLeaveMaster {
     public $companyID;
     public $leaveId;
     public $certificateType;
+    public $applyLeaveID;
+    public $fromDate;
+    public $toDate;
+    public $leaveType;
+    public $leaveDuration;
+    public $leaveReason;    
     
     public function loadEmployeeDetails(array $data) {
         $this->empID = $data['empID'];

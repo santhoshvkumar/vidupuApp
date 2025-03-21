@@ -9,6 +9,8 @@ class ApproveLeaveMaster {
     public $reason;
     public $status;
     public $employeeID;
+    public $startDate;
+    public $endDate;
     /**
      * Set manager ID for leave approval
      * @param string $managerID
@@ -48,6 +50,8 @@ class ApproveLeaveMaster {
                 tblL.reason,
                 tblL.createdOn,
                 tblL.status,
+                tblL.MedicalCertificatePath,
+                tblL.FitnessCertificatePath,
                 DATEDIFF(tblL.toDate, tblL.fromDate) + 1 as NoOfDays
             FROM 
                 tblEmployee tblE
@@ -384,6 +388,22 @@ class ApproveLeaveMaster {
             ), JSON_FORCE_OBJECT);
         }
     }
+
+
+    public function loadApprovalHistoryParams($decoded_items) {
+        $this->employeeID = $decoded_items['employeeID'];
+        
+        // Set date range if provided
+        if (isset($decoded_items['startDate'])) {
+            $this->startDate = $decoded_items['startDate'];
+        }
+        
+        if (isset($decoded_items['endDate'])) {
+            $this->endDate = $decoded_items['endDate'];
+        }
+        
+        return true;
+    }
 }
 
 
@@ -437,6 +457,16 @@ function approveMaternityLeave($decoded_items) {
             "status" => "error",
             "message_text" => "Invalid Input Parameters"
         ), JSON_FORCE_OBJECT);
+    }
+}
+
+function getApprovalHistory($decoded_items) {
+    $leaveObject = new ApproveLeaveMaster();
+    if($leaveObject->loadApprovalHistoryParams($decoded_items)){
+        $leaveObject->getApprovalHistoryInfo();
+    }
+    else{
+        echo json_encode(array("status"=>"error","message_text"=>"Invalid Input Parameters"),JSON_FORCE_OBJECT);
     }
 }
 
