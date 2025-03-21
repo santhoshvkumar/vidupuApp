@@ -339,6 +339,51 @@ class ApproveLeaveMaster {
             ), JSON_FORCE_OBJECT);
         }
     }
+
+    public function getApproveLeaveList() {
+        include('config.inc');
+        header('Content-Type: application/json');
+        try {
+            // Modify the SQL query to include MedicalCertificatePath and ensure it's not being filtered out
+            $queryApproveLeave = "SELECT a.applyLeaveID, a.employeeID as empID, e.name as employeeName, 
+                                   a.fromDate, a.toDate, a.leaveDuration as NoOfDays, a.typeOfLeave, 
+                                   a.reason, a.createdOn, a.status, a.MedicalCertificatePath, a.FitnessCertificatePath 
+                                   FROM tblApplyLeave a
+                                   JOIN tblEmployee e ON a.employeeID = e.empID
+                                   WHERE a.status = 'Yet To Be Approved' 
+                                   AND e.reportingPerson = '$this->employeeID'";
+                                   
+            $rsd = mysqli_query($connect_var, $queryApproveLeave);
+            $resultArr = array();
+            $count = 0;
+            
+            while($rs = mysqli_fetch_assoc($rsd)) {
+                $resultArr[] = $rs;
+                $count++;
+            }
+            
+            mysqli_close($connect_var);
+
+            if($count > 0) {
+                echo json_encode(array(
+                    "status" => "success",
+                    "result" => $resultArr,
+                    "record_count" => $count
+                ));
+            } else {
+                echo json_encode(array(
+                    "status" => "failure",
+                    "record_count" => $count,
+                    "message_text" => "No leave request found for approval."
+                ), JSON_FORCE_OBJECT);
+            }
+        } catch(PDOException $e) {
+            echo json_encode(array(
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ), JSON_FORCE_OBJECT);
+        }
+    }
 }
 
 

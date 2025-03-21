@@ -89,3 +89,37 @@ $f3->route('POST /UploadCertificate',
     }
 );
 /*****************  End Upload Medical Certificate *****************/
+
+// Add this route for getting certificate path
+$f3->route('GET /GetCertificatePath',
+    function($f3) {
+        header('Content-Type: application/json');
+        header('Access-Control-Allow-Origin: *');
+        
+        try {
+            // Get parameters from query string
+            $data = [
+                'leaveId' => $f3->get('GET.leaveId'),
+                'type' => $f3->get('GET.type') ?: 'Medical'
+            ];
+            
+            // Check for required parameter
+            if (empty($data['leaveId'])) {
+                echo json_encode([
+                    'status' => 'error',
+                    'message' => 'Missing leaveId parameter'
+                ]);
+                return;
+            }
+            
+            getCertificatePath($data);
+            
+        } catch (Exception $e) {
+            error_log("Certificate path error: " . $e->getMessage());
+            echo json_encode([
+                'status' => 'error',
+                'message' => $e->getMessage()
+            ]);
+        }
+    }
+);

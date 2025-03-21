@@ -5,6 +5,8 @@ class ApplyLeaveMaster {
     public $employeeName;
     public $leaveBalance;
     public $companyID;
+    public $leaveId;
+    public $certificateType;
     
     public function loadEmployeeDetails(array $data) {
         $this->empID = $data['empID'];
@@ -68,7 +70,12 @@ class ApplyLeaveMaster {
         include('config.inc');
         header('Content-Type: application/json');
         try {
-            $queryLeaveHistory = "SELECT applyLeaveID, fromDate, toDate, leaveDuration, typeOfLeave, reason, status FROM tblApplyLeave WHERE employeeID = '$this->empID' and status != 'Cancelled' ORDER by applyLeaveID DESC";
+            $queryLeaveHistory = "SELECT applyLeaveID, fromDate, toDate, leaveDuration, typeOfLeave, 
+                                  reason, status, MedicalCertificatePath, FitnessCertificatePath 
+                                  FROM tblApplyLeave 
+                                  WHERE employeeID = '$this->empID' and status != 'Cancelled' 
+                                  ORDER by applyLeaveID DESC";
+            
             $rsd = mysqli_query($connect_var, $queryLeaveHistory);
             $resultArr = array();
             $count = 0;
@@ -88,7 +95,7 @@ class ApplyLeaveMaster {
                 echo json_encode(array(
                     "status" => "failure",
                     "record_count" => $count,
-                    "message_text" => "No leave balance found for employee ID: $this->empID"
+                    "message_text" => "No leave history found for employee ID: $this->empID"
                 ), JSON_FORCE_OBJECT);
             }
         } catch(PDOException $e) {
@@ -233,6 +240,66 @@ class ApplyLeaveMaster {
             ), JSON_FORCE_OBJECT);
         }
     }
+
+    public function getCertificatePathInfo() {
+        include('config.inc');
+        header('Content-Type: application/json');
+        try {
+            // Get parameters
+            $leaveId = $this->leaveId;
+            $type = $this->certificateType ? $this->certificateType : 'Medical';
+            
+            if (!$leaveId) {
+                echo json_encode([
+                    'status' => 'error',
+                    'message' => 'Missing leaveId parameter'
+                ]);
+                return;
+            }
+            
+            // Determine which column to query based on certificate type
+            $column = ($type === 'Medical') ? 'MedicalCertificatePath' : 'FitnessCertificatePath';
+            
+            // Query to get certificate path
+            $queryGetCertPath = "SELECT $column FROM tblApplyLeave WHERE applyLeaveID = '$leaveId'";
+            $result = mysqli_query($connect_var, $queryGetCertPath);
+            
+            if ($result && mysqli_num_rows($result) > 0) {
+                $row = mysqli_fetch_assoc($result);
+                $path = $row[$column];
+                
+                if ($path && $path !== 'null' && $path !== '') {
+                    echo json_encode([
+                        'status' => 'success',
+                        'path' => $path
+                    ]);
+                } else {
+                    echo json_encode([
+                        'status' => 'error',
+                        'message' => 'No certificate found for this leave'
+                    ]);
+                }
+            } else {
+                echo json_encode([
+                    'status' => 'error',
+                    'message' => 'Leave request not found'
+                ]);
+            }
+            
+            mysqli_close($connect_var);
+        } catch(Exception $e) {
+            echo json_encode([
+                'status' => 'error',
+                'message' => $e->getMessage()
+            ]);
+        }
+    }
+
+    public function loadCertificateParams(array $data) {
+        $this->leaveId = isset($data['leaveId']) ? $data['leaveId'] : null;
+        $this->certificateType = isset($data['type']) ? $data['type'] : 'Medical';
+        return true;
+    }
 }
 
 function applyLeave(array $data) {
@@ -267,6 +334,18 @@ function getLeaveHistory(array $data) {
         echo json_encode(array(
             "status" => "error",
             "message_text" => "Invalid Input Parameters"
+        ), JSON_FORCE_OBJECT);
+    }
+}
+
+function getCertificatePath(array $data) {
+    $leaveObject = new ApplyLeaveMaster;
+    if($leaveObject->loadCertificateParams($data)) {
+        $leaveObject->getCertificatePathInfo();
+    } else {
+        echo json_encode(array(
+            "status" => "error",
+            "message" => "Invalid Input Parameters"
         ), JSON_FORCE_OBJECT);
     }
 }
