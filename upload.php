@@ -1,12 +1,31 @@
 <?php
 header('Content-Type: application/json');
 
-// Define upload directory
-$targetDir = "uploads/";
+// Define upload directory with explicit full path
+$targetDir = __DIR__ . "/uploads/";
 
-// Create the uploads directory if it doesn't exist
+// Create the uploads directory 
 if (!is_dir($targetDir)) {
-    mkdir($targetDir, 0755, true);
+    if (!mkdir($targetDir, 0755, true)) {
+        echo json_encode([
+            'status' => 'error',
+            'message' => 'Failed to create upload directory'
+        ]);
+        exit;
+    }
+    error_log("Created main uploads directory: " . $targetDir);
+}
+
+// Pre-create subdirectories at startup
+$medicalDir = $targetDir . "medical/";
+$fitnessDir = $targetDir . "fitness/";
+
+if (!is_dir($medicalDir) && !mkdir($medicalDir, 0755, true)) {
+    error_log("Warning: Failed to pre-create medical directory");
+}
+
+if (!is_dir($fitnessDir) && !mkdir($fitnessDir, 0755, true)) {
+    error_log("Warning: Failed to pre-create fitness directory");
 }
 
 // Database connection parameters
