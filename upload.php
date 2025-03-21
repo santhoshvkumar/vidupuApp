@@ -28,13 +28,8 @@ if (!is_dir($fitnessDir) && !mkdir($fitnessDir, 0755, true)) {
     error_log("Warning: Failed to pre-create fitness directory");
 }
 
-// Database connection parameters
-$db_host = "localhost";
-$db_user = "root";
-$db_pass = "root";
-$db_name = "tnscvidupuapp";
-$db_port = 8889;
-
+// Use config.inc for database connection parameters
+include('config.inc');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!empty($_FILES)) {
@@ -75,10 +70,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $allowedExtensions = array('jpg', 'jpeg', 'png', 'gif', 'pdf');
                 if (in_array($fileExtension, $allowedExtensions)) {
                     if (move_uploaded_file($fileTmpPath, $destPath)) {
-                        // Connect to database
-                        $conn = new mysqli($db_host, $db_user, $db_pass, $db_name, $db_port);
+                        // Connect to database using config.inc instead of hardcoded credentials
+                        $conn = $connect_var;
                         
-                        if ($conn->connect_error) {
+                        if (!$conn) {
                             echo json_encode([
                                 'status' => 'error',
                                 'message' => 'Database connection failed'
@@ -141,7 +136,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 'message' => 'Missing applyLeaveID or certificateType'
                             ]);
                         }
-                        $conn->close();
                     } else {
                         echo json_encode([
                             'status' => 'error',
