@@ -19,6 +19,16 @@ class ApproveLeaveMaster {
 
     public function loadLeaveforApproval($decoded_items) {
         $this->employeeID = $decoded_items['employeeID']; 
+        
+        // Set date range if provided
+        if (isset($decoded_items['startDate']) && !empty($decoded_items['startDate'])) {
+            $this->startDate = $decoded_items['startDate'];
+        }
+        
+        if (isset($decoded_items['endDate']) && !empty($decoded_items['endDate'])) {
+            $this->endDate = $decoded_items['endDate'];
+        }
+        
         return true;
     }
 
@@ -60,13 +70,27 @@ class ApproveLeaveMaster {
             WHERE 
                 tblE.managerID = '" . mysqli_real_escape_string($connect_var, $this->employeeID) . "'  
                 AND tblL.status = 'Yet To Be Approved'";
-    
+            
+            // Add date filters if provided
+            if (isset($this->startDate) && !empty($this->startDate)) {
+                $queryLeaveApproval .= " AND tblL.fromDate >= '" . 
+                    mysqli_real_escape_string($connect_var, $this->startDate) . "'";
+            }
+            
+            if (isset($this->endDate) && !empty($this->endDate)) {
+                $queryLeaveApproval .= " AND tblL.toDate <= '" . 
+                    mysqli_real_escape_string($connect_var, $this->endDate) . "'";
+            }
+            
+            // Order by most recent first
+            $queryLeaveApproval .= " ORDER BY tblL.createdOn DESC";
+
             $rsd = mysqli_query($connect_var, $queryLeaveApproval);
             
             if (!$rsd) {
                 throw new Exception(mysqli_error($connect_var));
             }
-    
+
             $resultArr = array();
             $count = 0;
             
@@ -76,7 +100,7 @@ class ApproveLeaveMaster {
             }
             
             mysqli_close($connect_var);
-    
+
             if($count > 0) {
                 echo json_encode(array(
                     "status" => "success",
@@ -90,7 +114,7 @@ class ApproveLeaveMaster {
                     "message_text" => "No leaves pending for approval"
                 ), JSON_FORCE_OBJECT);
             }
-    
+
         } catch(Exception $e) {
             echo json_encode(array(
                 "status" => "error",
@@ -392,17 +416,77 @@ class ApproveLeaveMaster {
 
     public function loadApprovalHistoryParams($decoded_items) {
         $this->employeeID = $decoded_items['employeeID'];
-        
-        // Set date range if provided
-        if (isset($decoded_items['startDate'])) {
-            $this->startDate = $decoded_items['startDate'];
-        }
-        
-        if (isset($decoded_items['endDate'])) {
-            $this->endDate = $decoded_items['endDate'];
-        }
-        
         return true;
+    }
+
+    public function getApprovalHistoryInfo() {
+        include('config.inc');
+        header('Content-Type: application/json');
+        try {
+            if (!$connect_var) {
+                throw new Exception("Database connection failed");
+            }
+
+            $query = "SELECT 
+                tblL.applyLeaveID,
+                tblE.employeeID,
+                tblE.employeeName,
+                tblE.empID,
+                tblL.fromDate,
+                tblL.toDate,
+                tblL.typeOfLeave,
+                tblL.reason,
+                tblL.createdOn,
+                tblL.status,
+                tblL.MedicalCertificatePath,
+                tblL.FitnessCertificatePath,
+                DATEDIFF(tblL.toDate, tblL.fromDate) + 1 as NoOfDays
+            FROM 
+                tblEmployee tblE
+            INNER JOIN 
+                tblApplyLeave tblL ON tblE.employeeID = tblL.employeeID
+            WHERE 
+                tblE.managerID = '" . mysqli_real_escape_string($connect_var, $this->employeeID) . "'  
+                AND tblL.status IN ('Approved', 'Rejected')
+            ORDER BY tblL.createdOn DESC 
+            LIMIT 50";
+
+            $rsd = mysqli_query($connect_var, $query);
+            
+            if (!$rsd) {
+                throw new Exception(mysqli_error($connect_var));
+            }
+
+            $resultArr = array();
+            $count = 0;
+            
+            while($rs = mysqli_fetch_assoc($rsd)) {
+                $resultArr[] = $rs;
+                $count++;
+            }
+            
+            mysqli_close($connect_var);
+
+            if($count > 0) {
+                echo json_encode(array(
+                    "status" => "success",
+                    "result" => $resultArr,
+                    "record_count" => $count
+                ));
+            } else {
+                echo json_encode(array(
+                    "status" => "failure",
+                    "record_count" => 0,
+                    "message_text" => "No approval history found"
+                ), JSON_FORCE_OBJECT);
+            }
+
+        } catch(Exception $e) {
+            echo json_encode(array(
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ), JSON_FORCE_OBJECT);
+        }
     }
 }
 

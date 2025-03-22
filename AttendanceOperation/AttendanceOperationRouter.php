@@ -75,4 +75,16 @@ $f3->route('POST /TestAutoCheckout',
         }
     }
 );
+
+$f3->route('GET /attendance/employee/@empID',
+    function($f3) {
+        getEmployeeAttendance($f3);
+    }
+);
+
+$f3->route('GET /attendance/stats/@empID',
+    function($f3) {
+        getEmployeeAttendanceStats($f3);
+    }
+);
 ?>

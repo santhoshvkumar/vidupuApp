@@ -323,6 +323,148 @@ class AttendanceOperationMaster{
             ), JSON_FORCE_OBJECT);
         }
     }
+    public function getEmployeeAttendanceHistory($employeeID, $page = 1, $limit = 10) {
+        include('config.inc');
+        header('Content-Type: application/json');
+        try {
+            // Calculate offset for pagination
+            $offset = ($page - 1) * $limit;
+            
+            // Query to get attendance history with pagination
+            $query = "SELECT 
+                        attendanceID, 
+                        employeeID, 
+                        attendanceDate, 
+                        checkInTime, 
+                        checkOutTime, 
+                        TotalWorkingHour, 
+                        isAutoCheckout
+                    FROM tblAttendance 
+                    WHERE employeeID = ? 
+                    ORDER BY attendanceDate DESC, checkInTime DESC
+                    LIMIT ?, ?";
+            
+            $stmt = mysqli_prepare($connect_var, $query);
+            mysqli_stmt_bind_param($stmt, "sii", $employeeID, $offset, $limit);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+            
+            $attendanceRecords = [];
+            while ($row = mysqli_fetch_assoc($result)) {
+                $attendanceRecords[] = $row;
+            }
+            
+            mysqli_close($connect_var);
+            
+            if (count($attendanceRecords) > 0) {
+                echo json_encode(array(
+                    "status" => "success",
+                    "data" => $attendanceRecords
+                ));
+            } else {
+                echo json_encode(array(
+                    "status" => "success",
+                    "data" => []
+                ));
+            }
+        } catch(Exception $e) {
+            echo json_encode(array(
+                "status" => "error",
+                "message_text" => "Error retrieving attendance history: " . $e->getMessage()
+            ), JSON_FORCE_OBJECT);
+        }
+    }
+    public function getEmployeeAttendanceStats($employeeID) {
+        include('config.inc');
+        header('Content-Type: application/json');
+        try {
+            // Query to get early check-ins count
+            $earlyCheckInQuery = "SELECT 
+                    COUNT(*) as earlyCheckInCount
+                FROM tblAttendance 
+                WHERE employeeID = ? 
+                AND checkInTime < ?";
+            
+            $earlyStmt = mysqli_prepare($connect_var, $earlyCheckInQuery);
+            mysqli_stmt_bind_param($earlyStmt, "ss", $employeeID, $GLOBALS['STANDARD_CHECK_IN_TIME']);
+            mysqli_stmt_execute($earlyStmt);
+            $earlyResult = mysqli_stmt_get_result($earlyStmt);
+            $earlyData = mysqli_fetch_assoc($earlyResult);
+            
+            // Query to get late check-outs count
+            $lateCheckOutQuery = "SELECT 
+                    COUNT(*) as lateCheckOutCount
+                FROM tblAttendance 
+                WHERE employeeID = ? 
+                AND checkOutTime > ?
+                AND checkOutTime IS NOT NULL";
+            
+            $lateStmt = mysqli_prepare($connect_var, $lateCheckOutQuery);
+            mysqli_stmt_bind_param($lateStmt, "ss", $employeeID, $GLOBALS['STANDARD_CHECK_OUT_TIME']);
+            mysqli_stmt_execute($lateStmt);
+            $lateResult = mysqli_stmt_get_result($lateStmt);
+            $lateData = mysqli_fetch_assoc($lateResult);
+            
+            // Get recent records of each type (optional)
+            $recentEarlyQuery = "SELECT 
+                    attendanceID, 
+                    attendanceDate, 
+                    checkInTime
+                FROM tblAttendance 
+                WHERE employeeID = ? 
+                AND checkInTime < ?
+                ORDER BY attendanceDate DESC
+                LIMIT 5";
+                
+            $recentEarlyStmt = mysqli_prepare($connect_var, $recentEarlyQuery);
+            mysqli_stmt_bind_param($recentEarlyStmt, "ss", $employeeID, $GLOBALS['STANDARD_CHECK_IN_TIME']);
+            mysqli_stmt_execute($recentEarlyStmt);
+            $recentEarlyResult = mysqli_stmt_get_result($recentEarlyStmt);
+            
+            $recentEarlyRecords = [];
+            while ($row = mysqli_fetch_assoc($recentEarlyResult)) {
+                $recentEarlyRecords[] = $row;
+            }
+            
+            $recentLateQuery = "SELECT 
+                    attendanceID, 
+                    attendanceDate, 
+                    checkOutTime
+                FROM tblAttendance 
+                WHERE employeeID = ? 
+                AND checkOutTime > ?
+                AND checkOutTime IS NOT NULL
+                ORDER BY attendanceDate DESC
+                LIMIT 5";
+                
+            $recentLateStmt = mysqli_prepare($connect_var, $recentLateQuery);
+            mysqli_stmt_bind_param($recentLateStmt, "ss", $employeeID, $GLOBALS['STANDARD_CHECK_OUT_TIME']);
+            mysqli_stmt_execute($recentLateStmt);
+            $recentLateResult = mysqli_stmt_get_result($recentLateStmt);
+            
+            $recentLateRecords = [];
+            while ($row = mysqli_fetch_assoc($recentLateResult)) {
+                $recentLateRecords[] = $row;
+            }
+            
+            mysqli_close($connect_var);
+            
+            echo json_encode(array(
+                "status" => "success",
+                "data" => array(
+                    "earlyCheckInCount" => $earlyData['earlyCheckInCount'],
+                    "lateCheckOutCount" => $lateData['lateCheckOutCount'],
+                    "recentEarlyCheckIns" => $recentEarlyRecords,
+                    "recentLateCheckOuts" => $recentLateRecords
+                )
+            ));
+        } catch(Exception $e) {
+            echo json_encode(array(
+                "status" => "error",
+                "message_text" => "Error retrieving attendance statistics: " . $e->getMessage()
+            ), JSON_FORCE_OBJECT);
+        }
+    }
 }
 
 function cancelLeave($decoded_items){
@@ -375,6 +517,56 @@ function testAutoCheckout($items) {
         
         $attendanceOperationObject = new AttendanceOperationMaster();
         $attendanceOperationObject->testAutoCheckoutProcess($items['testDate']);
+    } catch(Exception $e) {
+        echo json_encode(array(
+            "status" => "error",
+            "message_text" => $e->getMessage()
+        ), JSON_FORCE_OBJECT);
+    }
+}
+
+function getEmployeeAttendance($f3) {
+    $employeeID = $f3->get('PARAMS.empID');
+    $page = isset($_GET['page']) ? intval($_GET['page']) : 1;
+    $limit = isset($_GET['limit']) ? intval($_GET['limit']) : 10;
+    
+    if (empty($employeeID)) {
+        echo json_encode(array(
+            "status" => "error",
+            "message_text" => "Employee ID is required"
+        ), JSON_FORCE_OBJECT);
+        return;
+    }
+    
+    try {
+        $attendanceOperationObject = new AttendanceOperationMaster();
+        $attendanceOperationObject->getEmployeeAttendanceHistory($employeeID, $page, $limit);
+    } catch(Exception $e) {
+        echo json_encode(array(
+            "status" => "error",
+            "message_text" => $e->getMessage()
+        ), JSON_FORCE_OBJECT);
+    }
+}
+
+function getEmployeeAttendanceStats($f3) {
+    $employeeID = $f3->get('PARAMS.empID');
+    
+    if (empty($employeeID)) {
+        echo json_encode(array(
+            "status" => "error",
+            "message_text" => "Employee ID is required"
+        ), JSON_FORCE_OBJECT);
+        return;
+    }
+    
+    try {
+        // Define standard times as globals for use in the method
+        $GLOBALS['STANDARD_CHECK_IN_TIME'] = "09:00:00";
+        $GLOBALS['STANDARD_CHECK_OUT_TIME'] = "18:00:00";
+        
+        $attendanceOperationObject = new AttendanceOperationMaster();
+        $attendanceOperationObject->getEmployeeAttendanceStats($employeeID);
     } catch(Exception $e) {
         echo json_encode(array(
             "status" => "error",
