@@ -131,6 +131,8 @@ class ApproveLeaveMaster {
                 throw new Exception("Database connection failed");
             }
 
+            error_log("Starting processLeaveStatus for leave ID: " . $this->applyLeaveID);
+
             // Get leave details
             $queryGetLeave = "SELECT applyLeaveID, typeOfLeave, employeeID, status, 
                               DATEDIFF(toDate, fromDate) + 1 as NoOfDays 
@@ -144,151 +146,103 @@ class ApproveLeaveMaster {
             
             if (mysqli_num_rows($result) > 0) {
                 $leaveDetails = mysqli_fetch_assoc($result);
-                $leaveType = $leaveDetails['typeOfLeave'];
+                $leaveType = trim($leaveDetails['typeOfLeave']);
                 $employeeID = $leaveDetails['employeeID'];
                 $leaveDuration = $leaveDetails['NoOfDays'];
-                // Update leave status
-                $updateQuery = "UPDATE tblApplyLeave 
-                              SET status = '" . mysqli_real_escape_string($connect_var, $this->status) . "' 
-                              WHERE applyLeaveID = '" . mysqli_real_escape_string($connect_var, $this->applyLeaveID) . "'";
-                
-                $updateResult = mysqli_query($connect_var, $updateQuery);
-                
-                if (!$updateResult) {
-                    throw new Exception(mysqli_error($connect_var));
-                }
 
-                // Get user's Expo push token
-                $queryUserToken = "SELECT userToken FROM tblEmployee WHERE employeeID = ?";
-                $stmt = mysqli_prepare($connect_var, $queryUserToken);
-                mysqli_stmt_bind_param($stmt, "s", $employeeID);
-                mysqli_stmt_execute($stmt);
-                $tokenResult = mysqli_stmt_get_result($stmt);
-                $userTokenData = mysqli_fetch_assoc($tokenResult);
-                
-                if ($userTokenData && !empty($userTokenData['userToken'])) {
-                    // Prepare notification message
-                    $notificationMessage = "Your leave request has been " . strtolower($this->status);
-                    
-                    // Send push notification via Expo
-                    $ch = curl_init('https://exp.host/--/api/v2/push/send');
-                    curl_setopt($ch, CURLOPT_POST, true);
-                    curl_setopt($ch, CURLOPT_HTTPHEADER, [
-                        'Content-Type: application/json',
-                    ]);
-                    
-                    $notificationData = [
-                        'to' => $userTokenData['userToken'],
-                        'title' => 'Leave Status Update',
-                        'body' => $notificationMessage,
-                        'data' => [
-                            'leaveID' => $this->applyLeaveID,
-                            'status' => $this->status
-                        ]
-                    ];
-                    
-                    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($notificationData));
-                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-                    
-                    $response = curl_exec($ch);
-                    curl_close($ch);
-                }
+                // Debug logging
+                error_log("Leave details found:");
+                error_log("Raw leave type: '" . $leaveDetails['typeOfLeave'] . "'");
+                error_log("Trimmed leave type: '" . $leaveType . "'");
+                error_log("Employee ID: " . $employeeID);
+                error_log("Leave duration: " . $leaveDuration);
 
-                // Update leave balance only if status is Approved
-                if ($this->status === 'Approved') {
-                    // Special handling for Maternity Leave
-                    if ($leaveType === 'Maternity Leave') {
-                        // Update numberOfMaternityApplicable in tblEmployee
-                        $updateEmployeeQuery = "UPDATE tblEmployee 
-                                             SET numberOfMaternityApplicable = numberOfMaternityApplicable - 1 
-                                             WHERE employeeID = ?";
-                        $stmt = mysqli_prepare($connect_var, $updateEmployeeQuery);
-                        if (!$stmt) {
-                            throw new Exception(mysqli_error($connect_var));
+                // Begin transaction
+                mysqli_begin_transaction($connect_var);
+
+                try {
+                    // First update the leave status
+                    $statusUpdateQuery = "UPDATE tblApplyLeave SET status = ? WHERE applyLeaveID = ?";
+                    $stmt = mysqli_prepare($connect_var, $statusUpdateQuery);
+                    mysqli_stmt_bind_param($stmt, "ss", $this->status, $this->applyLeaveID);
+                    
+                    if (!mysqli_stmt_execute($stmt)) {
+                        throw new Exception("Failed to update leave status: " . mysqli_error($connect_var));
+                    }
+
+                    // If approved, update the leave balance
+                    if ($this->status === 'Approved') {
+                        // Initialize update query
+                        $updateQuery = null;
+                        
+                        // Handle all leave types
+                        if ($leaveType === 'Privilege Leave' || $leaveType === 'Privilege Leave (Medical grounds)') {
+                            $updateQuery = "UPDATE tblLeaveBalance SET PrivilegeLeave = PrivilegeLeave - ? WHERE employeeID = ?";
+                        } elseif ($leaveType === 'Casual Leave') {
+                            $updateQuery = "UPDATE tblLeaveBalance SET CasualLeave = CasualLeave - ? WHERE employeeID = ?";
+                        } elseif ($leaveType === 'Special Casual Leave') {
+                            $updateQuery = "UPDATE tblLeaveBalance SET SpecialCasualLeave = SpecialCasualLeave - ? WHERE employeeID = ?";
+                        } elseif ($leaveType === 'Compensatory Off') {
+                            $updateQuery = "UPDATE tblLeaveBalance SET CompensatoryOff = CompensatoryOff - ? WHERE employeeID = ?";
+                        } elseif ($leaveType === 'Special Leave for Blood Donation') {
+                            $updateQuery = "UPDATE tblLeaveBalance SET SpecialLeaveBloodDonation = SpecialLeaveBloodDonation - ? WHERE employeeID = ?";
+                        } elseif ($leaveType === 'Leave on Private Affairs') {
+                            $updateQuery = "UPDATE tblLeaveBalance SET LeaveOnPrivateAffairs = LeaveOnPrivateAffairs - ? WHERE employeeID = ?";
+                        } elseif ($leaveType === 'Medical Leave') {
+                            $updateQuery = "UPDATE tblLeaveBalance SET MedicalLeave = MedicalLeave - ? WHERE employeeID = ?";
+                        } elseif ($leaveType === 'Maternity Leave') {
+                            $updateQuery = "UPDATE tblLeaveBalance SET MaternityLeave = MaternityLeave - ? WHERE employeeID = ?";
                         }
-                        
-                        mysqli_stmt_bind_param($stmt, "s", $employeeID);
-                        $updateResult = mysqli_stmt_execute($stmt);
-                        
-                        if (!$updateResult) {
-                            throw new Exception(mysqli_error($connect_var));
+
+                        if ($updateQuery) {
+                            error_log("Executing balance update query: " . $updateQuery);
+                            error_log("Leave duration: " . $leaveDuration);
+                            error_log("Employee ID: " . $employeeID);
+                            
+                            $stmt = mysqli_prepare($connect_var, $updateQuery);
+                            mysqli_stmt_bind_param($stmt, "is", $leaveDuration, $employeeID);
+                            
+                            if (!mysqli_stmt_execute($stmt)) {
+                                throw new Exception("Failed to update leave balance: " . mysqli_error($connect_var));
+                            }
                         }
-                        
-                        mysqli_stmt_close($stmt);
                     }
 
-                    // Regular leave balance update
-                    $updateQuery = "";
-                    switch ($leaveType) {
-                        case 'Casual Leave':
-                            $updateQuery = "UPDATE tblLeaveBalance SET CasualLeave = CasualLeave - $leaveDuration WHERE employeeID = ?";
-                            break;
-                        case 'Special Casual Leave':
-                            $updateQuery = "UPDATE tblLeaveBalance SET SpecialCasualLeave = SpecialCasualLeave - $leaveDuration WHERE employeeID = ?";
-                            break;
-                        case 'Compensatory Off':
-                            $updateQuery = "UPDATE tblLeaveBalance SET CompensatoryOff = CompensatoryOff - $leaveDuration WHERE employeeID = ?";
-                            break;
-                        case 'Special Leave for Blood Donation':
-                            $updateQuery = "UPDATE tblLeaveBalance SET SpecialLeaveBloodDonation = SpecialLeaveBloodDonation - $leaveDuration WHERE employeeID = ?";
-                            break;
-                        case 'Leave on Private Affairs':
-                            $updateQuery = "UPDATE tblLeaveBalance SET LeaveOnPrivateAffairs = LeaveOnPrivateAffairs - $leaveDuration WHERE employeeID = ?";
-                            break;
-                        case 'Medical Leave':
-                            $updateQuery = "UPDATE tblLeaveBalance SET 	MedicalLeave = 	MedicalLeave - $leaveDuration WHERE employeeID = ?";
-                            break;
-                        case 'Privilege Leave':
-                            $updateQuery = "UPDATE tblLeaveBalance SET PrivilegeLeave = PrivilegeLeave - $leaveDuration WHERE employeeID = ?";
-                            break;
-                        case 'Maternity Leave':
-                            $updateQuery = "UPDATE tblLeaveBalance SET MaternityLeave = MaternityLeave - $leaveDuration WHERE employeeID = ?";
-                            break;
-                        default:
-                            throw new Exception("Invalid leave type: " . $leaveType);
-                    }
-                    // Prepare and execute the update query
-                    $stmt = mysqli_prepare($connect_var, $updateQuery);
-                    if (!$stmt) {
-                        throw new Exception(mysqli_error($connect_var));
-                    }
-                    
-                    mysqli_stmt_bind_param($stmt, "s", $employeeID);
-                    $updateResult = mysqli_stmt_execute($stmt);
-                    
-                    if (!$updateResult) {
-                        throw new Exception(mysqli_error($connect_var));
-                    }
-                    
-                    mysqli_stmt_close($stmt);
+                    // Commit transaction
+                    mysqli_commit($connect_var);
+
+                    echo json_encode(array(
+                        "status" => "success",
+                        "message_text" => ($this->status === 'Approved') ? 
+                            "Leave approved and balance updated successfully" : 
+                            "Leave " . strtolower($this->status) . " successfully",
+                        "leaveType" => $leaveType,
+                        "duration" => $leaveDuration
+                    ));
+
+                } catch (Exception $e) {
+                    mysqli_rollback($connect_var);
+                    throw $e;
                 }
-                
-                mysqli_close($connect_var);
-                
-                $messageText = $this->status === 'Approved' 
-                    ? "Leave approved and balance updated successfully"
-                    : "Leave " . strtolower($this->status) . " successfully";
-                
-                echo json_encode(array(
-                    "status" => "success",
-                    "message_text" => $messageText,
-                    "leaveID" => $leaveDetails['applyLeaveID'],
-                    "leaveType" => $leaveDetails['typeOfLeave'],
-                    "currentStatus" => $this->status
-                ));
-                
+
             } else {
-                echo json_encode(array(
-                    "status" => "failure", 
-                    "message_text" => "No leave found with ID: " . $this->applyLeaveID
-                ), JSON_FORCE_OBJECT);
+                throw new Exception("No leave found with ID: " . $this->applyLeaveID);
             }
-            
+
         } catch(Exception $e) {
+            error_log("Error in processLeaveStatus: " . $e->getMessage());
             echo json_encode(array(
                 "status" => "error",
-                "message_text" => $e->getMessage()
+                "message_text" => $e->getMessage(),
+                "debug_info" => array(
+                    "leave_type" => isset($leaveType) ? $leaveType : null,
+                    "leave_id" => $this->applyLeaveID
+                )
             ), JSON_FORCE_OBJECT);
+        } finally {
+            if (isset($connect_var)) {
+                mysqli_close($connect_var);
+            }
         }
     }
 
