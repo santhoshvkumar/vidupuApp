@@ -306,6 +306,135 @@ class ApplyLeaveMaster {
         $this->certificateType = isset($data['type']) ? $data['type'] : 'Medical';
         return true;
     }
+    
+    //extend leave
+    public function extendLeave() {
+        include('config.inc');
+        header('Content-Type: application/json');
+        try {
+            // Debug - Log all POST data
+            error_log("ExtendLeave - POST data: " . print_r($_POST, true));
+            
+            // Check if this is an extension request
+            if (!isset($_POST['isextend']) || $_POST['isextend'] != true || !isset($_POST['applyLeaveID'])) {
+                echo json_encode(array(
+                    "status" => "error",
+                    "message_text" => "Missing extension parameters"
+                ), JSON_FORCE_OBJECT);
+                mysqli_close($connect_var);
+                return;
+            }
+            
+            $originalLeaveId = mysqli_real_escape_string($connect_var, $_POST['applyLeaveID']);
+            
+            // Get the original leave details
+            $queryOriginalLeave = "SELECT fromDate, toDate, leaveDuration, typeOfLeave, reason FROM tblApplyLeave 
+                                   WHERE applyLeaveID = '$originalLeaveId' AND employeeID = '$this->empID'";
+            $originalResult = mysqli_query($connect_var, $queryOriginalLeave);
+            
+            if (mysqli_num_rows($originalResult) == 0) {
+                echo json_encode(array(
+                    "status" => "error",
+                    "message_text" => "Original leave not found or does not belong to this employee"
+                ), JSON_FORCE_OBJECT);
+                mysqli_close($connect_var);
+                return;
+            }
+            
+            $originalLeave = mysqli_fetch_assoc($originalResult);
+            $originalFromDate = $originalLeave['fromDate'];
+            $originalToDate = $originalLeave['toDate'];
+            $originalDuration = $originalLeave['leaveDuration'];
+            
+            // Calculate extension details
+            $newToDate = $this->toDate;
+            $certificatePath = isset($_POST['MedicalCertificatePath']) ? mysqli_real_escape_string($connect_var, $_POST['MedicalCertificatePath']) : '';
+            
+            // Calculate the extended duration (total days - original days)
+            $extendedDuration = $this->leaveDuration - $originalDuration;
+            
+            // Begin transaction
+            mysqli_begin_transaction($connect_var);
+            
+            try {
+                // First insert into tblExtendArchieve
+                $insertArchive = "INSERT INTO tblExtendArchieve (applyLeaveID, startDate, endDate, duration, certificatePath) 
+                                  VALUES ('$originalLeaveId', '$originalFromDate', '$originalToDate', '$originalDuration', '$certificatePath')";
+                
+                if (!mysqli_query($connect_var, $insertArchive)) {
+                    throw new Exception("Failed to archive original leave: " . mysqli_error($connect_var));
+                }
+                
+                // Get the archive ID of the newly inserted record
+                $archiveId = mysqli_insert_id($connect_var);
+                
+                // Get the archive record for reference
+                $queryArchive = "SELECT * FROM tblExtendArchieve WHERE extendArchieveID = '$archiveId'";
+                $archiveResult = mysqli_query($connect_var, $queryArchive);
+                $archiveData = mysqli_fetch_assoc($archiveResult);
+                
+                // Then update tblApplyLeave with all the required fields
+                $updateLeave = "UPDATE tblApplyLeave 
+                               SET toDate = '$newToDate', 
+                                   leaveDuration = '$this->leaveDuration',
+                                   isextend = 1,
+                                   no_ofdaysextend = '$extendedDuration',
+                                   status = 'Yet To Be Approved'
+                               WHERE applyLeaveID = '$originalLeaveId'";
+                
+                if (!mysqli_query($connect_var, $updateLeave)) {
+                    throw new Exception("Failed to update leave: " . mysqli_error($connect_var));
+                }
+                
+                // If there's a certificate, update the certificate path
+                if (!empty($certificatePath)) {
+                    $updateCertificate = "UPDATE tblApplyLeave 
+                                         SET MedicalCertificatePath = '$certificatePath',
+                                             MedicalCertificateUploadDate = CURRENT_DATE()
+                                         WHERE applyLeaveID = '$originalLeaveId'";
+                    
+                    if (!mysqli_query($connect_var, $updateCertificate)) {
+                        throw new Exception("Failed to update certificate: " . mysqli_error($connect_var));
+                    }
+                }
+                
+                // After the transaction is committed, add an explicit backup update 
+                // to ensure the approval status is properly reset
+                $updateStatusQuery = "UPDATE tblApplyLeave SET status = 'Yet To Be Approved' WHERE ApplyLeaveID = '$originalLeaveId'";
+                $resetResult = mysqli_query($connect_var, $updateStatusQuery);
+                
+                if (!$resetResult) {
+                    error_log("Failed to reset approval status: " . mysqli_error($connect_var));
+                }
+                
+                mysqli_commit($connect_var);
+                
+                echo json_encode(array(
+                    "status" => "success",
+                    "message_text" => "Leave extended successfully. Status: Yet To Be Approved",
+                    "extended_days" => $extendedDuration,
+                    "new_end_date" => $newToDate,
+                    "archive_data" => $archiveData
+                ), JSON_FORCE_OBJECT);
+                
+            } catch (Exception $e) {
+                // Roll back transaction on error
+                mysqli_rollback($connect_var);
+                echo json_encode(array(
+                    "status" => "error",
+                    "message_text" => $e->getMessage()
+                ), JSON_FORCE_OBJECT);
+            }
+            
+            mysqli_close($connect_var);
+            
+        } catch(Exception $e) {
+            echo json_encode(array(
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ), JSON_FORCE_OBJECT);
+        }
+    }
 }
 
 function applyLeave(array $data) {
@@ -354,6 +483,12 @@ function getCertificatePath(array $data) {
             "message" => "Invalid Input Parameters"
         ), JSON_FORCE_OBJECT);
     }
+}
+
+function extendLeave(array $data) {
+    $applyLeaveMaster = new ApplyLeaveMaster();
+    $applyLeaveMaster->loadApplyLeaveDetails($data);
+    return $applyLeaveMaster->extendLeave();
 }
 
 ?> 

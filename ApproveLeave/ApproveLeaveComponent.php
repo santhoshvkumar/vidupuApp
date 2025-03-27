@@ -69,7 +69,7 @@ class ApproveLeaveMaster {
                 tblApplyLeave tblL ON tblE.employeeID = tblL.employeeID
             WHERE 
                 tblE.managerID = '" . mysqli_real_escape_string($connect_var, $this->employeeID) . "'  
-                AND tblL.status = 'Yet To Be Approved'";
+                AND tblL.status IN ('Yet To Be Approved', 'Cancel to approve')";
             
             // Add date filters if provided
             if (isset($this->startDate) && !empty($this->startDate)) {
@@ -502,6 +502,16 @@ function getApprovalHistory($decoded_items) {
     $leaveObject = new ApproveLeaveMaster();
     if($leaveObject->loadApprovalHistoryParams($decoded_items)){
         $leaveObject->getApprovalHistoryInfo();
+    }
+    else{
+        echo json_encode(array("status"=>"error","message_text"=>"Invalid Input Parameters"),JSON_FORCE_OBJECT);
+    }
+}
+
+function processCancelToApprove($decoded_items) {
+    $leaveObject = new ApproveLeaveMaster();
+    if($leaveObject->loadLeaveStatus($decoded_items)){
+        $leaveObject->processLeaveStatus();
     }
     else{
         echo json_encode(array("status"=>"error","message_text"=>"Invalid Input Parameters"),JSON_FORCE_OBJECT);

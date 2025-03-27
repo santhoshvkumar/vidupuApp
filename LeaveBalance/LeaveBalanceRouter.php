@@ -123,3 +123,48 @@ $f3->route('GET /GetCertificatePath',
         }
     }
 );
+
+// Add new route for extending leaves
+$f3->route('POST /ExtendLeave',
+    function($f3) {
+        header('Content-Type: application/json');
+        
+        try {
+            // Check if we got JSON or form data
+            $decoded_items = json_decode($f3->get('BODY'), true);
+            
+            if ($decoded_items == NULL && isset($_POST['empID'])) {
+                // Handle form data
+                $data = [
+                    'empID' => $_POST['empID'],
+                    'fromDate' => $_POST['fromDate'],
+                    'toDate' => $_POST['toDate'],
+                    'leaveType' => $_POST['typeOfLeave'],
+                    'leaveReason' => $_POST['reason'],
+                    'leaveDuration' => $_POST['NoOfDays']
+                ];
+                
+                extendLeave($data);
+            } 
+            else if (!$decoded_items == NULL) {
+                // Handle JSON data
+                extendLeave($decoded_items);
+            } 
+            else {
+                echo json_encode(
+                    array(
+                        "status" => "error",
+                        "message_text" => "Invalid input parameters for extend leave"
+                    ),
+                    JSON_FORCE_OBJECT
+                );
+            }
+        } catch (Exception $e) {
+            error_log("Extend leave error: " . $e->getMessage());
+            echo json_encode([
+                'status' => 'error',
+                'message' => $e->getMessage()
+            ]);
+        }
+    }
+);
