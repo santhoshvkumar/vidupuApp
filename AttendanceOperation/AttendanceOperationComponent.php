@@ -175,7 +175,7 @@ class AttendanceOperationMaster{
                                     WHERE 
                                         attendanceDate = '2025-03-28'
                                         AND checkOutTime IS NULL;"
-            $rsdAutoCheckout = mysqli_query($connect_var, $updateAutoCheckout);
+             $rsd = mysqli_query($connect_var, $updateAutoCheckout);
 
             $queryInsertForLeave = "INSERT INTO tblAttendance (employeeID, attendanceDate, checkInTime, checkOutTime, TotalWorkingHour, isAutoCheckout)
                                     SELECT e.employeeID, '2025-03-28', NULL, NULL, NULL, 1
@@ -185,20 +185,19 @@ class AttendanceOperationMaster{
                                         WHERE a.employeeID = e.employeeID
                                         AND a.attendanceDate = '2025-02-18'
                                     );"
-            $rsdInsertForLeave = mysqli_query($connect_var, $queryInsertForLeave);
+            $rsd = mysqli_query($connect_var, $queryInsertForLeave);
             
             if (!mysqli_stmt_execute($stmt)) {
                 throw new Exception("Failed to process auto-checkout: " . mysqli_error($connect_var));
             }
 
-            $affectedRows = mysqli_stmt_affected_rows($stmt);
+            
             
             mysqli_close($connect_var);
             
             echo json_encode(array(
                 "status" => "success",
                 "message_text" => "Auto checkout processed successfully",
-                "employees_affected" => $affectedRows,
                 "checkout_time" => $cutoffTime,
                 "process_date" => $currentDate
             ), JSON_FORCE_OBJECT);
