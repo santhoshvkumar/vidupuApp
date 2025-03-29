@@ -11,6 +11,7 @@ class ApproveLeaveMaster {
     public $employeeID;
     public $startDate;
     public $endDate;
+    public $rejectionReason;
     /**
      * Set manager ID for leave approval
      * @param string $managerID
@@ -33,11 +34,25 @@ class ApproveLeaveMaster {
     }
 
     public function loadLeaveStatus($decoded_items) {
+        error_log("loadLeaveStatus received data: " . print_r($decoded_items, true));
+        
         if (!isset($decoded_items['applyLeaveID']) || !isset($decoded_items['status'])) {
+            error_log("Missing required fields applyLeaveID or status");
             return false;
         }
+        
         $this->applyLeaveID = $decoded_items['applyLeaveID'];
         $this->status = $decoded_items['status'];
+        
+        // Log rejection reason handling
+        error_log("Checking rejection reason...");
+        error_log("rejectionReason in request: " . (isset($decoded_items['rejectionReason']) ? $decoded_items['rejectionReason'] : 'not set'));
+        
+        $this->rejectionReason = isset($decoded_items['rejectionReason']) && !empty($decoded_items['rejectionReason']) 
+            ? $decoded_items['rejectionReason'] 
+            : null;
+            
+        error_log("Final rejection reason value: " . ($this->rejectionReason ?? 'null'));
         return true;
     }
 
@@ -132,6 +147,8 @@ class ApproveLeaveMaster {
             }
 
             error_log("Starting processLeaveStatus for leave ID: " . $this->applyLeaveID);
+            error_log("Status: " . $this->status);
+            error_log("Rejection Reason: " . ($this->rejectionReason ?? 'null'));
 
             // Get leave details
             $queryGetLeave = "SELECT applyLeaveID, typeOfLeave, employeeID, status, 
@@ -162,13 +179,27 @@ class ApproveLeaveMaster {
 
                 try {
                     // First update the leave status
-                    $statusUpdateQuery = "UPDATE tblApplyLeave SET status = ? WHERE applyLeaveID = ?";
-                    $stmt = mysqli_prepare($connect_var, $statusUpdateQuery);
-                    mysqli_stmt_bind_param($stmt, "ss", $this->status, $this->applyLeaveID);
+                    if ($this->status === 'Rejected') {
+                        error_log("Preparing to update with rejection reason: " . ($this->rejectionReason ?? 'null'));
+                        $statusUpdateQuery = "UPDATE tblApplyLeave SET status = ?, rejection_reason = ? WHERE applyLeaveID = ?";
+                        $stmt = mysqli_prepare($connect_var, $statusUpdateQuery);
+                        error_log("SQL Query for rejection: " . $statusUpdateQuery);
+                        error_log("Parameters: status=" . $this->status . ", reason=" . ($this->rejectionReason ?? 'null') . ", id=" . $this->applyLeaveID);
+                        mysqli_stmt_bind_param($stmt, "sss", $this->status, $this->rejectionReason, $this->applyLeaveID);
+                    } else {
+                        error_log("Updating status without rejection reason");
+                        $statusUpdateQuery = "UPDATE tblApplyLeave SET status = ?, rejection_reason = NULL WHERE applyLeaveID = ?";
+                        $stmt = mysqli_prepare($connect_var, $statusUpdateQuery);
+                        mysqli_stmt_bind_param($stmt, "ss", $this->status, $this->applyLeaveID);
+                    }
                     
                     if (!mysqli_stmt_execute($stmt)) {
-                        throw new Exception("Failed to update leave status: " . mysqli_error($connect_var));
+                        $error = mysqli_error($connect_var);
+                        error_log("Failed to update leave status: " . $error);
+                        throw new Exception("Failed to update leave status: " . $error);
                     }
+                    
+                    error_log("Status update successful. Affected rows: " . mysqli_stmt_affected_rows($stmt));
 
                     // If approved, update the leave balance
                     if ($this->status === 'Approved') {
