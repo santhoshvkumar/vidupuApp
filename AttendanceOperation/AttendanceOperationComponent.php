@@ -167,7 +167,7 @@ class AttendanceOperationMaster{
             $cutoffTime = '23:59:59'; // End of day cutoff
             $currentDate = date('Y-m-d');
             
-            $updateAutoCheckout = "UPDATE tblAttendance
+            /*$updateAutoCheckout = "UPDATE tblAttendance
                                     SET 
                                         checkOutTime = '23:59:39',
                                         TotalWorkingHour = TIMEDIFF('23:59:39', checkInTime),
@@ -175,7 +175,7 @@ class AttendanceOperationMaster{
                                     WHERE 
                                         attendanceDate = '2025-03-28'
                                         AND checkOutTime IS NULL;";
-             $rsd = mysqli_query($connect_var, $updateAutoCheckout);
+             $rsd = mysqli_query($connect_var, $updateAutoCheckout);*/
 
             // Calculate date range
             $endDate = date('Y-m-d'); // today
@@ -257,7 +257,7 @@ class AttendanceOperationMaster{
                         isAutoCheckout
                     FROM tblAttendance 
                     WHERE employeeID = ? 
-                    ORDER BY attendanceDate DESC, checkInTime DESC
+                    ORDER BY attendanceDate DESC
                     LIMIT ?, ?";
             
             $stmt = mysqli_prepare($connect_var, $query);
