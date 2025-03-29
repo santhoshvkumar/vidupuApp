@@ -167,28 +167,25 @@ class AttendanceOperationMaster{
             $cutoffTime = '23:59:59'; // End of day cutoff
             $currentDate = date('Y-m-d');
             
-            // First, get details of pending checkouts
-            $checkPending = "SELECT COUNT(*) as total_pending,
-                            GROUP_CONCAT(e.employeeName) as employee_names,
-                            GROUP_CONCAT(a.checkInTime) as check_in_times
-                            FROM tblAttendance a
-                            JOIN tblEmployee e ON e.empID = a.employeeID
-                            WHERE a.checkOutTime IS NULL 
-                            AND DATE(a.attendanceDate) = CURRENT_DATE";
-                            
-            $pendingResult = mysqli_query($connect_var, $checkPending);
-            $pendingData = mysqli_fetch_assoc($pendingResult);
-            
-            // Perform the auto-checkout
-            $query = "UPDATE tblAttendance 
-                     SET checkOutTime = ?, 
-                         TotalWorkingHour = TIMEDIFF(?, checkInTime),
-                         isAutoCheckout = 1
-                     WHERE checkOutTime IS NULL 
-                     AND DATE(attendanceDate) = CURRENT_DATE";
+            $updateAutoCheckout = "UPDATE tblAttendance
+                                    SET 
+                                        checkOutTime = '23:59:39',
+                                        TotalWorkingHour = TIMEDIFF('23:59:39', checkInTime),
+                                        isAutoCheckout = 1
+                                    WHERE 
+                                        attendanceDate = '2025-03-28'
+                                        AND checkOutTime IS NULL;"
+            $rsdAutoCheckout = mysqli_query($connect_var, $updateAutoCheckout);
 
-            $stmt = mysqli_prepare($connect_var, $query);
-            mysqli_stmt_bind_param($stmt, "ss", $cutoffTime, $cutoffTime);
+            $queryInsertForLeave = "INSERT INTO tblAttendance (employeeID, attendanceDate, checkInTime, checkOutTime, TotalWorkingHour, isAutoCheckout)
+                                    SELECT e.employeeID, '2025-03-28', NULL, NULL, NULL, 1
+                                    FROM tblEmployee e
+                                    WHERE NOT EXISTS (
+                                        SELECT 1 FROM tblAttendance a
+                                        WHERE a.employeeID = e.employeeID
+                                        AND a.attendanceDate = '2025-02-18'
+                                    );"
+            $rsdInsertForLeave = mysqli_query($connect_var, $queryInsertForLeave);
             
             if (!mysqli_stmt_execute($stmt)) {
                 throw new Exception("Failed to process auto-checkout: " . mysqli_error($connect_var));
@@ -196,17 +193,6 @@ class AttendanceOperationMaster{
 
             $affectedRows = mysqli_stmt_affected_rows($stmt);
             
-            // Log the auto-checkouts
-            if ($affectedRows > 0) {
-                $logQuery = "INSERT INTO tblAttendanceLog 
-                            (attendanceDate, actionType, affectedEmployees, logDateTime)
-                            VALUES (CURRENT_DATE, 'AUTO_CHECKOUT', ?, NOW())";
-                
-                $logStmt = mysqli_prepare($connect_var, $logQuery);
-                mysqli_stmt_bind_param($logStmt, "i", $affectedRows);
-                mysqli_stmt_execute($logStmt);
-            }
-
             mysqli_close($connect_var);
             
             echo json_encode(array(
@@ -225,7 +211,7 @@ class AttendanceOperationMaster{
             ), JSON_FORCE_OBJECT);
         }
     }
-    
+
     public function getEmployeeAttendanceHistory($employeeID, $page = 1, $limit = 10) {
         include('config.inc');
         header('Content-Type: application/json');
