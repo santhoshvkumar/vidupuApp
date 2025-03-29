@@ -509,22 +509,6 @@ function autoCheckout() {
     }
 }
 
-function testAutoCheckout($items) {
-    try {
-        if (!isset($items['testDate'])) {
-            throw new Exception("Test date is required");
-        }
-        
-        $attendanceOperationObject = new AttendanceOperationMaster();
-        $attendanceOperationObject->testAutoCheckoutProcess($items['testDate']);
-    } catch(Exception $e) {
-        echo json_encode(array(
-            "status" => "error",
-            "message_text" => $e->getMessage()
-        ), JSON_FORCE_OBJECT);
-    }
-}
-
 function getEmployeeAttendance($f3) {
     $employeeID = $f3->get('PARAMS.empID');
     $page = isset($_GET['page']) ? intval($_GET['page']) : 1;
