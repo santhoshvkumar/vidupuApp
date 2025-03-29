@@ -174,7 +174,7 @@ class AttendanceOperationMaster{
                                         isAutoCheckout = 1
                                     WHERE 
                                         attendanceDate = '2025-03-28'
-                                        AND checkOutTime IS NULL;"
+                                        AND checkOutTime IS NULL;";
              $rsd = mysqli_query($connect_var, $updateAutoCheckout);
 
             $queryInsertForLeave = "INSERT INTO tblAttendance (employeeID, attendanceDate, checkInTime, checkOutTime, TotalWorkingHour, isAutoCheckout)
@@ -184,7 +184,7 @@ class AttendanceOperationMaster{
                                         SELECT 1 FROM tblAttendance a
                                         WHERE a.employeeID = e.employeeID
                                         AND a.attendanceDate = '2025-02-18'
-                                    );"
+                                    );";
             $rsd = mysqli_query($connect_var, $queryInsertForLeave);
             
             if (!mysqli_stmt_execute($stmt)) {
