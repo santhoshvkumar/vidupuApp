@@ -178,19 +178,22 @@ class AttendanceOperationMaster{
              $rsd = mysqli_query($connect_var, $updateAutoCheckout);
 
             $queryInsertForLeave = "INSERT INTO tblAttendance (employeeID, attendanceDate, checkInTime, checkOutTime, TotalWorkingHour, isAutoCheckout)
-                                    SELECT e.employeeID, '2025-03-28', NULL, NULL, NULL, 1
+                                    SELECT e.employeeID, ?, NULL, NULL, NULL, 1
                                     FROM tblEmployee e
                                     WHERE NOT EXISTS (
-                                        SELECT 1 FROM tblAttendance a
+                                        SELECT 1 
+                                        FROM tblAttendance a
                                         WHERE a.employeeID = e.employeeID
-                                        AND a.attendanceDate = '2025-02-18'
-                                    );";
-            $rsd = mysqli_query($connect_var, $queryInsertForLeave);
-            
-            if (!mysqli_stmt_execute($stmt)) {
-                throw new Exception("Failed to process auto-checkout: " . mysqli_error($connect_var));
-            }
+                                        AND a.attendanceDate = ?
+                                    )";
 
+            $stmt = mysqli_prepare($connect_var, $queryInsertForLeave);
+
+            // Bind the same date parameter twice since it's used in two places
+            $attendanceDate = '2025-03-28'; // Replace with your actual date variable
+            mysqli_stmt_bind_param($stmt, "ss", $attendanceDate, $attendanceDate);
+            mysqli_stmt_execute($stmt);
+            mysqli_stmt_close($stmt);
             
             
             mysqli_close($connect_var);
