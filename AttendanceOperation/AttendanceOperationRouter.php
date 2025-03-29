@@ -54,7 +54,7 @@ $f3->route('POST /Checkout',
     }
 );
 
-$f3->route('POST /AutoCheckout',
+$f3->route('GET /AutoCheckout',
     function($f3) {
         header('Content-Type: application/json');
         autoCheckout();
