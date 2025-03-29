@@ -177,32 +177,57 @@ class AttendanceOperationMaster{
                                         AND checkOutTime IS NULL;";
              $rsd = mysqli_query($connect_var, $updateAutoCheckout);
 
+            // Calculate date range
+            $endDate = date('Y-m-d'); // today
+            $startDate = date('Y-m-d', strtotime('-1 month')); // one month ago
+
+            // Prepare the query
             $queryInsertForLeave = "INSERT INTO tblAttendance (employeeID, attendanceDate, checkInTime, checkOutTime, TotalWorkingHour, isAutoCheckout)
-                                    SELECT e.employeeID, ?, NULL, NULL, NULL, 1
-                                    FROM tblEmployee e
-                                    WHERE NOT EXISTS (
-                                        SELECT 1 
-                                        FROM tblAttendance a
-                                        WHERE a.employeeID = e.employeeID
-                                        AND a.attendanceDate = ?
-                                    )";
+                SELECT e.employeeID, ?, NULL, NULL, NULL, 1
+                FROM tblEmployee e
+                WHERE NOT EXISTS (
+                    SELECT 1 
+                    FROM tblAttendance a
+                    WHERE a.employeeID = e.employeeID
+                    AND a.attendanceDate = ?
+                )";
 
             $stmt = mysqli_prepare($connect_var, $queryInsertForLeave);
 
-            // Bind the same date parameter twice since it's used in two places
-            $attendanceDate = '2025-03-28'; // Replace with your actual date variable
-            mysqli_stmt_bind_param($stmt, "ss", $attendanceDate, $attendanceDate);
-            mysqli_stmt_execute($stmt);
+            // Loop through each date in the range
+            $currentDate = new DateTime($startDate);
+            $lastDate = new DateTime($endDate);
+
+            while ($currentDate <= $lastDate) {
+                $dateToInsert = $currentDate->format('Y-m-d');
+                
+                // Add this check inside the while loop
+                $dateToCheck = $currentDate->format('Y-m-d');
+                $holidayQuery = "SELECT 1 FROM tblHolidays WHERE holidayDate = ?";
+                $holidayStmt = mysqli_prepare($connect_var, $holidayQuery);
+                mysqli_stmt_bind_param($holidayStmt, "s", $dateToCheck);
+                mysqli_stmt_execute($holidayStmt);
+                $result = mysqli_stmt_get_result($holidayStmt);
+                if (mysqli_num_rows($result) > 0) {
+                    $currentDate->modify('+1 day');
+                    continue;
+                }
+                
+                // Bind parameters and execute for each date
+                mysqli_stmt_bind_param($stmt, "ss", $dateToInsert, $dateToInsert);
+                mysqli_stmt_execute($stmt);
+                
+                // Move to next day
+                $currentDate->modify('+1 day');
+            }
+
             mysqli_stmt_close($stmt);
-            
             
             mysqli_close($connect_var);
             
             echo json_encode(array(
                 "status" => "success",
-                "message_text" => "Auto checkout processed successfully",
-                "checkout_time" => $cutoffTime,
-                "process_date" => $currentDate
+                "message_text" => "Attendance records created from $startDate to $endDate"
             ), JSON_FORCE_OBJECT);
 
         } catch(Exception $e) {
