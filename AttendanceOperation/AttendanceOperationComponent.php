@@ -325,8 +325,9 @@ class AttendanceOperationMaster{
                 WHERE employeeID = ? 
                 AND checkOutTime > ?
                 AND checkOutTime IS NOT NULL
-                ORDER BY attendanceDate DESC
-                LIMIT 5";
+                AND MONTH(attendanceDate) = MONTH(CURRENT_DATE())
+                AND YEAR(attendanceDate) = YEAR(CURRENT_DATE())
+                ORDER BY attendanceDate DESC";
                 
             $recentLateStmt = mysqli_prepare($connect_var, $recentLateQuery);
             mysqli_stmt_bind_param($recentLateStmt, "ss", $employeeID, $GLOBALS['STANDARD_CHECK_OUT_TIME']);
