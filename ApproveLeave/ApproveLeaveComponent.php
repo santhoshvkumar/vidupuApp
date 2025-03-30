@@ -38,7 +38,9 @@ class ApproveLeaveMaster {
         }
         $this->applyLeaveID = $decoded_items['applyLeaveID'];
         $this->status = $decoded_items['status'];
-        $this->rejectionReason = $decoded_items['rejectionReason'];
+        if (isset($decoded_items['rejectionReason']) && !empty($decoded_items['rejectionReason'])) {
+            $this->rejectionReason = $decoded_items['rejectionReason'];
+        }
         return true;
     }
 
