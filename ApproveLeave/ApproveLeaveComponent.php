@@ -69,7 +69,7 @@ class ApproveLeaveMaster {
                 tblApplyLeave tblL ON tblE.employeeID = tblL.employeeID
             WHERE 
                 tblE.managerID = '" . mysqli_real_escape_string($connect_var, $this->employeeID) . "'  
-                AND tblL.status = 'Yet To Be Approved'";
+                AND tblL.status = 'Yet To Be Approved' and tblL.status != 'ReApplied'";
             
             // Add date filters if provided
             if (isset($this->startDate) && !empty($this->startDate)) {
