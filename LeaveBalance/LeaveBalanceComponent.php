@@ -26,6 +26,12 @@ class ApplyLeaveMaster {
         $this->leaveType = $data['leaveType'];
         $this->leaveDuration = $data['leaveDuration'];
         $this->leaveReason = $data['leaveReason'];
+        $this->certificateType = isset($data['certificateType']) ? $data['certificateType'] : 'Medical';
+        $this->isReApply = isset($data['isReApply']) ? $data['isReApply'] : false;
+        $this->isExtend = isset($data['isExtend']) ? $data['isExtend'] : false;
+        $this->originalLeaveId = isset($data['originalLeaveId']) ? $data['originalLeaveId'] : null;
+        $this->extendLeave = isset($data['extendLeave']) ? $data['extendLeave'] : false;
+        $this->certificateFile = isset($data['certificateFile']) ? $data['certificateFile'] : null;
         return true;
     }
 
@@ -114,7 +120,61 @@ class ApplyLeaveMaster {
     public function applyForLeave() {
         include('config.inc');
         header('Content-Type: application/json');
+        error_log("applyForLeave method started");
+        
         try {
+            // Debug incoming request
+            error_log("POST data: " . print_r($_POST, true));
+            error_log("FILES data: " . (isset($_FILES) ? print_r($_FILES, true) : "No files"));
+
+            // Check for required fields
+            if (!isset($_POST['empID']) || !isset($_POST['fromDate']) || !isset($_POST['toDate']) || 
+                !isset($_POST['leaveType']) || !isset($_POST['leaveDuration']) || !isset($_POST['leaveReason'])) {
+                error_log("Missing required fields - using class properties instead");
+                // Continue using the properties loaded in loadApplyLeaveDetails
+            } else {
+                // Update class properties from POST data if available
+                $this->empID = $_POST['empID'];
+                $this->fromDate = $_POST['fromDate'];
+                $this->toDate = $_POST['toDate'];
+                $this->leaveType = $_POST['leaveType'];
+                $this->leaveDuration = $_POST['leaveDuration'];
+                $this->leaveReason = $_POST['leaveReason'];
+                $this->certificateType = isset($_POST['certificateType']) ? $_POST['certificateType'] : 'Medical';
+                $this->isReApply = isset($_POST['isReApply']) ? $_POST['isReApply'] : false;
+                $this->isExtend = isset($_POST['isExtend']) ? $_POST['isExtend'] : false;
+                $this->originalLeaveId = isset($_POST['originalLeaveId']) ? $_POST['originalLeaveId'] : null;
+                $this->extendLeave = isset($_POST['extendLeave']) ? $_POST['extendLeave'] : false;
+                error_log("Updated properties from POST data");
+            }
+            
+            // Handle file upload if present (making it optional)
+            $certificatePath = null;
+            if (isset($_FILES['certificateFile']) && $_FILES['certificateFile']['error'] === UPLOAD_ERR_OK) {
+                error_log("Processing uploaded certificate file: " . $_FILES['certificateFile']['name']);
+                
+                // Create directory if it doesn't exist
+                $uploadDir = 'uploads/certificates/';
+                if (!file_exists($uploadDir)) {
+                    mkdir($uploadDir, 0755, true);
+                    error_log("Created upload directory: $uploadDir");
+                }
+                
+                // Generate unique filename
+                $fileExt = strtolower(pathinfo($_FILES['certificateFile']['name'], PATHINFO_EXTENSION));
+                $fileName = $this->empID . '_' . date('Ymd') . '_' . uniqid() . '.' . $fileExt;
+                $targetPath = $uploadDir . $fileName;
+                
+                // Move uploaded file
+                if (move_uploaded_file($_FILES['certificateFile']['tmp_name'], $targetPath)) {
+                    $certificatePath = $targetPath;
+                    error_log("Certificate uploaded successfully: $certificatePath");
+                } else {
+                    error_log("Failed to upload certificate: " . error_get_last()['message']);
+                }
+            }
+
+            // Use prepared statements to prevent SQL injection
             // For Casual Leave validation
             if ($this->leaveType === 'Casual Leave') {
                 // Get current year's start and mid dates
@@ -156,23 +216,23 @@ class ApplyLeaveMaster {
                     mysqli_close($connect_var);
                     return;
                 }
-                 // Validate against half-year limits
-            if ($isFirstHalf) {
-                if (($firstHalfLeaves + $this->leaveDuration) > 10) {
-                    echo json_encode(array(
-                        "status" => "warning",
-                        "message_text" => "Cannot exceed 10 days of Casual Leave in first half of the year"
-                    ), JSON_FORCE_OBJECT);
-                    mysqli_close($connect_var);
-                    return;
-                }
-            } else {
-                $availableSecondHalf = 10 + (10 - $firstHalfLeaves); // Unused first half leaves added to second half
-                if (($secondHalfLeaves + $this->leaveDuration) > $availableSecondHalf) {
-                    echo json_encode(array(
-                        "status" => "warning",
-                        "message_text" => "Exceeds available Casual Leave balance for second half of the year"
-                    ), JSON_FORCE_OBJECT);
+                
+                if ($isFirstHalf) {
+                    if (($firstHalfLeaves + $this->leaveDuration) > 10) {
+                        echo json_encode(array(
+                            "status" => "warning",
+                            "message_text" => "Cannot exceed 10 days of Casual Leave in first half of the year"
+                        ), JSON_FORCE_OBJECT);
+                        mysqli_close($connect_var);
+                        return;
+                    }
+                } else {
+                    $availableSecondHalf = 10 + (10 - $firstHalfLeaves); // Unused first half leaves added to second half
+                    if (($secondHalfLeaves + $this->leaveDuration) > $availableSecondHalf) {
+                        echo json_encode(array(
+                            "status" => "warning",
+                            "message_text" => "Exceeds available Casual Leave balance for second half of the year"
+                        ), JSON_FORCE_OBJECT);
                         mysqli_close($connect_var);
                         return;
                     }
@@ -225,21 +285,42 @@ class ApplyLeaveMaster {
                 }
             }
 
-            $queryApplyLeave = "INSERT INTO tblApplyLeave (employeeID, fromDate, toDate, leaveDuration, typeOfLeave, reason, createdOn, status)VALUES ('$this->empID', '$this->fromDate', '$this->toDate', '$this->leaveDuration', '$this->leaveType', '$this->leaveReason', CURRENT_DATE(), 'Yet To Be Approved')";
+            // Build the INSERT query with or without certificate
+            $queryApplyLeave = "INSERT INTO tblApplyLeave 
+                              (employeeID, fromDate, toDate, leaveDuration, typeOfLeave, reason, 
+                               createdOn, status, isReApply, isextend" . 
+                               ($certificatePath ? ", MedicalCertificatePath, certificateType, MedicalCertificateUploadDate" : "") . ") 
+                              VALUES 
+                              ('$this->empID', '$this->fromDate', '$this->toDate', '$this->leaveDuration', 
+                               '$this->leaveType', '$this->leaveReason', CURRENT_DATE(), 'Yet To Be Approved',
+                               '0', '0'" . 
+                               ($certificatePath ? ", '$certificatePath', '$this->certificateType', CURRENT_DATE()" : "") . ")";
+            
+            error_log("Executing query: $queryApplyLeave");
             $rsd = mysqli_query($connect_var, $queryApplyLeave);
+            
             if($rsd) {
+                // Get the newly inserted leave ID
+                $newLeaveId = mysqli_insert_id($connect_var);
+                error_log("Leave inserted successfully with ID: $newLeaveId");
+                
                 echo json_encode(array(
                     "status" => "success",
-                    "message_text" => "Leave applied successfully"
+                    "message_text" => "Leave applied successfully",
+                    "leaveId" => $newLeaveId,
+                    "certificateUploaded" => $certificatePath ? true : false
                 ), JSON_FORCE_OBJECT);
             } else {
+                $error = mysqli_error($connect_var);
+                error_log("Database error: $error");
                 echo json_encode(array(
                     "status" => "error",
-                    "message_text" => "Leave application failed"
+                    "message_text" => "Leave application failed: $error"
                 ), JSON_FORCE_OBJECT);
             }
             mysqli_close($connect_var);
-        } catch(PDOException $e) {
+        } catch(Exception $e) {     
+            error_log("Exception: " . $e->getMessage());
             echo json_encode(array(
                 "status" => "error",
                 "message_text" => $e->getMessage()
@@ -438,14 +519,54 @@ class ApplyLeaveMaster {
 }
 
 function applyLeave(array $data) {
+    error_log("Apply Leave function called");
+    
+    // Check if this is a multipart/form-data request
+    $isMultipart = isset($_SERVER['CONTENT_TYPE']) && 
+                   strpos($_SERVER['CONTENT_TYPE'], 'multipart/form-data') !== false;
+    
+    error_log("Is multipart request: " . ($isMultipart ? "Yes" : "No"));
+    error_log("Data from function parameter: " . print_r($data, true));
+    error_log("POST data: " . print_r($_POST, true));
+    error_log("FILES data: " . (isset($_FILES) ? print_r($_FILES, true) : "No files"));
+    
     $leaveObject = new ApplyLeaveMaster;
-    if($leaveObject->loadApplyLeaveDetails($data)) {
-        $leaveObject->applyForLeave();
+    
+    // If it's a multipart request, we'll use $_POST and $_FILES directly in applyForLeave
+    // Otherwise, load from the provided data array
+    if ($isMultipart) {
+        if(count($_POST) > 0) {
+            // Use the data from $_POST
+            if($leaveObject->loadApplyLeaveDetails($_POST)) {
+                $leaveObject->applyForLeave();
+            } else {
+                echo json_encode(array(
+                    "status" => "error",
+                    "message_text" => "Invalid Input Parameters from multipart form"
+                ), JSON_FORCE_OBJECT);
+            }
+        } else {
+            // If POST is empty but we're still a multipart request
+            // (this can happen with certain frameworks)
+            if($leaveObject->loadApplyLeaveDetails($data)) {
+                $leaveObject->applyForLeave();
+            } else {
+                echo json_encode(array(
+                    "status" => "error",
+                    "message_text" => "Invalid Input Parameters from empty multipart form"
+                ), JSON_FORCE_OBJECT);
+            }
+        }
     } else {
-        echo json_encode(array(
-            "status" => "error",
-            "message_text" => "Invalid Input Parameters"
-        ), JSON_FORCE_OBJECT);
+        // Regular JSON request
+        if($leaveObject->loadApplyLeaveDetails($data)) {
+            $leaveObject->applyForLeave();
+        } else {
+            echo json_encode(array(
+                "status" => "error",
+                "message_text" => "Invalid Input Parameters from JSON request"
+            ), JSON_FORCE_OBJECT);
+        }
     }
 }
 
