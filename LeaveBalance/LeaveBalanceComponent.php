@@ -77,7 +77,7 @@ class ApplyLeaveMaster {
         header('Content-Type: application/json');
         try {
             $queryLeaveHistory = "SELECT applyLeaveID, fromDate, toDate, leaveDuration, typeOfLeave, 
-                                  reason, status, MedicalCertificatePath, FitnessCertificatePath 
+                                  reason, status, RejectReason, MedicalCertificatePath, FitnessCertificatePath 
                                   FROM tblApplyLeave 
                                   WHERE employeeID = '$this->empID' and status != 'Cancelled' 
                                   ORDER by applyLeaveID DESC";
