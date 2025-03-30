@@ -165,7 +165,7 @@ class ApproveLeaveMaster {
                     // First update the leave status
                     $statusUpdateQuery = "UPDATE tblApplyLeave SET status = ?, RejectReason = ? WHERE applyLeaveID = ?";
                     $stmt = mysqli_prepare($connect_var, $statusUpdateQuery);
-                    mysqli_stmt_bind_param($stmt, "ss", $this->status, $this->rejectionReason, $this->applyLeaveID);
+                    mysqli_stmt_bind_param($stmt, "sss", $this->status, $this->rejectionReason, $this->applyLeaveID);
                     
                     if (!mysqli_stmt_execute($stmt)) {
                         throw new Exception("Failed to update leave status: " . mysqli_error($connect_var));
