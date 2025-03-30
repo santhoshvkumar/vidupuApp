@@ -152,7 +152,7 @@ class AttendanceOperationMaster{
         try{
             $queryCancelLeave = "UPDATE tblApplyLeave 
                 SET status = CASE 
-                    WHEN status = 'Approved' THEN 'CancelledApproval'
+                    WHEN status = 'Approved' THEN 'ReApplied'
                     ELSE 'Cancelled'
                 END
                 WHERE applyLeaveID = ?";
