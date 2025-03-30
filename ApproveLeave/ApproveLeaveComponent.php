@@ -38,6 +38,7 @@ class ApproveLeaveMaster {
         }
         $this->applyLeaveID = $decoded_items['applyLeaveID'];
         $this->status = $decoded_items['status'];
+        $this->rejectionReason = $decoded_items['rejectionReason'];
         return true;
     }
 
@@ -162,9 +163,9 @@ class ApproveLeaveMaster {
 
                 try {
                     // First update the leave status
-                    $statusUpdateQuery = "UPDATE tblApplyLeave SET status = ? WHERE applyLeaveID = ?";
+                    $statusUpdateQuery = "UPDATE tblApplyLeave SET status = ?, rejectionReason = ? WHERE applyLeaveID = ?";
                     $stmt = mysqli_prepare($connect_var, $statusUpdateQuery);
-                    mysqli_stmt_bind_param($stmt, "ss", $this->status, $this->applyLeaveID);
+                    mysqli_stmt_bind_param($stmt, "ss", $this->status, $this->rejectionReason, $this->applyLeaveID);
                     
                     if (!mysqli_stmt_execute($stmt)) {
                         throw new Exception("Failed to update leave status: " . mysqli_error($connect_var));
