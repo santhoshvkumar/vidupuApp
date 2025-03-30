@@ -150,11 +150,30 @@ class AttendanceOperationMaster{
         include('config.inc');
         header('Content-Type: application/json');
         try{
-            $queryCancelLeave = "Update tblApplyLeave set status = 'Cancelled' where applyLeaveID = '$this->applyLeaveID'";
-            $rsd = mysqli_query($connect_var,$queryCancelLeave);
-            mysqli_close($connect_var);
-            echo json_encode(array("status"=>"success","message_text"=>"Leave Cancelled Successfully"),JSON_FORCE_OBJECT);
+            $queryCancelLeave = "UPDATE tblApplyLeave 
+                SET status = CASE 
+                    WHEN status = 'Approved' THEN 'CancelledApproval'
+                    ELSE 'Cancelled'
+                END
+                WHERE applyLeaveID = ?";
 
+            $stmt = mysqli_prepare($connect_var, $queryCancelLeave);
+            mysqli_stmt_bind_param($stmt, "s", $this->applyLeaveID);
+            mysqli_stmt_execute($stmt);
+            mysqli_stmt_close($stmt);
+
+            // Optional: Verify the update
+            if (mysqli_affected_rows($connect_var) > 0) {
+                echo json_encode(array(
+                    "status" => "success",
+                    "message" => "Leave cancelled successfully"
+                ));
+            } else {
+                echo json_encode(array(
+                    "status" => "error",
+                    "message" => "Unable to cancel leave or leave not found"
+                ));
+            }
         }
         catch(Exception $e){
             echo json_encode(array("status"=>"error","message_text"=>"Error Cancelling Leave"),JSON_FORCE_OBJECT);

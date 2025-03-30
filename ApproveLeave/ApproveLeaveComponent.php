@@ -33,9 +33,6 @@ class ApproveLeaveMaster {
     }
 
     public function loadLeaveStatus($decoded_items) {
-        if (!isset($decoded_items['applyLeaveID']) || !isset($decoded_items['status'])) {
-            return false;
-        }
         $this->applyLeaveID = $decoded_items['applyLeaveID'];
         $this->status = $decoded_items['status'];
         if (isset($decoded_items['rejectionReason']) && !empty($decoded_items['rejectionReason'])) {
