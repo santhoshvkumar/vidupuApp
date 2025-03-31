@@ -229,19 +229,49 @@ class ApplyLeaveMaster {
                 }
             }
 
-            $queryApplyLeave = "INSERT INTO tblApplyLeave (employeeID, fromDate, toDate, leaveDuration, typeOfLeave, reason, createdOn, status)VALUES ('$this->empID', '$this->fromDate', '$this->toDate', '$this->leaveDuration', '$this->leaveType', '$this->leaveReason', CURRENT_DATE(), 'Yet To Be Approved')";
-            $rsd = mysqli_query($connect_var, $queryApplyLeave);
-            if($rsd) {
+            $queryApplyLeave = "INSERT INTO tblApplyLeave (
+                employeeID, 
+                fromDate, 
+                toDate, 
+                leaveDuration, 
+                typeOfLeave, 
+                reason, 
+                createdOn, 
+                status,
+                MedicalCertificatePath,
+                MedicalCertificateUploadDate
+            ) VALUES (
+                ?, ?, ?, ?, ?, ?, 
+                CURRENT_DATE(), 
+                'Yet To Be Approved',
+                ?,
+                CASE WHEN ? IS NOT NULL THEN CURRENT_DATE() ELSE NULL END
+            )";
+
+            $stmt = mysqli_prepare($connect_var, $queryApplyLeave);
+            mysqli_stmt_bind_param($stmt, "ssssssss",
+                $this->empID,
+                $this->fromDate,
+                $this->toDate,
+                $this->leaveDuration,
+                $this->leaveType,
+                $this->leaveReason,
+                $this->MedicalCertificatePath,
+                $this->MedicalCertificatePath  // Used twice for the CASE condition
+            );
+
+            if (mysqli_stmt_execute($stmt)) {
                 echo json_encode(array(
                     "status" => "success",
-                    "message_text" => "Leave applied successfully"
-                ), JSON_FORCE_OBJECT);
+                    "message_text" => "Leave application submitted successfully"
+                ));
             } else {
                 echo json_encode(array(
                     "status" => "error",
-                    "message_text" => "Leave application failed"
-                ), JSON_FORCE_OBJECT);
+                    "message_text" => "Error submitting leave application"
+                ));
             }
+            mysqli_stmt_close($stmt);
             mysqli_close($connect_var);
         } catch(PDOException $e) {
             echo json_encode(array(
