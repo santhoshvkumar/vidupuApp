@@ -13,6 +13,7 @@ class ApplyLeaveMaster {
     public $leaveType;
     public $leaveDuration;
     public $leaveReason;    
+    public $MedicalCertificatePath;
     
     public function loadEmployeeDetails(array $data) {
         $this->empID = $data['empID'];
@@ -26,6 +27,9 @@ class ApplyLeaveMaster {
         $this->leaveType = $data['leaveType'];
         $this->leaveDuration = $data['leaveDuration'];
         $this->leaveReason = $data['leaveReason'];
+        if (isset($data['MedicalCertificatePath']) && !empty($data['MedicalCertificatePath'])) {
+            $this->MedicalCertificatePath = $data['MedicalCertificatePath'];
+        } 
         return true;
     }
 
