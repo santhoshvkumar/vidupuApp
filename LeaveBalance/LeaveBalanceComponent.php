@@ -27,7 +27,7 @@ class ApplyLeaveMaster {
         $this->leaveType = $data['leaveType'];
         $this->leaveDuration = $data['leaveDuration'];
         $this->leaveReason = $data['leaveReason'];
-        if (isset($data['MedicalCertificatePath']) && !empty($data['MedicalCertificatePath'])) {
+        if (isset($data['MedicalCertificatePath'])) {
             $this->MedicalCertificatePath = $data['MedicalCertificatePath'];
         } 
         return true;
