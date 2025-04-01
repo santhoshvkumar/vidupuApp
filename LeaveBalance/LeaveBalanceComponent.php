@@ -227,7 +227,7 @@ class ApplyLeaveMaster {
                     // If no exact overlap, allow the consecutive leave of the same type
                 }
             }
-            echo $this->MedicalCertificatePath;
+            //echo $this->MedicalCertificatePath;
             if ($this->MedicalCertificatePath !== null) {
                 $queryApplyLeave = "INSERT INTO tblApplyLeave (
                     employeeID, 
@@ -279,6 +279,7 @@ class ApplyLeaveMaster {
                 echo json_encode(array(
                     "status" => "success",
                     "message" => "Leave application submitted successfully"
+                    "query" => $queryApplyLeave, 
                 ));
             } else {
                 echo json_encode(array(
