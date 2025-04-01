@@ -39,7 +39,6 @@ class ApplyLeaveMaster {
     public function loadExtendLeaveDetails(array $data) {
         $this->applyLeaveID = $data['applyLeaveID'];
         $this->toDate = $data['toDate'];
-        $this->isextend = $data['isextend'];
         $this->noOfDaysExtend = $data['NoOfDaysExtend'];
         $this->reasonForExtend = $data['reasonForExtend'];
         $this->MedicalCertificatePath = $data['MedicalCertificatePath'];
