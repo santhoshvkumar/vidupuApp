@@ -69,7 +69,7 @@ class ApproveLeaveMaster {
                 tblApplyLeave tblL ON tblE.employeeID = tblL.employeeID
             WHERE 
                 tblE.managerID = '" . mysqli_real_escape_string($connect_var, $this->employeeID) . "'  
-                AND (tblL.status = 'Yet To Be Approved' OR tblL.status = 'ReApplied')";
+                AND (tblL.status = 'Yet To Be Approved' OR tblL.status = 'ReApplied' or tblL.status = 'ExtendedApplied')";
             
             // Add date filters if provided
             if (isset($this->startDate) && !empty($this->startDate)) {
@@ -332,7 +332,7 @@ class ApproveLeaveMaster {
                                    a.reason, a.createdOn, a.status, a.MedicalCertificatePath, a.FitnessCertificatePath 
                                    FROM tblApplyLeave a
                                    JOIN tblEmployee e ON a.employeeID = e.empID
-                                   WHERE (a.status = 'Yet To Be Approved' or a.status = 'ReApplied')
+                                   WHERE (a.status = 'Yet To Be Approved' or a.status = 'ReApplied' or a.status = 'ExtendedApplied')
                                    AND e.reportingPerson = '$this->employeeID'";
                                    
             $rsd = mysqli_query($connect_var, $queryApproveLeave);
