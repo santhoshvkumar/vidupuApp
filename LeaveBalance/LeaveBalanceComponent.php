@@ -278,7 +278,7 @@ class ApplyLeaveMaster {
                 echo json_encode(array(
                     "status" => "success",
                     "message" => "Leave application submitted successfully",
-                    "query" => $this->MedicalCertificatePath, 
+                    "query" => $this->queryApplyLeave, 
                 ));
             } else {
                 echo json_encode(array(
