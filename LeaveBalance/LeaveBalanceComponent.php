@@ -116,9 +116,9 @@ class ApplyLeaveMaster {
     }
     public function applyForLeave() {
         include('config.inc');
+        $queryApplyLeave='';
         header('Content-Type: application/json');
         try {
-            $queryApplyLeave='';
             // For Casual Leave validation
             if ($this->leaveType === 'Casual Leave') {
                 // Get current year's start and mid dates
