@@ -365,7 +365,7 @@ function applyLeave(array $data) {
     } else {
         echo json_encode(array(
             "status" => "error",
-            "message_text" => "Invalid Input Parameters"
+            "message_text" => "Invalid Input Parameters",
             "Data"=> $data
         ), JSON_FORCE_OBJECT);
     }
