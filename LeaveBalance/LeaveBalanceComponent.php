@@ -85,7 +85,6 @@ class ApplyLeaveMaster {
                                   FROM tblApplyLeave 
                                   WHERE employeeID = '$this->empID' and status != 'Cancelled' 
                                   ORDER by applyLeaveID DESC";
-            
             $rsd = mysqli_query($connect_var, $queryLeaveHistory);
             $resultArr = array();
             $count = 0;
@@ -228,7 +227,7 @@ class ApplyLeaveMaster {
                     // If no exact overlap, allow the consecutive leave of the same type
                 }
             }
-
+            echo $this->MedicalCertificatePath;
             if ($this->MedicalCertificatePath !== null) {
                 $queryApplyLeave = "INSERT INTO tblApplyLeave (
                     employeeID, 
