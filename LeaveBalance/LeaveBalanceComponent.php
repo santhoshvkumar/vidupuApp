@@ -11,9 +11,12 @@ class ApplyLeaveMaster {
     public $fromDate;
     public $toDate;
     public $leaveType;
+    public $isextend;
     public $leaveDuration;
     public $leaveReason;    
     public $MedicalCertificatePath;
+    public $noOfDaysExtend;
+    public $reasonForExtend;
     
     public function loadEmployeeDetails(array $data) {
         $this->empID = $data['empID'];
@@ -30,6 +33,16 @@ class ApplyLeaveMaster {
         if (isset($data['MedicalCertificatePath'])) {
             $this->MedicalCertificatePath = $data['MedicalCertificatePath'];
         } 
+        return true;
+    }
+
+    public function loadExtendLeaveDetails(array $data) {
+        $this->applyLeaveID = $data['applyLeaveID'];
+        $this->toDate = $data['toDate'];
+        $this->isextend = $data['isextend'];
+        $this->noOfDaysExtend = $data['NoOfDaysExtend'];
+        $this->reasonForExtend = $data['reasonForExtend'];
+        $this->MedicalCertificatePath = $data['MedicalCertificatePath'];
         return true;
     }
 
@@ -295,6 +308,32 @@ class ApplyLeaveMaster {
             ), JSON_FORCE_OBJECT);
         }
     }
+    public function extendLeaveInfo() {
+        include('config.inc');
+        header('Content-Type: application/json');
+        try {
+            $updateExtendLeave = "UPDATE tblApplyLeave SET toDate = '$this->toDate', reasonForExtend = '$this->reasonForExtend', isExtend=1, NoOfDaysExtend = '$this->noOfDaysExtend', status = 'ExtendedApplied', 	MedicalCertificatePath = '$this->MedicalCertificatePath', MedicalCertificateUploadDate=CURRENT_DATE() WHERE applyLeaveID = '$this->applyLeaveID'";
+            $result = mysqli_query($connect_var, $updateExtendLeave);
+            if ($result) {
+                echo json_encode(array(
+                    "status" => "success",
+                    "message" => "Leave extended successfully"
+                ));
+            } else {
+                echo json_encode(array(
+                    "status" => "error",
+                    "message" => "Error extending leave"
+                ));
+            }
+        } catch(PDOException $e) {
+            echo json_encode(array(
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ), JSON_FORCE_OBJECT);
+        }
+    }
+
+    
 
     public function getCertificatePathInfo() {
         include('config.inc');
@@ -390,6 +429,19 @@ function getLeaveHistory(array $data) {
         echo json_encode(array(
             "status" => "error",
             "message_text" => "Invalid Input Parameters"
+        ), JSON_FORCE_OBJECT);
+    }
+}
+
+function extendLeave(array $data) {
+    $leaveObject = new ApplyLeaveMaster;
+    if($leaveObject->loadExtendLeaveDetails($data)) {
+        $leaveObject->extendLeaveInfo();
+    } else {
+        echo json_encode(array(
+            "status" => "error",
+            "message_text" => "Invalid Input Parameters",
+            "Data"=> $data
         ), JSON_FORCE_OBJECT);
     }
 }
