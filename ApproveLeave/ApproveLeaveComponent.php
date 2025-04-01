@@ -332,7 +332,7 @@ class ApproveLeaveMaster {
                                    a.reason, a.createdOn, a.status, a.MedicalCertificatePath, a.FitnessCertificatePath 
                                    FROM tblApplyLeave a
                                    JOIN tblEmployee e ON a.employeeID = e.empID
-                                   WHERE a.status = 'Yet To Be Approved' 
+                                   WHERE (a.status = 'Yet To Be Approved' or a.status = 'ReApplied')
                                    AND e.reportingPerson = '$this->employeeID'";
                                    
             $rsd = mysqli_query($connect_var, $queryApproveLeave);
