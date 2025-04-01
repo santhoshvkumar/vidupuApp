@@ -116,7 +116,6 @@ class ApplyLeaveMaster {
     }
     public function applyForLeave() {
         include('config.inc');
-        $queryApplyLeave='';
         header('Content-Type: application/json');
         try {
             // For Casual Leave validation
@@ -228,7 +227,7 @@ class ApplyLeaveMaster {
                     // If no exact overlap, allow the consecutive leave of the same type
                 }
             }
-            if ($this->MedicalCertificatePath !== null) {
+            if ($this->MedicalCertificatePath !== null && $this->MedicalCertificatePath !== 'null') {
                 $queryApplyLeave = "INSERT INTO tblApplyLeave (
                     employeeID, 
                     fromDate, 
@@ -279,7 +278,6 @@ class ApplyLeaveMaster {
                 echo json_encode(array(
                     "status" => "success",
                     "message" => "Leave application submitted successfully",
-                    "query" => $this->queryApplyLeave, 
                 ));
             } else {
                 echo json_encode(array(
