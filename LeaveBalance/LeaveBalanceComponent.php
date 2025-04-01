@@ -118,6 +118,7 @@ class ApplyLeaveMaster {
         include('config.inc');
         header('Content-Type: application/json');
         try {
+            $queryApplyLeave ="";
             // For Casual Leave validation
             if ($this->leaveType === 'Casual Leave') {
                 // Get current year's start and mid dates
@@ -278,8 +279,8 @@ class ApplyLeaveMaster {
             if (mysqli_stmt_execute($stmt)) {
                 echo json_encode(array(
                     "status" => "success",
-                    "message" => "Leave application submitted successfully"
-                    "query" => `$queryApplyLeave`, 
+                    "message" => "Leave application submitted successfully",
+                    "query" => $queryApplyLeave, 
                 ));
             } else {
                 echo json_encode(array(
