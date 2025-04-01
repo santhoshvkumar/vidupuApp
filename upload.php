@@ -106,10 +106,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if (move_uploaded_file($fileTmpPath, $destPath)) {
                         // Try to establish database connection
                         try {
-                            if (!isset($connect_var) || !$connect_var) {
-                                // If not already set, create a direct connection
-                                $connect_var = new mysqli("localhost", "root", "root", "tnscvidupuapp", 8889);
-                            }
                             
                             if ($connect_var->connect_error) {
                                 throw new Exception("Database connection failed: " . $connect_var->connect_error);
