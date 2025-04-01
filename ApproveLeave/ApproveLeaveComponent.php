@@ -84,7 +84,7 @@ class ApproveLeaveMaster {
                 tblApplyLeave tblL ON tblE.employeeID = tblL.employeeID
             WHERE 
                 tblE.managerID = '" . mysqli_real_escape_string($connect_var, $this->employeeID) . "'  
-                AND tblL.status IN ('Yet To Be Approved', 'Cancel to approve')";
+                AND tblL.status IN ('Yet To Be Approved', 'ReApplied')";
             
             // Add date filters if provided
             if (isset($this->startDate) && !empty($this->startDate)) {
@@ -155,7 +155,7 @@ class ApproveLeaveMaster {
                               DATEDIFF(toDate, fromDate) + 1 as NoOfDays 
                               FROM tblApplyLeave 
                               WHERE applyLeaveID = ?";
-                             
+                              
             $stmt = mysqli_prepare($connect_var, $queryGetLeave);
             mysqli_stmt_bind_param($stmt, "s", $this->applyLeaveID);
             mysqli_stmt_execute($stmt);
@@ -166,6 +166,7 @@ class ApproveLeaveMaster {
                 $leaveType = trim($leaveDetails['typeOfLeave']);
                 $employeeID = $leaveDetails['employeeID'];
                 $leaveDuration = $leaveDetails['NoOfDays'];
+                $currentStatus = $leaveDetails['status'];
 
                 // Debug logging
                 error_log("Leave details found:");
@@ -173,12 +174,13 @@ class ApproveLeaveMaster {
                 error_log("Trimmed leave type: '" . $leaveType . "'");
                 error_log("Employee ID: " . $employeeID);
                 error_log("Leave duration: " . $leaveDuration);
+                error_log("Current status: " . $currentStatus);
 
                 // Begin transaction
                 mysqli_begin_transaction($connect_var);
 
                 try {
-                    // First update the leave status
+                    // Handle status updates
                     if ($this->status === 'Rejected') {
                         error_log("Preparing to update with rejection reason: " . ($this->rejectionReason ?? 'null'));
                         $statusUpdateQuery = "UPDATE tblApplyLeave SET status = ?, rejection_reason = ? WHERE applyLeaveID = ?";
@@ -186,6 +188,20 @@ class ApproveLeaveMaster {
                         error_log("SQL Query for rejection: " . $statusUpdateQuery);
                         error_log("Parameters: status=" . $this->status . ", reason=" . ($this->rejectionReason ?? 'null') . ", id=" . $this->applyLeaveID);
                         mysqli_stmt_bind_param($stmt, "sss", $this->status, $this->rejectionReason, $this->applyLeaveID);
+                    } else if ($this->status === 'Cancelled') {
+                        // If current status is Approved, change to Reapplied
+                        if ($currentStatus === 'Approved') {
+                            $this->status = 'ReApplied';
+                            error_log("Changing status from Cancelled to ReApplied for approved leave");
+                        }
+                        $statusUpdateQuery = "UPDATE tblApplyLeave SET status = ?, rejection_reason = NULL WHERE applyLeaveID = ?";
+                        $stmt = mysqli_prepare($connect_var, $statusUpdateQuery);
+                        mysqli_stmt_bind_param($stmt, "ss", $this->status, $this->applyLeaveID);
+                    } else if ($this->status === 'Reapplied') {
+                        // When a leave is reapplied, it should be treated as a new leave request
+                        $statusUpdateQuery = "UPDATE tblApplyLeave SET status = 'Yet To Be Approved', rejection_reason = NULL WHERE applyLeaveID = ?";
+                        $stmt = mysqli_prepare($connect_var, $statusUpdateQuery);
+                        mysqli_stmt_bind_param($stmt, "s", $this->applyLeaveID);
                     } else {
                         error_log("Updating status without rejection reason");
                         $statusUpdateQuery = "UPDATE tblApplyLeave SET status = ?, rejection_reason = NULL WHERE applyLeaveID = ?";
@@ -432,7 +448,7 @@ class ApproveLeaveMaster {
                 tblApplyLeave tblL ON tblE.employeeID = tblL.employeeID
             WHERE 
                 tblE.managerID = '" . mysqli_real_escape_string($connect_var, $this->employeeID) . "'  
-                AND tblL.status IN ('Approved', 'Rejected')
+                AND tblL.status IN ('Approved', 'Rejected', 'Cancelled', 'Reapplied')
             ORDER BY tblL.createdOn DESC 
             LIMIT 50";
 
