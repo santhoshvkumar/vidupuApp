@@ -279,7 +279,7 @@ class ApplyLeaveMaster {
                 echo json_encode(array(
                     "status" => "success",
                     "message" => "Leave application submitted successfully"
-                    "query" => $queryApplyLeave, 
+                    "query" => `$queryApplyLeave`, 
                 ));
             } else {
                 echo json_encode(array(
