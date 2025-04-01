@@ -227,7 +227,6 @@ class ApplyLeaveMaster {
                     // If no exact overlap, allow the consecutive leave of the same type
                 }
             }
-            echo "Medical Certificate Path: $this->MedicalCertificatePath";
             if ($this->MedicalCertificatePath !== null) {
                 $queryApplyLeave = "INSERT INTO tblApplyLeave (
                     employeeID, 
