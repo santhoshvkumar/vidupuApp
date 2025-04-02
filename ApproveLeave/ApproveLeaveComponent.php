@@ -197,7 +197,6 @@ class ApproveLeaveMaster {
                     // If approved, update the leave balance
                     if ($this->status === 'Approved') {
                         // Initialize update query
-                        echo $this->applyLeaveID;
                         $updateQuery = "UPDATE tblApplyLeave 
                                 SET status = 'Approved'
                                 WHERE applyLeaveID = ?";
