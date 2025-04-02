@@ -195,7 +195,7 @@ class ApproveLeaveMaster {
                     mysqli_stmt_close($checkStmt);
 
                     // If approved, update the leave balance
-                    if ($this->status === 'Approved') {
+                    if ($this->status === 'Approved' && $row['status'] != 'ReApplied') {
                         // Initialize update query
                         $updateQuery = "UPDATE tblApplyLeave 
                                 SET status = 'Approved'
