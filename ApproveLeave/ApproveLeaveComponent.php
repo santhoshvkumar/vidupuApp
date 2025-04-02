@@ -164,58 +164,69 @@ class ApproveLeaveMaster {
 
                 try {
                     // First update the leave status
-                    $statusUpdateQuery = "UPDATE tblApplyLeave 
-                        SET status = CASE 
-                                WHEN status = 'ReApplied' THEN 'Approved'
-                                ELSE ?
-                            END,
-                            RejectReason = ?
-                        WHERE applyLeaveID = ?";
-                    echo $statusUpdateQuery;
-                    $stmt = mysqli_prepare($connect_var, $statusUpdateQuery);
-                    mysqli_stmt_bind_param($stmt, "sss", $this->status, $this->rejectionReason, $this->applyLeaveID);
-                    
-                    if (!mysqli_stmt_execute($stmt)) {
-                        throw new Exception("Failed to update leave status: " . mysqli_error($connect_var));
-                    }
-
-                    // If approved, update the leave balance
-                    if ($this->status === 'Approved') {
-                        // Initialize update query
-                        $updateQuery = null;
+                    if ($row = mysqli_fetch_assoc($result)) {
+                        $status = $row['status'];
+                        if ($row['status'] === 'ReApplied') {
+                            // If status was ReApplied, update to Approved
+                            $statusUpdateQuery = "UPDATE tblApplyLeave 
+                                SET status = 'Approved', 
+                                    RejectReason = ? 
+                                WHERE applyLeaveID = ?";
+                            $stmt = mysqli_prepare($connect_var, $statusUpdateQuery);
+                            mysqli_stmt_bind_param($stmt, "ss", $rejectReason, $applyLeaveID);
+                        } else {
+                            // For other statuses, use original update logic
+                            $statusUpdateQuery = "UPDATE tblApplyLeave 
+                                SET status = ?, 
+                                    RejectReason = ? 
+                                WHERE applyLeaveID = ?";
+                            $stmt = mysqli_prepare($connect_var, $statusUpdateQuery);
+                            mysqli_stmt_bind_param($stmt, "sss", $status, $rejectReason, $applyLeaveID);
+                        }
                         
-                        // Handle all leave types
-                        if ($leaveType === 'Privilege Leave' || $leaveType === 'Privilege Leave (Medical grounds)') {
-                            $updateQuery = "UPDATE tblLeaveBalance SET PrivilegeLeave = PrivilegeLeave - ? WHERE employeeID = ?";
-                        } elseif ($leaveType === 'Casual Leave') {
-                            $updateQuery = "UPDATE tblLeaveBalance SET CasualLeave = CasualLeave - ? WHERE employeeID = ?";
-                        } elseif ($leaveType === 'Special Casual Leave') {
-                            $updateQuery = "UPDATE tblLeaveBalance SET SpecialCasualLeave = SpecialCasualLeave - ? WHERE employeeID = ?";
-                        } elseif ($leaveType === 'Compensatory Off') {
-                            $updateQuery = "UPDATE tblLeaveBalance SET CompensatoryOff = CompensatoryOff - ? WHERE employeeID = ?";
-                        } elseif ($leaveType === 'Special Leave for Blood Donation') {
-                            $updateQuery = "UPDATE tblLeaveBalance SET SpecialLeaveBloodDonation = SpecialLeaveBloodDonation - ? WHERE employeeID = ?";
-                        } elseif ($leaveType === 'Leave on Private Affairs') {
-                            $updateQuery = "UPDATE tblLeaveBalance SET LeaveOnPrivateAffairs = LeaveOnPrivateAffairs - ? WHERE employeeID = ?";
-                        } elseif ($leaveType === 'Medical Leave') {
-                            $updateQuery = "UPDATE tblLeaveBalance SET MedicalLeave = MedicalLeave - ? WHERE employeeID = ?";
-                        } elseif ($leaveType === 'Maternity Leave') {
-                            $updateQuery = "UPDATE tblLeaveBalance SET MaternityLeave = MaternityLeave - ? WHERE employeeID = ?";
+                        mysqli_stmt_execute($stmt);
+                        mysqli_stmt_close($stmt);
+                        if (!mysqli_stmt_execute($stmt)) {
+                            throw new Exception("Failed to update leave status: " . mysqli_error($connect_var));
                         }
 
-                        if ($updateQuery) {
-                            error_log("Executing balance update query: " . $updateQuery);
-                            error_log("Leave duration: " . $leaveDuration);
-                            error_log("Employee ID: " . $employeeID);
+                        // If approved, update the leave balance
+                        if ($this->status === 'Approved') {
+                            // Initialize update query
+                            $updateQuery = null;
                             
-                            $stmt = mysqli_prepare($connect_var, $updateQuery);
-                            mysqli_stmt_bind_param($stmt, "is", $leaveDuration, $employeeID);
-                            
-                            if (!mysqli_stmt_execute($stmt)) {
-                                throw new Exception("Failed to update leave balance: " . mysqli_error($connect_var));
+                            // Handle all leave types
+                            if ($leaveType === 'Privilege Leave' || $leaveType === 'Privilege Leave (Medical grounds)') {
+                                $updateQuery = "UPDATE tblLeaveBalance SET PrivilegeLeave = PrivilegeLeave - ? WHERE employeeID = ?";
+                            } elseif ($leaveType === 'Casual Leave') {
+                                $updateQuery = "UPDATE tblLeaveBalance SET CasualLeave = CasualLeave - ? WHERE employeeID = ?";
+                            } elseif ($leaveType === 'Special Casual Leave') {
+                                $updateQuery = "UPDATE tblLeaveBalance SET SpecialCasualLeave = SpecialCasualLeave - ? WHERE employeeID = ?";
+                            } elseif ($leaveType === 'Compensatory Off') {
+                                $updateQuery = "UPDATE tblLeaveBalance SET CompensatoryOff = CompensatoryOff - ? WHERE employeeID = ?";
+                            } elseif ($leaveType === 'Special Leave for Blood Donation') {
+                                $updateQuery = "UPDATE tblLeaveBalance SET SpecialLeaveBloodDonation = SpecialLeaveBloodDonation - ? WHERE employeeID = ?";
+                            } elseif ($leaveType === 'Leave on Private Affairs') {
+                                $updateQuery = "UPDATE tblLeaveBalance SET LeaveOnPrivateAffairs = LeaveOnPrivateAffairs - ? WHERE employeeID = ?";
+                            } elseif ($leaveType === 'Medical Leave') {
+                                $updateQuery = "UPDATE tblLeaveBalance SET MedicalLeave = MedicalLeave - ? WHERE employeeID = ?";
+                            } elseif ($leaveType === 'Maternity Leave') {
+                                $updateQuery = "UPDATE tblLeaveBalance SET MaternityLeave = MaternityLeave - ? WHERE employeeID = ?";
+                            }
+
+                            if ($updateQuery) {
+                                error_log("Executing balance update query: " . $updateQuery);
+                                error_log("Leave duration: " . $leaveDuration);
+                                error_log("Employee ID: " . $employeeID);
+                                
+                                $stmt = mysqli_prepare($connect_var, $updateQuery);
+                                mysqli_stmt_bind_param($stmt, "is", $leaveDuration, $employeeID);
+                                
+                                if (!mysqli_stmt_execute($stmt)) {
+                                    throw new Exception("Failed to update leave balance: " . mysqli_error($connect_var));
+                                }
                             }
                         }
-                    }
 
                     // Commit transaction
                     mysqli_commit($connect_var);
