@@ -186,6 +186,7 @@ class ApproveLeaveMaster {
                         
                         mysqli_stmt_execute($stmt);
                         mysqli_stmt_close($stmt);
+                    }
                         if (!mysqli_stmt_execute($stmt)) {
                             throw new Exception("Failed to update leave status: " . mysqli_error($connect_var));
                         }
