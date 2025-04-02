@@ -197,7 +197,11 @@ class ApproveLeaveMaster {
                     // If approved, update the leave balance
                     if ($this->status === 'Approved') {
                         // Initialize update query
-                        $updateQuery = null;
+                        $updateQuery = "UPDATE tblApplyLeave 
+                                SET status = 'Approved'
+                                WHERE applyLeaveID = ?";
+                        $stmt = mysqli_prepare($connect_var, $updateQuery);
+                        mysqli_stmt_bind_param($stmt, "s", $this->applyLeaveID);
                         
                         // Handle all leave types
                         if ($leaveType === 'Privilege Leave' || $leaveType === 'Privilege Leave (Medical grounds)') {
