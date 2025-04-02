@@ -199,10 +199,11 @@ class ApproveLeaveMaster {
                         // Initialize update query
                         $updateQuery = "UPDATE tblApplyLeave 
                                 SET status = 'Approved'
-                                WHERE applyLeaveID = ?";
+                                WHERE applyLeaveID = $this->applyLeaveID";
+                        echo $updateQuery;
                         $stmt = mysqli_prepare($connect_var, $updateQuery);
-                        mysqli_stmt_bind_param($stmt, "s", $this->applyLeaveID);
-                        
+                        // mysqli_stmt_bind_param($stmt, "s", $this->applyLeaveID);
+                        mysqli_stmt_execute($stmt);
                         // Handle all leave types
                         if ($leaveType === 'Privilege Leave' || $leaveType === 'Privilege Leave (Medical grounds)') {
                             $updateQuery = "UPDATE tblLeaveBalance SET PrivilegeLeave = PrivilegeLeave - ? WHERE employeeID = ?";
