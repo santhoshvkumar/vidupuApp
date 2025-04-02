@@ -171,7 +171,7 @@ class ApproveLeaveMaster {
                     $result = mysqli_stmt_get_result($checkStmt);
 
                     if ($row = mysqli_fetch_assoc($result)) {
-                        if ($row['status'] === 'ReApplied') {
+                        if ($row['status'] === 'ReApplied' && $this->status === 'Rejected') {
                             // If status was ReApplied, update to Approved
                             $statusUpdateQuery = "UPDATE tblApplyLeave 
                                 SET status = 'Approved', 
@@ -179,14 +179,13 @@ class ApproveLeaveMaster {
                                 WHERE applyLeaveID = ?";
                             $stmt = mysqli_prepare($connect_var, $statusUpdateQuery);
                             mysqli_stmt_bind_param($stmt, "ss", $this->rejectionReason, $this->applyLeaveID);
-                        } else {
+                        } else if ($row['status'] === 'ReApplied' && $this->status === 'Approved') {
                             // For other statuses, use original update logic
                             $statusUpdateQuery = "UPDATE tblApplyLeave 
-                                SET status = ?, 
-                                    RejectReason = ? 
+                                SET status = 'Cancelled'
                                 WHERE applyLeaveID = ?";
                             $stmt = mysqli_prepare($connect_var, $statusUpdateQuery);
-                            mysqli_stmt_bind_param($stmt, "sss", $this->status, $this->rejectionReason, $this->applyLeaveID);
+                            mysqli_stmt_bind_param($stmt, "s", $this->applyLeaveID);
                         }
                         
                         mysqli_stmt_execute($stmt);
