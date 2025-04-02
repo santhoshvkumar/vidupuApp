@@ -171,6 +171,7 @@ class ApproveLeaveMaster {
                             END,
                             RejectReason = ?
                         WHERE applyLeaveID = ?";
+                    echo $statusUpdateQuery;
                     $stmt = mysqli_prepare($connect_var, $statusUpdateQuery);
                     mysqli_stmt_bind_param($stmt, "sss", $this->status, $this->rejectionReason, $this->applyLeaveID);
                     
