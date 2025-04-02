@@ -60,6 +60,8 @@ class ApproveLeaveMaster {
                 tblL.reason,
                 tblL.createdOn,
                 tblL.status,
+                tblL.NoOfDaysExtend,
+                tblL.reasonForExtend,
                 tblL.MedicalCertificatePath,
                 tblL.FitnessCertificatePath,
                 DATEDIFF(tblL.toDate, tblL.fromDate) + 1 as NoOfDays
