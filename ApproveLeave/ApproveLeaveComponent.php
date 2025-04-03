@@ -186,6 +186,14 @@ class ApproveLeaveMaster {
                                 WHERE applyLeaveID = ?";
                             $stmt = mysqli_prepare($connect_var, $statusUpdateQuery);
                             mysqli_stmt_bind_param($stmt, "s", $this->applyLeaveID);
+                        } else if ($row['status'] === 'Yet To Be Approved' && $this->status === 'Rejected') {
+                            // For other statuses, use original update logic
+                            $statusUpdateQuery = "UPDATE tblApplyLeave 
+                                SET status = 'Rejected', 
+                                    RejectReason = ? 
+                                WHERE applyLeaveID = ?";
+                            $stmt = mysqli_prepare($connect_var, $statusUpdateQuery);
+                            mysqli_stmt_bind_param($stmt, "ss", $this->rejectionReason, $this->applyLeaveID);
                         }
                         
                         mysqli_stmt_execute($stmt);
