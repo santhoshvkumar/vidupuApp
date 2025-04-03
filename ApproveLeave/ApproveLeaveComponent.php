@@ -139,7 +139,7 @@ class ApproveLeaveMaster {
             // Get leave details
             $queryGetLeave = "SELECT applyLeaveID, typeOfLeave, employeeID, status, 
                               DATEDIFF(toDate, fromDate) + 1 as NoOfDays,
-                              leaveDuration
+                              leaveDuration, FitnessCertificatePath
                               FROM tblApplyLeave 
                               WHERE applyLeaveID = ?";
                              
@@ -153,6 +153,7 @@ class ApproveLeaveMaster {
                 $leaveType = trim($leaveDetails['typeOfLeave']);
                 $employeeID = $leaveDetails['employeeID'];
                 $leaveDuration = $leaveDetails['leaveDuration'];
+                $FitnessCertificatePath = $leaveDetails['FitnessCertificatePath'];
                 $decoded_items = array(
                     'applyLeaveID' => $this->applyLeaveID,
                     'typeOfLeave' => $leaveType,
@@ -219,24 +220,36 @@ class ApproveLeaveMaster {
 
                     // If approved, update the leave balance
                     if ($this->status === 'Approved' && $row['status'] != 'ReApplied') {
-                        // Initialize update query
-                        $updateQuery = "UPDATE tblApplyLeave 
-                                SET status = 'Approved'
-                                WHERE applyLeaveID = '$this->applyLeaveID'";
-                       // echo $updateQuery;
-                        $stmt = mysqli_prepare($connect_var, $updateQuery);
-                        mysqli_stmt_execute($stmt);
-                        mysqli_stmt_close($stmt);
-                        $updateQuery = $this->updatedLeaveBalance($decoded_items);
-                        //echo $updateQuery;
-                        if ($updateQuery) {
-                            error_log("Executing balance update query: " . $updateQuery);
-                            error_log("Leave duration: " . $leaveDuration);
-                            error_log("Employee ID: " . $employeeID);
+                        $canUpdateBalance = false;
+                        
+                        // Check leave type conditions
+                        switch ($this->typeOfLeave) {
+                            case "Privilege Leave":
+                            case "Casual Leave":
+                            case "Special Casual Leave":
+                                $canUpdateBalance = true;
+                                break;
                             
-                            $stmtQueryUpdate = mysqli_prepare($connect_var, $updateQuery);
-                            mysqli_stmt_execute($stmtQueryUpdate);
-                            mysqli_stmt_close($stmtQueryUpdate);
+                            case "Medical Leave":
+                                if ($FitnessCertificatePath != null) {
+                                    $canUpdateBalance = true;
+                                } else {
+                                    $canUpdateBalance = false;
+                                }
+                                break;
+                        }
+                        
+                        if ($canUpdateBalance) {
+                            $updateQuery = $this->updatedLeaveBalance($decoded_items);
+                            if ($updateQuery) {
+                                error_log("Executing balance update query: " . $updateQuery);
+                                error_log("Leave duration: " . $leaveDuration);
+                                error_log("Employee ID: " . $employeeID);
+                                
+                                $stmtQueryUpdate = mysqli_prepare($connect_var, $updateQuery);
+                                mysqli_stmt_execute($stmtQueryUpdate);
+                                mysqli_stmt_close($stmtQueryUpdate);
+                            }
                         }
                     }
                     mysqli_commit($connect_var);
