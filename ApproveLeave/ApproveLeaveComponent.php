@@ -233,6 +233,7 @@ class ApproveLeaveMaster {
                             }
                         }
                     }
+                    mysqli_commit($connect_var);
                     echo json_encode(array(
                         "status" => "success",
                         "message_text" => ($this->status === 'Approved') ? 
@@ -241,7 +242,6 @@ class ApproveLeaveMaster {
                         "leaveType" => $leaveType,
                         "duration" => $leaveDuration
                     ));
-
                 } catch (Exception $e) {
                     mysqli_rollback($connect_var);
                     throw $e;
