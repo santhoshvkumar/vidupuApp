@@ -230,7 +230,7 @@ class ApproveLeaveMaster {
                         mysqli_stmt_execute($stmt);
                         mysqli_stmt_close($stmt);
 
-                       
+                       echo "Leave Type: " . $this->typeOfLeave;
                         // Check leave type conditions
                         switch ($this->typeOfLeave) {
                             case "Privilege Leave":
