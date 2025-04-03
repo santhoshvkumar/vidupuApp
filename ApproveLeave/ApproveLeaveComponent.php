@@ -186,7 +186,6 @@ class ApproveLeaveMaster {
                                 WHERE applyLeaveID = ?";
                             $stmt = mysqli_prepare($connect_var, $statusUpdateQuery);
                             mysqli_stmt_bind_param($stmt, "ss", $this->rejectionReason, $this->applyLeaveID);
-                            $updateQuery = $this->updatedLeaveBalance($decoded_items);
                             echo $updateQuery;
                         } else if ($row['status'] === 'ReApplied' && $this->status === 'Approved') {
                             // For other statuses, use original update logic
@@ -239,7 +238,7 @@ class ApproveLeaveMaster {
                         } elseif ($leaveType === 'Maternity Leave') {
                             $updateQuery = "UPDATE tblLeaveBalance SET MaternityLeave = MaternityLeave - ? WHERE employeeID = ?";
                         }*/
-                        $updateQuery = $this->updatedLeaveBalance($decoded_items);
+                      
                         echo $updateQuery;
                         if ($updateQuery) {
                             error_log("Executing balance update query: " . $updateQuery);
@@ -292,23 +291,7 @@ class ApproveLeaveMaster {
             }
         }
     }
-    public function updatedLeaveBalance($decoded_items) {
-        $this->applyLeaveID = $decoded_items['applyLeaveID'];
-        $this->typeOfLeave = $decoded_items['typeOfLeave'];
-        $this->numberOfDays = $decoded_items['numberOfDays'];
-        $this->status = $decoded_items['status'];
-        $this->employeeID = $decoded_items['employeeID'];    
- 
-        if (isset($decoded_items['status'] == "Approved")) {
-            $updateQuery = "UPDATE tblLeaveBalance
-            SET $typeOfLeave = $typeOfLeave - $numberOfDays
-            WHERE employeeID = $employeeID";        }
-        elseif(isset($decoded_items['status'] == ("Cancelled" || "Rejected"))) {
-            $updateQuery = "UPDATE tblLeaveBalance
-            SET $typeOfLeave = $typeOfLeave + $numberOfDays
-            WHERE employeeID = $employeeID";        }            
-        return $updateQuery;
-    }
+
 
     public function processMaternityLeaveStatus() {
         include('config.inc');
