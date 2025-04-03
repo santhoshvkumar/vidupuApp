@@ -214,6 +214,7 @@ class ApproveLeaveMaster {
                        // echo $updateQuery;
                         $stmt = mysqli_prepare($connect_var, $updateQuery);
                         mysqli_stmt_execute($stmt);
+                        mysqli_stmt_close($stmt);
                         $updateQuery = $this->updatedLeaveBalance($decoded_items);
                         echo $updateQuery;
                         if ($updateQuery) {
@@ -221,9 +222,10 @@ class ApproveLeaveMaster {
                             error_log("Leave duration: " . $leaveDuration);
                             error_log("Employee ID: " . $employeeID);
                             
-                            $stmt = mysqli_prepare($connect_var, $updateQuery);
-                            mysqli_stmt_execute($stmt);
-                            if (!mysqli_stmt_execute($stmt)) {
+                            $stmtQueryUpdate = mysqli_prepare($connect_var, $updateQuery);
+                            mysqli_stmt_execute($stmtQueryUpdate);
+                            mysqli_stmt_close($stmtQueryUpdate);
+                            if (!mysqli_stmt_execute($stmtQueryUpdate)) {
                                 throw new Exception("Failed to update leave balance: " . mysqli_error($connect_var));
                             }
                         }
