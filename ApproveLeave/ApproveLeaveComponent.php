@@ -160,12 +160,6 @@ class ApproveLeaveMaster {
                     'status' => $this->status,
                     'employeeID' => $employeeID
                 );
-                // Debug logging
-                error_log("Leave details found:");
-                error_log("Raw leave type: '" . $leaveDetails['typeOfLeave'] . "'");
-                error_log("Trimmed leave type: '" . $leaveType . "'");
-                error_log("Employee ID: " . $employeeID);
-                error_log("Leave duration: " . $leaveDuration);
 
                 // Begin transaction
                 mysqli_begin_transaction($connect_var);
@@ -329,7 +323,7 @@ class ApproveLeaveMaster {
             if (mysqli_num_rows($result) > 0) {
                 $leaveDetails = mysqli_fetch_assoc($result);
                 $employeeID = $leaveDetails['employeeID'];
-                $leaveDuration = $leaveDetails['NoOfDays'];
+                $leaveDuration = $leaveDetails['leaveDuration'];
 
                 // Start transaction
                 mysqli_begin_transaction($connect_var);
