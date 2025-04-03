@@ -298,11 +298,11 @@ class ApproveLeaveMaster {
         $this->status = $decoded_items['status'];
         $this->employeeID = $decoded_items['employeeID'];    
  
-        if (isset($this->status == "Approved")) {
+        if ($this->status == "Approved") {
             $updateQuery = "UPDATE tblLeaveBalance
             SET $typeOfLeave = $typeOfLeave - $numberOfDays
             WHERE employeeID = $employeeID";        }
-        elseif(isset($this->status == ("Cancelled" || "Rejected"))) {
+        elseif($this->status == ("Cancelled" || "Rejected")) {
             $updateQuery = "UPDATE tblLeaveBalance
             SET $typeOfLeave = $typeOfLeave + $numberOfDays
             WHERE employeeID = $employeeID";        }
