@@ -230,9 +230,8 @@ class ApproveLeaveMaster {
                         mysqli_stmt_execute($stmt);
                         mysqli_stmt_close($stmt);
 
-                       echo "Leave Type: " . $this->typeOfLeave;
                         // Check leave type conditions
-                        switch ($this->typeOfLeave) {
+                        switch ($leaveType) {
                             case "Privilege Leave":
                             case "Casual Leave":
                             case "Special Casual Leave":
@@ -241,7 +240,6 @@ class ApproveLeaveMaster {
                             
                             case "Medical Leave":
                                 if ($FitnessCertificatePath != null) {
-                                    echo "Fitness Certificate Path: " . $FitnessCertificatePath;
                                     $canUpdateBalance = true;
                                 } else {
                                     $canUpdateBalance = false;
