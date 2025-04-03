@@ -215,6 +215,7 @@ class ApproveLeaveMaster {
                         $stmt = mysqli_prepare($connect_var, $updateQuery);
                         mysqli_stmt_execute($stmt);
                         $updateQuery = $this->updatedLeaveBalance($decoded_items);
+                        echo $updateQuery;
                         if ($updateQuery) {
                             error_log("Executing balance update query: " . $updateQuery);
                             error_log("Leave duration: " . $leaveDuration);
@@ -311,7 +312,8 @@ class ApproveLeaveMaster {
 
             // Get leave details
             $queryGetLeave = "SELECT applyLeaveID, typeOfLeave, employeeID, status, 
-                              DATEDIFF(toDate, fromDate) + 1 as NoOfDays 
+                              DATEDIFF(toDate, fromDate) + 1 as NoOfDays,
+                              leaveDuration
                               FROM tblApplyLeave 
                               WHERE applyLeaveID = ? AND typeOfLeave = 'Maternity Leave'";
                              
