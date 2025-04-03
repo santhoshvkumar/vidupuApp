@@ -150,86 +150,33 @@ class AttendanceOperationMaster{
         include('config.inc');
         header('Content-Type: application/json');
         try{
-            // First get the leave details
-            $queryGetLeaveDetails = "SELECT leaveDuration, typeOfLeave, employeeID, status 
-                FROM tblApplyLeave 
+            $queryCancelLeave = "UPDATE tblApplyLeave 
+                SET status = CASE 
+                    WHEN status = 'Approved' THEN 'ReApplied'
+                    ELSE 'Cancelled'
+                END
                 WHERE applyLeaveID = ?";
 
-            $detailStmt = mysqli_prepare($connect_var, $queryGetLeaveDetails);
-            mysqli_stmt_bind_param($detailStmt, "s", $this->applyLeaveID);
-            mysqli_stmt_execute($detailStmt);
-            $result = mysqli_stmt_get_result($detailStmt);
+            
 
-            if ($leaveDetails = mysqli_fetch_assoc($result)) {
-                // Only update leave balance if the current status is 'Approved'
-                if ($leaveDetails['status'] === 'Approved') {
-                    // Update leave balance based on leave type
-                    $updateBalanceQuery = "UPDATE tblLeaveBalance 
-                        SET ";
-                    
-                    switch ($leaveDetails['typeOfLeave']) {
-                        case 'Casual Leave':
-                            $updateBalanceQuery .= "CasualLeave = CasualLeave + ?";
-                            break;
-                        case 'Medical Leave':
-                            $updateBalanceQuery .= "MedicalLeave = MedicalLeave + ?";
-                            break;
-                        case 'Privilege Leave':
-                            $updateBalanceQuery .= "PrivilegeLeave = PrivilegeLeave + ?";
-                            break;
-                        case 'Special Casual Leave':
-                            $updateBalanceQuery .= "SpecialCasualLeave = SpecialCasualLeave + ?";
-                            break;
-                        case 'Compensatory Off':
-                            $updateBalanceQuery .= "CompensatoryOff = CompensatoryOff + ?";
-                            break;
-                        // Add other leave types as needed
-                    }
-                    
-                    $updateBalanceQuery .= " WHERE employeeID = ?";
-                    
-                    $balanceStmt = mysqli_prepare($connect_var, $updateBalanceQuery);
-                    mysqli_stmt_bind_param($balanceStmt, "ds", 
-                        $leaveDetails['leaveDuration'], 
-                        $leaveDetails['employeeID']
-                    );
-                    mysqli_stmt_execute($balanceStmt);
-                    mysqli_stmt_close($balanceStmt);
-                }
-                
-                // Now update the leave status
-                $queryCancelLeave = "UPDATE tblApplyLeave 
-                    SET status = CASE 
-                        WHEN status = 'Approved' THEN 'ReApplied'
-                        ELSE 'Cancelled'
-                    END
-                    WHERE applyLeaveID = ?";
-                
-                $cancelStmt = mysqli_prepare($connect_var, $queryCancelLeave);
-                mysqli_stmt_bind_param($cancelStmt, "s", $this->applyLeaveID);
-                mysqli_stmt_execute($cancelStmt);
-                
-                if (mysqli_stmt_affected_rows($cancelStmt) > 0) {
-                    echo json_encode(array(
-                        "status" => "success",
-                        "message" => "Leave cancelled and balance updated successfully"
-                    ));
-                } else {
-                    echo json_encode(array(
-                        "status" => "error",
-                        "message" => "Failed to cancel leave"
-                    ));
-                }
-                
-                mysqli_stmt_close($cancelStmt);
+            $stmt = mysqli_prepare($connect_var, $queryCancelLeave);
+            mysqli_stmt_bind_param($stmt, "s", $this->applyLeaveID);
+            mysqli_stmt_execute($stmt);
+            mysqli_stmt_close($stmt);
+
+            // Optional: Verify the update
+            if (mysqli_affected_rows($connect_var) > 0) {
+                echo json_encode(array(
+                    "status" => "success",
+                    "message" => "Leave cancelled successfully"
+                ));
             } else {
                 echo json_encode(array(
                     "status" => "error",
-                    "message" => "Leave record not found"
+                    "message" => "Unable to cancel leave or leave not found"
                 ));
             }
-
-            mysqli_stmt_close($detailStmt);
+            mysqli_close($connect_var);
         }
         catch(Exception $e){
             echo json_encode(array("status"=>"error","message_text"=>"Error Cancelling Leave"),JSON_FORCE_OBJECT);
