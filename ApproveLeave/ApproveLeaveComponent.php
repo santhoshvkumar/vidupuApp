@@ -241,6 +241,7 @@ class ApproveLeaveMaster {
                             
                             case "Medical Leave":
                                 if ($FitnessCertificatePath != null) {
+                                    echo "Fitness Certificate Path: " . $FitnessCertificatePath;
                                     $canUpdateBalance = true;
                                 } else {
                                     $canUpdateBalance = false;
