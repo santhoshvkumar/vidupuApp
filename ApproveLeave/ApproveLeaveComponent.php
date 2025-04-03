@@ -219,7 +219,6 @@ class ApproveLeaveMaster {
                                 WHERE applyLeaveID = '$this->applyLeaveID'";
                         //echo $updateQuery;
                         $stmt = mysqli_prepare($connect_var, $updateQuery);
-                        mysqli_stmt_bind_param($stmt, "s", $this->applyLeaveID);
                         mysqli_stmt_execute($stmt);
                         $updateQuery = $this->updatedLeaveBalance($decoded_items);
                         if ($updateQuery) {
