@@ -219,26 +219,8 @@ class ApproveLeaveMaster {
                                 WHERE applyLeaveID = '$this->applyLeaveID'";
                         //echo $updateQuery;
                         $stmt = mysqli_prepare($connect_var, $updateQuery);
-                        // mysqli_stmt_bind_param($stmt, "s", $this->applyLeaveID);
+                        mysqli_stmt_bind_param($stmt, "s", $this->applyLeaveID);
                         mysqli_stmt_execute($stmt);
-                        // Handle all leave types
-                        /*if ($leaveType === 'Privilege Leave' || $leaveType === 'Privilege Leave (Medical grounds)') {
-                            $updateQuery = "UPDATE tblLeaveBalance SET PrivilegeLeave = PrivilegeLeave - ? WHERE employeeID = ?";
-                        } elseif ($leaveType === 'Casual Leave') {
-                            $updateQuery = "UPDATE tblLeaveBalance SET CasualLeave = CasualLeave - ? WHERE employeeID = ?";
-                        } elseif ($leaveType === 'Special Casual Leave') {
-                            $updateQuery = "UPDATE tblLeaveBalance SET SpecialCasualLeave = SpecialCasualLeave - ? WHERE employeeID = ?";
-                        } elseif ($leaveType === 'Compensatory Off') {
-                            $updateQuery = "UPDATE tblLeaveBalance SET CompensatoryOff = CompensatoryOff - ? WHERE employeeID = ?";
-                        } elseif ($leaveType === 'Special Leave for Blood Donation') {
-                            $updateQuery = "UPDATE tblLeaveBalance SET SpecialLeaveBloodDonation = SpecialLeaveBloodDonation - ? WHERE employeeID = ?";
-                        } elseif ($leaveType === 'Leave on Private Affairs') {
-                            $updateQuery = "UPDATE tblLeaveBalance SET LeaveOnPrivateAffairs = LeaveOnPrivateAffairs - ? WHERE employeeID = ?";
-                        } elseif ($leaveType === 'Medical Leave') {
-                            $updateQuery = "UPDATE tblLeaveBalance SET MedicalLeave = MedicalLeave - ? WHERE employeeID = ?";
-                        } elseif ($leaveType === 'Maternity Leave') {
-                            $updateQuery = "UPDATE tblLeaveBalance SET MaternityLeave = MaternityLeave - ? WHERE employeeID = ?";
-                        }*/
                         $updateQuery = $this->updatedLeaveBalance($decoded_items);
                         if ($updateQuery) {
                             error_log("Executing balance update query: " . $updateQuery);
