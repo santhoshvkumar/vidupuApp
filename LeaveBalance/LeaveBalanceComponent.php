@@ -95,7 +95,7 @@ class ApplyLeaveMaster {
             $queryLeaveHistory = "SELECT applyLeaveID, fromDate, toDate, leaveDuration, typeOfLeave, 
                                   reason, status, RejectReason, MedicalCertificatePath, FitnessCertificatePath, NoOfDaysExtend, reasonForExtend 
                                   FROM tblApplyLeave 
-                                  WHERE employeeID = '$this->empID' and status != 'Cancelled' 
+                                  WHERE employeeID = '$this->empID'
                                   ORDER by applyLeaveID DESC";
             $rsd = mysqli_query($connect_var, $queryLeaveHistory);
             $resultArr = array();
