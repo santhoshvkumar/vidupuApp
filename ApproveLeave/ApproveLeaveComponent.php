@@ -294,7 +294,28 @@ class ApproveLeaveMaster {
         $this->typeOfLeave = $decoded_items['typeOfLeave'];
         $this->numberOfDays = $decoded_items['numberOfDays'];
         $this->status = $decoded_items['status'];
-        $this->employeeID = $decoded_items['employeeID'];    
+        $this->employeeID = $decoded_items['employeeID'];
+        
+        switch ($this->typeOfLeave) {
+            case "Privilege Leave":
+                $this->typeOfLeave = "PrivilegeLeave";
+                break;
+                
+            case "Casual Leave":
+                $this->typeOfLeave = "CasualLeave";
+                break;
+                
+            case "Special Casual Leave":
+                $this->typeOfLeave = "SpecialCasualLeave";
+                break;
+                
+            case "Compensatory Off":
+                $this->typeOfLeave = "CompensatoryOff";
+                break;
+                
+            default:
+                throw new Exception("Invalid leave type: " . $this->typeOfLeave);
+        }
  
         if ($this->status == "Approved") {
             $updateQuery = "UPDATE tblLeaveBalance
