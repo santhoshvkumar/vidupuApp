@@ -189,6 +189,17 @@ class ApproveLeaveMaster {
                                 WHERE applyLeaveID = ?";
                             $stmt = mysqli_prepare($connect_var, $statusUpdateQuery);
                             mysqli_stmt_bind_param($stmt, "s", $this->applyLeaveID);
+                            $updateQuery = $this->updatedLeaveBalance($decoded_items);
+                            //echo $updateQuery;
+                            if ($updateQuery) {
+                                error_log("Executing balance update query: " . $updateQuery);
+                                error_log("Leave duration: " . $leaveDuration);
+                                error_log("Employee ID: " . $employeeID);
+                                
+                                $stmtQueryUpdate = mysqli_prepare($connect_var, $updateQuery);
+                                mysqli_stmt_execute($stmtQueryUpdate);
+                                mysqli_stmt_close($stmtQueryUpdate);
+                            }
                         } else if ($row['status'] === 'Yet To Be Approved' && $this->status === 'Rejected') {
                             // For other statuses, use original update logic
                             $statusUpdateQuery = "UPDATE tblApplyLeave 
