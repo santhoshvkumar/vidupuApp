@@ -224,10 +224,6 @@ class ApproveLeaveMaster {
                             
                             $stmtQueryUpdate = mysqli_prepare($connect_var, $updateQuery);
                             mysqli_stmt_execute($stmtQueryUpdate);
-                          
-                            if (!mysqli_stmt_execute($stmtQueryUpdate)) {
-                                throw new Exception("Failed to update leave balance: " . mysqli_error($connect_var));
-                            }
                             mysqli_stmt_close($stmtQueryUpdate);
                         }
                     }
