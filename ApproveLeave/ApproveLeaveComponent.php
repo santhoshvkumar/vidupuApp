@@ -138,7 +138,8 @@ class ApproveLeaveMaster {
 
             // Get leave details
             $queryGetLeave = "SELECT applyLeaveID, typeOfLeave, employeeID, status, 
-                              DATEDIFF(toDate, fromDate) + 1 as NoOfDays 
+                              DATEDIFF(toDate, fromDate) + 1 as NoOfDays,
+                              leaveDuration
                               FROM tblApplyLeave 
                               WHERE applyLeaveID = ?";
                              
@@ -151,7 +152,7 @@ class ApproveLeaveMaster {
                 $leaveDetails = mysqli_fetch_assoc($result);
                 $leaveType = trim($leaveDetails['typeOfLeave']);
                 $employeeID = $leaveDetails['employeeID'];
-                $leaveDuration = $leaveDetails['NoOfDays'];
+                $leaveDuration = $leaveDetails['leaveDuration'];
                 $decoded_items = array(
                     'applyLeaveID' => $this->applyLeaveID,
                     'typeOfLeave' => $leaveType,
@@ -239,7 +240,6 @@ class ApproveLeaveMaster {
                             $updateQuery = "UPDATE tblLeaveBalance SET MaternityLeave = MaternityLeave - ? WHERE employeeID = ?";
                         }*/
                         $updateQuery = $this->updatedLeaveBalance($decoded_items);
-                        echo $updateQuery;
                         if ($updateQuery) {
                             error_log("Executing balance update query: " . $updateQuery);
                             error_log("Leave duration: " . $leaveDuration);
@@ -252,9 +252,6 @@ class ApproveLeaveMaster {
                             }
                         }
                     }
-
-                    // Commit transaction
-                    mysqli_close($connect_var);
                     echo json_encode(array(
                         "status" => "success",
                         "message_text" => ($this->status === 'Approved') ? 
