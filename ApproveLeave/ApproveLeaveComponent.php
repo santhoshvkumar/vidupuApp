@@ -284,19 +284,24 @@ class ApproveLeaveMaster {
             case "Privilege Leave":
                 $this->typeOfLeave = "PrivilegeLeave";
                 break;
-                
             case "Casual Leave":
                 $this->typeOfLeave = "CasualLeave";
                 break;
-                
             case "Special Casual Leave":
                 $this->typeOfLeave = "SpecialCasualLeave";
                 break;
-                
             case "Compensatory Off":
                 $this->typeOfLeave = "CompensatoryOff";
                 break;
-                
+            case "Medical Leave":
+                $this->typeOfLeave = "MedicalLeave";
+                break;
+            case "Maternity Leave":
+                $this->typeOfLeave = "MaternityLeave";
+                break;
+            case "Privilege Leave (Medical grounds)":
+                $this->typeOfLeave = "PrivilegeLeave";
+                break;
             default:
                 throw new Exception("Invalid leave type: " . $this->typeOfLeave);
         }
