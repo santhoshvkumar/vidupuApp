@@ -292,17 +292,18 @@ class ApproveLeaveMaster {
         }
     }
     public function updatedLeaveBalance($decoded_items) {
+        print_r($decoded_items);
         $this->applyLeaveID = $decoded_items['applyLeaveID'];
         $this->typeOfLeave = $decoded_items['typeOfLeave'];
         $this->numberOfDays = $decoded_items['numberOfDays'];
         $this->status = $decoded_items['status'];
         $this->employeeID = $decoded_items['employeeID'];    
  
-        if (isset($decoded_items['status'] == "Approved")) {
+        if (isset($this->status == "Approved")) {
             $updateQuery = "UPDATE tblLeaveBalance
             SET $typeOfLeave = $typeOfLeave - $numberOfDays
             WHERE employeeID = $employeeID";        }
-        elseif(isset($decoded_items['status'] == ("Cancelled" || "Rejected"))) {
+        elseif(isset($this->status == ("Cancelled" || "Rejected"))) {
             $updateQuery = "UPDATE tblLeaveBalance
             SET $typeOfLeave = $typeOfLeave + $numberOfDays
             WHERE employeeID = $employeeID";        }            
