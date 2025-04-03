@@ -64,7 +64,8 @@ class ApproveLeaveMaster {
                 tblL.reasonForExtend,
                 tblL.MedicalCertificatePath,
                 tblL.FitnessCertificatePath,
-                tblL.leaveDuration as NoOfDays
+                DATEDIFF(tblL.toDate, tblL.fromDate) + 1 as NoOfDays,
+                tblL.leaveDuration
             FROM 
                 tblEmployee tblE
             INNER JOIN 
