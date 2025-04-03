@@ -221,7 +221,16 @@ class ApproveLeaveMaster {
                     // If approved, update the leave balance
                     if ($this->status === 'Approved' && $row['status'] != 'ReApplied') {
                         $canUpdateBalance = false;
-                        
+                        // Initialize update query
+                        $updateQuery = "UPDATE tblApplyLeave 
+                                        SET status = 'Approved'
+                                        WHERE applyLeaveID = '$this->applyLeaveID'";
+                        // echo $updateQuery;
+                        $stmt = mysqli_prepare($connect_var, $updateQuery);
+                        mysqli_stmt_execute($stmt);
+                        mysqli_stmt_close($stmt);
+
+                       
                         // Check leave type conditions
                         switch ($this->typeOfLeave) {
                             case "Privilege Leave":
