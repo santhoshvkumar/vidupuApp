@@ -238,7 +238,7 @@ class ApproveLeaveMaster {
                         } elseif ($leaveType === 'Maternity Leave') {
                             $updateQuery = "UPDATE tblLeaveBalance SET MaternityLeave = MaternityLeave - ? WHERE employeeID = ?";
                         }*/
-                        $updateQuery = updatedLeaveBalance($decoded_items);
+                        $updateQuery = $this->updatedLeaveBalance($decoded_items);
                         echo $updateQuery;
                         if ($updateQuery) {
                             error_log("Executing balance update query: " . $updateQuery);
