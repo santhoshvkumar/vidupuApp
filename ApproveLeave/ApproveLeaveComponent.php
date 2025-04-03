@@ -217,7 +217,7 @@ class ApproveLeaveMaster {
                         $updateQuery = "UPDATE tblApplyLeave 
                                 SET status = 'Approved'
                                 WHERE applyLeaveID = '$this->applyLeaveID'";
-                        //echo $updateQuery;
+                        echo $updateQuery;
                         $stmt = mysqli_prepare($connect_var, $updateQuery);
                         mysqli_stmt_execute($stmt);
                         $updateQuery = $this->updatedLeaveBalance($decoded_items);
