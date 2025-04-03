@@ -246,8 +246,7 @@ class ApproveLeaveMaster {
                             error_log("Employee ID: " . $employeeID);
                             
                             $stmt = mysqli_prepare($connect_var, $updateQuery);
-                            mysqli_stmt_bind_param($stmt, "is", $leaveDuration, $employeeID);
-                            
+                            mysqli_stmt_execute($stmt);
                             if (!mysqli_stmt_execute($stmt)) {
                                 throw new Exception("Failed to update leave balance: " . mysqli_error($connect_var));
                             }
@@ -255,8 +254,7 @@ class ApproveLeaveMaster {
                     }
 
                     // Commit transaction
-                    mysqli_commit($connect_var);
-
+                    mysqli_close($connect_var);
                     echo json_encode(array(
                         "status" => "success",
                         "message_text" => ($this->status === 'Approved') ? 
@@ -300,12 +298,12 @@ class ApproveLeaveMaster {
  
         if ($this->status == "Approved") {
             $updateQuery = "UPDATE tblLeaveBalance
-            SET $typeOfLeave = $typeOfLeave - $numberOfDays
-            WHERE employeeID = $employeeID";        }
+            SET $this->typeOfLeave = $this->typeOfLeave - $this->numberOfDays
+            WHERE employeeID = $this->employeeID";        }
         elseif($this->status == ("Cancelled" || "Rejected")) {
             $updateQuery = "UPDATE tblLeaveBalance
-            SET $typeOfLeave = $typeOfLeave + $numberOfDays
-            WHERE employeeID = $employeeID";        }
+            SET $this->typeOfLeave = $this->typeOfLeave + $this->numberOfDays
+            WHERE employeeID = $this->employeeID";        }
         return $updateQuery;
     }
 
