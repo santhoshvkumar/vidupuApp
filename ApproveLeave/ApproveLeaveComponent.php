@@ -162,7 +162,7 @@ class ApproveLeaveMaster {
                     'status' => $this->status,
                     'employeeID' => $employeeID
                 );
-
+                $updateQuery = '';
                 // Begin transaction
                 mysqli_begin_transaction($connect_var);
 
