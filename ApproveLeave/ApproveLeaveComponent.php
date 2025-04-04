@@ -139,7 +139,7 @@ class ApproveLeaveMaster {
             // Get leave details
             $queryGetLeave = "SELECT applyLeaveID, typeOfLeave, employeeID, status, 
                               DATEDIFF(toDate, fromDate) + 1 as NoOfDays,
-                              leaveDuration, FitnessCertificatePath
+                              leaveDuration, FitnessCertificatePath, NoOfDaysExtend
                               FROM tblApplyLeave 
                               WHERE applyLeaveID = ?";
                              
@@ -154,6 +154,7 @@ class ApproveLeaveMaster {
                 $employeeID = $leaveDetails['employeeID'];
                 $leaveDuration = $leaveDetails['leaveDuration'];
                 $FitnessCertificatePath = $leaveDetails['FitnessCertificatePath'];
+                $noOfDaysExtend = $leaveDetails['NoOfDaysExtend'];
                 $decoded_items = array(
                     'applyLeaveID' => $this->applyLeaveID,
                     'typeOfLeave' => $leaveType,
@@ -210,7 +211,7 @@ class ApproveLeaveMaster {
                                 WHERE applyLeaveID = ?";
                             $stmt = mysqli_prepare($connect_var, $statusUpdateQuery);
                             mysqli_stmt_bind_param($stmt, "ss", $this->rejectionReason, $this->applyLeaveID);
-                        }
+                        } 
                         
                         mysqli_stmt_execute($stmt);
                         mysqli_stmt_close($stmt);
@@ -246,7 +247,9 @@ class ApproveLeaveMaster {
                                 }
                                 break;
                         }
-                        
+                        if ($row['status'] === 'ExtendedApplied') {
+                            $canUpdateBalance = true;
+                        }       
                         if ($canUpdateBalance) {
                             $updateQuery = $this->updatedLeaveBalance($decoded_items);
                             if ($updateQuery) {
@@ -267,7 +270,8 @@ class ApproveLeaveMaster {
                             "Leave approved and balance updated successfully" : 
                             "Leave " . strtolower($this->status) . " successfully",
                         "leaveType" => $leaveType,
-                        "duration" => $leaveDuration
+                        "duration" => $leaveDuration,
+                        "NoOfDaysExtend" => ($row['status'] === 'ExtendedApplied' && $this->status === 'Approved') ? $noOfDaysExtend : null
                     ));
                 } catch (Exception $e) {
                     mysqli_rollback($connect_var);
@@ -326,15 +330,14 @@ class ApproveLeaveMaster {
             default:
                 throw new Exception("Invalid leave type: " . $this->typeOfLeave);
         }
- 
         if ($this->status == "Approved") {
-            $updateQuery = "UPDATE tblLeaveBalance
-            SET $this->typeOfLeave = $this->typeOfLeave - $this->numberOfDays
-            WHERE employeeID = $this->employeeID";        }
-        elseif($this->status == ("Cancelled" || "Rejected")) {
-            $updateQuery = "UPDATE tblLeaveBalance
-            SET $this->typeOfLeave = $this->typeOfLeave + $this->numberOfDays
-            WHERE employeeID = $this->employeeID";        }
+                    $updateQuery = "UPDATE tblLeaveBalance
+                        SET $this->typeOfLeave = $this->typeOfLeave - $this->numberOfDays
+                        WHERE employeeID = $this->employeeID";        }
+                        elseif($this->status == ("Cancelled" || "Rejected")) {
+                        $updateQuery = "UPDATE tblLeaveBalance
+                        SET $this->typeOfLeave = $this->typeOfLeave + $this->numberOfDays
+                      WHERE employeeID = $this->employeeID";        }
         return $updateQuery;
     }
 
