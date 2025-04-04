@@ -271,8 +271,8 @@ class ApproveLeaveMaster {
                     echo json_encode(array(
                         "status" => "success",
                         "message_text" => ($this->status === 'Approved') ? 
-                            "Leave approved and balance updated successfully" : 
-                            "Leave " . strtolower($this->status) . " successfully",
+                            "Leave approved and balance updated successfully ".$decoded_items["numberOfDays"] : 
+                            "Leave " . strtolower($this->status) . " successfully ".$decoded_items["numberOfDays"],
                         "leaveType" => $leaveType,
                         "duration" => $leaveDuration
                     ));
