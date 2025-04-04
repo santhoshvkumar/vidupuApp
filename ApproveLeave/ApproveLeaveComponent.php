@@ -196,11 +196,12 @@ class ApproveLeaveMaster {
                                     SET status = 'Cancelled'
                                     WHERE applyLeaveID = ?";
                                     $decoded_items["status"] = "Cancelled";
+                                $updateQuery = $this->updatedLeaveBalance($decoded_items);
                             }
                             $stmt = mysqli_prepare($connect_var, $statusUpdateQuery);
                             mysqli_stmt_bind_param($stmt, "s", $this->applyLeaveID);
                            
-                            $updateQuery = $this->updatedLeaveBalance($decoded_items);
+                           
                             //echo $updateQuery;
                             if ($updateQuery) {
                                 error_log("Executing balance update query: " . $updateQuery);
