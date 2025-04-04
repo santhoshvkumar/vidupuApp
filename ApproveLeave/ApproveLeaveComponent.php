@@ -168,7 +168,7 @@ class ApproveLeaveMaster {
 
                 try {
                     // First check the current status
-                    $checkStatusQuery = "SELECT status FROM tblApplyLeave WHERE applyLeaveID = ?";
+                    $checkStatusQuery = "SELECT status, isExtend FROM tblApplyLeave WHERE applyLeaveID = ?";
                     $checkStmt = mysqli_prepare($connect_var, $checkStatusQuery);
                     mysqli_stmt_bind_param($checkStmt, "s", $this->applyLeaveID);
                     mysqli_stmt_execute($checkStmt);
@@ -192,6 +192,9 @@ class ApproveLeaveMaster {
                             $stmt = mysqli_prepare($connect_var, $statusUpdateQuery);
                             mysqli_stmt_bind_param($stmt, "s", $this->applyLeaveID);
                             $decoded_items["status"] = "Cancelled";
+                            if($row['isExtend'] == 1){
+                                $decoded_items["numberOfDays"] = intval($noOfDaysExtend) + intval($leaveDuration);
+                            }
                             $updateQuery = $this->updatedLeaveBalance($decoded_items);
                             //echo $updateQuery;
                             if ($updateQuery) {
