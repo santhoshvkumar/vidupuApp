@@ -244,14 +244,15 @@ class ApproveLeaveMaster {
                             
                             case "Medical Leave":
                                 if ($FitnessCertificatePath != null) {
+                                    $decoded_items["numberOfDays"] = intval($noOfDaysExtend) + intval($leaveDuration);
                                     $canUpdateBalance = true;
                                 } else {
                                     $canUpdateBalance = false;
                                 }
                                 break;
                         }
+                        // Guess this will never be executed
                         if ($row['status'] === 'ExtendedApplied' && $FitnessCertificatePath != null) {
-                            echo  intval($noOfDaysExtend) + intval($leaveDuration);
                             $decoded_items["numberOfDays"] = intval($noOfDaysExtend) + intval($leaveDuration);
                             $canUpdateBalance = true;
                         }       
