@@ -248,6 +248,7 @@ class ApproveLeaveMaster {
                                 break;
                         }
                         if ($row['status'] === 'ExtendedApplied') {
+                            $decoded_items["numberOfDays"] = $noOfDaysExtend;
                             $canUpdateBalance = true;
                         }       
                         if ($canUpdateBalance) {
@@ -270,8 +271,7 @@ class ApproveLeaveMaster {
                             "Leave approved and balance updated successfully" : 
                             "Leave " . strtolower($this->status) . " successfully",
                         "leaveType" => $leaveType,
-                        "duration" => $leaveDuration,
-                        "NoOfDaysExtend" => ($row['status'] === 'ExtendedApplied' && $this->status === 'Approved') ? $noOfDaysExtend : null
+                        "duration" => $leaveDuration
                     ));
                 } catch (Exception $e) {
                     mysqli_rollback($connect_var);
@@ -333,11 +333,13 @@ class ApproveLeaveMaster {
         if ($this->status == "Approved") {
                     $updateQuery = "UPDATE tblLeaveBalance
                         SET $this->typeOfLeave = $this->typeOfLeave - $this->numberOfDays
-                        WHERE employeeID = $this->employeeID";        }
-                        elseif($this->status == ("Cancelled" || "Rejected")) {
-                        $updateQuery = "UPDATE tblLeaveBalance
-                        SET $this->typeOfLeave = $this->typeOfLeave + $this->numberOfDays
-                      WHERE employeeID = $this->employeeID";        }
+                        WHERE employeeID = $this->employeeID";        
+        }
+        elseif($this->status == ("Cancelled" || "Rejected")) {
+            $updateQuery = "UPDATE tblLeaveBalance
+            SET $this->typeOfLeave = $this->typeOfLeave + $this->numberOfDays
+            WHERE employeeID = $this->employeeID";        
+        }
         return $updateQuery;
     }
 
