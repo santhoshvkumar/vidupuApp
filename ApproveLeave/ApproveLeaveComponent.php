@@ -168,7 +168,7 @@ class ApproveLeaveMaster {
 
                 try {
                     // First check the current status
-                    $checkStatusQuery = "SELECT status, isExtend FROM tblApplyLeave WHERE applyLeaveID = ?";
+                    $checkStatusQuery = "SELECT status, isExtend, NoOfDaysExtend FROM tblApplyLeave WHERE applyLeaveID = ?";
                     $checkStmt = mysqli_prepare($connect_var, $checkStatusQuery);
                     mysqli_stmt_bind_param($checkStmt, "s", $this->applyLeaveID);
                     mysqli_stmt_execute($checkStmt);
@@ -187,12 +187,16 @@ class ApproveLeaveMaster {
                         } else if ($row['status'] === 'ReApplied' && $this->status === 'Approved') {
                             // For other statuses, use original update logic
                             if ($leaveType === 'Medical Leave'){
+                                if($row['isExtend'] == 1){
+                                    $decoded_items["numberOfDays"] = $row['NoOfDaysExtend'];
+                                }
                                 $statusUpdateQuery = "UPDATE tblApplyLeave 
                                     SET status = 'Approved', isExtend = 0, reasonForExtend = NULL, NoOfDaysExtend = NULL
                                     WHERE applyLeaveID = ?";
                                     $stmt = mysqli_prepare($connect_var, $statusUpdateQuery);
                                     mysqli_stmt_bind_param($stmt, "s", $this->applyLeaveID);
-                                     
+                                    $decoded_items["status"] = "Cancelled";
+                                    $updateQuery = $this->updatedLeaveBalance($decoded_items);
                             }
                             else{
                                 $statusUpdateQuery = "UPDATE tblApplyLeave 
