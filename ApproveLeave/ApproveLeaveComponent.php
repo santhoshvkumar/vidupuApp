@@ -251,7 +251,7 @@ class ApproveLeaveMaster {
                                 break;
                         }
                         if ($row['status'] === 'ExtendedApplied' && $FitnessCertificatePath != null) {
-                            $decoded_items["numberOfDays"] = $noOfDaysExtend;
+                            $decoded_items["numberOfDays"] = intval($noOfDaysExtend) + intval($leaveDuration);
                             $canUpdateBalance = true;
                         }       
                         if ($canUpdateBalance) {
