@@ -253,7 +253,7 @@ class ApproveLeaveMaster {
                                 break;
                             
                             case "Medical Leave":
-                                if ($FitnessCertificatePath != null) {
+                                if ($FitnessCertificatePath != null && $this->status != "Cancelled") {
                                     $decoded_items["numberOfDays"] = intval($noOfDaysExtend) + intval($leaveDuration);
                                     $canUpdateBalance = true;
                                 } else {
