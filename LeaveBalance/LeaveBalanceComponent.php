@@ -58,7 +58,7 @@ class ApplyLeaveMaster {
             while($rs = mysqli_fetch_assoc($rsd)) {
                 $resultArr = $rs;
                 $resultArr['TotalLeave'] = $rs['CasualLeave'] + $rs['MedicalLeave'] + $rs['PrivilegeLeave'] + $rs['SpecialCasualLeave'] + $rs['CompensatoryOff'] + $rs['SpecialLeaveBloodDonation'] + $rs['LeaveOnPrivateAffairs'];
-                if(isset($rs['empID'])) {
+                if(isset($rs['EmployeeID'])) {
                     $count++;
                 }
             }
