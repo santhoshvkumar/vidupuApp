@@ -49,8 +49,8 @@ class ApplyLeaveMaster {
         include('config.inc');
         header('Content-Type: application/json');
         try {
-            $queryLeaveBalance = "SELECT CasualLeave, SpecialCasualLeave, CompensatoryOff, SpecialLeaveBloodDonation, LeaveOnPrivateAffairs, MedicalLeave, PrivilegeLeave FROM `tblLeaveBalance` WHERE EmployeeID ='$this->empID'";
-                                
+            $queryLeaveBalance = "SELECT EmployeeID, CasualLeave, SpecialCasualLeave, CompensatoryOff, SpecialLeaveBloodDonation, LeaveOnPrivateAffairs, MedicalLeave, PrivilegeLeave FROM `tblLeaveBalance` WHERE EmployeeID ='$this->empID'";
+                             
             $rsd = mysqli_query($connect_var, $queryLeaveBalance);
             $resultArr = array();
             $count = 0;
