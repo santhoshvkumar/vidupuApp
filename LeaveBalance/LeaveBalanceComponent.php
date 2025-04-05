@@ -135,58 +135,137 @@ class ApplyLeaveMaster {
                 $yearMid = "$currentYear-07-01";
                 $yearEnd = "$currentYear-12-31";
                 
-                // Check total casual leaves taken in the year
-                $queryCasualLeaves = "SELECT 
-                    SUM(CASE 
-                        WHEN fromDate >= '$yearStart' AND toDate <= '$yearMid' THEN leaveDuration
-                        ELSE 0 
-                    END) as first_half_leaves,
-                    SUM(CASE 
-                        WHEN fromDate >= '$yearMid' AND toDate <= '$yearEnd' THEN leaveDuration
-                        ELSE 0 
-                    END) as second_half_leaves
-                    FROM tblApplyLeave 
+                // Get available leave balance for all types
+                $queryBalance = "SELECT CasualLeave, MedicalLeave, PrivilegeLeave, SpecialCasualLeave, CompensatoryOff, SpecialLeaveBloodDonation, LeaveOnPrivateAffairs 
+                                FROM tblLeaveBalance 
+                                WHERE EmployeeID = '$this->empID'";
+                $balanceResult = mysqli_query($connect_var, $queryBalance);
+                $balanceData = mysqli_fetch_assoc($balanceResult);
+                
+                // Map leave types to their balance columns
+                $leaveTypeBalanceMap = array(
+                    'Casual Leave' => 'CasualLeave',
+                    'Medical Leave' => 'MedicalLeave',
+                    'Privilege Leave' => 'PrivilegeLeave',
+                    'Special Casual Leave' => 'SpecialCasualLeave',
+                    'Compensatory Off' => 'CompensatoryOff',
+                    'Special Leave Blood Donation' => 'SpecialLeaveBloodDonation',
+                    'Leave On Private Affairs' => 'LeaveOnPrivateAffairs'
+                );
+                
+                $availableBalance = floatval($balanceData[$leaveTypeBalanceMap[$this->leaveType]]);
+                
+                // Check for split leaves that would exceed available balance
+                $querySplitLeaves = "SELECT fromDate, toDate, leaveDuration FROM tblApplyLeave 
                     WHERE employeeID = '$this->empID' 
-                    AND typeOfLeave = 'Casual Leave'
-                    AND status != 'Cancelled'
-                    AND fromDate >= '$yearStart'";
-                $casualResult = mysqli_query($connect_var, $queryCasualLeaves);
-                $casualData = mysqli_fetch_assoc($casualResult);
+                    AND typeOfLeave = '$this->leaveType' 
+                    AND status != 'Cancelled' 
+                    AND status != 'Rejected' 
+                    AND fromDate >= '$yearStart' 
+                    AND toDate <= '$yearEnd' 
+                    ORDER BY fromDate";
                 
-                $firstHalfLeaves = floatval($casualData['first_half_leaves']);
-                $secondHalfLeaves = floatval($casualData['second_half_leaves']);
+                $splitResult = mysqli_query($connect_var, $querySplitLeaves);
+                $totalStretch = 0;
+                $lastEndDate = null;
                 
-                // Check if the leave spans across half years
-                $isFirstHalf = strtotime($this->fromDate) < strtotime($yearMid);
-                $isSecondHalf = strtotime($this->toDate) >= strtotime($yearMid);
+                while ($row = mysqli_fetch_assoc($splitResult)) {
+                    $leaveStart = new DateTime($row['fromDate']);
+                    $leaveEnd = new DateTime($row['toDate']);
+                    
+                    if ($lastEndDate !== null) {
+                        $lastEnd = new DateTime($lastEndDate);
+                        $interval = $lastEnd->diff($leaveStart);
+                        $daysBetween = $interval->days;
+                        
+                        if ($daysBetween <= 2) {
+                            $totalStretch += $row['leaveDuration'];
+                        } else {
+                            $totalStretch = $row['leaveDuration'];
+                        }
+                    } else {
+                        $totalStretch = $row['leaveDuration'];
+                    }
+                    
+                    $lastEndDate = $row['toDate'];
+                }
                 
-                if ($isFirstHalf && $isSecondHalf) {
+                $totalStretch += $this->leaveDuration;
+                
+                // Special check for Casual Leave (10 days limit)
+                if ($this->leaveType === 'Casual Leave' && $totalStretch > 10) {
                     echo json_encode(array(
                         "status" => "warning",
-                        "message_text" => "Casual Leave cannot span across half years"
+                        "message_text" => "Cannot exceed 10 days of Casual Leave. Your total stretch would be $totalStretch days."
                     ), JSON_FORCE_OBJECT);
                     mysqli_close($connect_var);
                     return;
                 }
-                 // Validate against half-year limits
-            if ($isFirstHalf) {
-                if (($firstHalfLeaves + $this->leaveDuration) > 10) {
+                
+                // Check if total stretch exceeds available balance for all leave types
+                if ($totalStretch > $availableBalance) {
                     echo json_encode(array(
                         "status" => "warning",
-                        "message_text" => "Cannot exceed 10 days of Casual Leave in first half of the year"
+                        "message_text" => "Cannot exceed available $this->leaveType balance. You have $availableBalance days available, but your total stretch would be $totalStretch days."
                     ), JSON_FORCE_OBJECT);
                     mysqli_close($connect_var);
                     return;
                 }
-            } else {
-                $availableSecondHalf = 10 + (10 - $firstHalfLeaves); // Unused first half leaves added to second half
-                if (($secondHalfLeaves + $this->leaveDuration) > $availableSecondHalf) {
-                    echo json_encode(array(
-                        "status" => "warning",
-                        "message_text" => "Exceeds available Casual Leave balance for second half of the year"
-                    ), JSON_FORCE_OBJECT);
+                
+                // Check total casual leaves taken in the year (only for Casual Leave)
+                if ($this->leaveType === 'Casual Leave') {
+                    $queryCasualLeaves = "SELECT 
+                        SUM(CASE 
+                            WHEN fromDate >= '$yearStart' AND toDate <= '$yearMid' THEN leaveDuration
+                            ELSE 0 
+                        END) as first_half_leaves,
+                        SUM(CASE 
+                            WHEN fromDate >= '$yearMid' AND toDate <= '$yearEnd' THEN leaveDuration
+                            ELSE 0 
+                        END) as second_half_leaves
+                        FROM tblApplyLeave 
+                        WHERE employeeID = '$this->empID' 
+                        AND typeOfLeave = 'Casual Leave'
+                        AND status != 'Cancelled'
+                        AND fromDate >= '$yearStart'";
+                    $casualResult = mysqli_query($connect_var, $queryCasualLeaves);
+                    $casualData = mysqli_fetch_assoc($casualResult);
+                    
+                    $firstHalfLeaves = floatval($casualData['first_half_leaves']);
+                    $secondHalfLeaves = floatval($casualData['second_half_leaves']);
+                    
+                    // Check if the leave spans across half years
+                    $isFirstHalf = strtotime($this->fromDate) < strtotime($yearMid);
+                    $isSecondHalf = strtotime($this->toDate) >= strtotime($yearMid);
+                    
+                    if ($isFirstHalf && $isSecondHalf) {
+                        echo json_encode(array(
+                            "status" => "warning",
+                            "message_text" => "Casual Leave cannot span across half years"
+                        ), JSON_FORCE_OBJECT);
                         mysqli_close($connect_var);
                         return;
+                    }
+                     // Validate against half-year limits
+                if ($isFirstHalf) {
+                    if (($firstHalfLeaves + $this->leaveDuration) > 10) {
+                        echo json_encode(array(
+                            "status" => "warning",
+                            "message_text" => "Cannot exceed 10 days of Casual Leave in first half of the year"
+                        ), JSON_FORCE_OBJECT);
+                        mysqli_close($connect_var);
+                        return;
+                    }
+                } else {
+                    $availableSecondHalf = 10 + (10 - $firstHalfLeaves); // Unused first half leaves added to second half
+                    if (($secondHalfLeaves + $this->leaveDuration) > $availableSecondHalf) {
+                        echo json_encode(array(
+                            "status" => "warning",
+                            "message_text" => "Exceeds available Casual Leave balance for second half of the year"
+                        ), JSON_FORCE_OBJECT);
+                            mysqli_close($connect_var);
+                            return;
+                        }
                     }
                 }
             }
@@ -308,7 +387,7 @@ class ApplyLeaveMaster {
         include('config.inc');
         header('Content-Type: application/json');
         try {
-            $updateExtendLeave = "UPDATE tblApplyLeave SET toDate = '$this->toDate', reasonForExtend = '$this->reasonForExtend', isExtend=1, NoOfDaysExtend = '$this->noOfDaysExtend', status = 'ExtendedApplied', 	MedicalCertificatePath = '$this->MedicalCertificatePath', MedicalCertificateUploadDate=CURRENT_DATE() WHERE applyLeaveID = '$this->applyLeaveID'";
+            $updateExtendLeave = "UPDATE tblApplyLeave SET toDate = '$this->toDate', reasonForExtend = '$this->reasonForExtend', isExtend=1, NoOfDaysExtend = '$this->noOfDaysExtend', status = 'ExtendedApplied',  MedicalCertificatePath = '$this->MedicalCertificatePath', MedicalCertificateUploadDate=CURRENT_DATE() WHERE applyLeaveID = '$this->applyLeaveID'";
             $result = mysqli_query($connect_var, $updateExtendLeave);
             if ($result) {
                 echo json_encode(array(
@@ -455,3 +534,4 @@ function getCertificatePath(array $data) {
 }
 
 ?> 
+
