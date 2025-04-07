@@ -138,7 +138,7 @@ class ApproveLeaveMaster {
 
             // Get leave details
             $queryGetLeave = "SELECT applyLeaveID, typeOfLeave, employeeID, status, 
-                              DATEDIFF(toDate, fromDate) + 1 as NoOfDays, fromDate
+                              DATEDIFF(toDate, fromDate) + 1 as NoOfDays, fromDate, 
                               leaveDuration, FitnessCertificatePath, NoOfDaysExtend
                               FROM tblApplyLeave 
                               WHERE applyLeaveID = ?";
