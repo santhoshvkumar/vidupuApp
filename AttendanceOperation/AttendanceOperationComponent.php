@@ -219,13 +219,11 @@ class AttendanceOperationMaster{
             $stmt = mysqli_prepare($connect_var, $queryInsertForLeave);
 
             
-            $dateToInsert = $currentDate->format('Y-m-d');
             
             // Add this check inside the while loop
-            $dateToCheck = $currentDate->format('Y-m-d');
             $holidayQuery = "SELECT 1 FROM tblHoliday WHERE date = ?";
             $holidayStmt = mysqli_prepare($connect_var, $holidayQuery);
-            mysqli_stmt_bind_param($holidayStmt, "s", $dateToCheck);
+            mysqli_stmt_bind_param($holidayStmt, "s", $currentDate);
             mysqli_stmt_execute($holidayStmt);
             $result = mysqli_stmt_get_result($holidayStmt);
             
