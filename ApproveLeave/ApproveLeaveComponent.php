@@ -138,7 +138,7 @@ class ApproveLeaveMaster {
 
             // Get leave details
             $queryGetLeave = "SELECT applyLeaveID, typeOfLeave, employeeID, status, 
-                              DATEDIFF(toDate, fromDate) + 1 as NoOfDays,
+                              DATEDIFF(toDate, fromDate) + 1 as NoOfDays, fromDate
                               leaveDuration, FitnessCertificatePath, NoOfDaysExtend
                               FROM tblApplyLeave 
                               WHERE applyLeaveID = ?";
@@ -152,6 +152,7 @@ class ApproveLeaveMaster {
                 $leaveDetails = mysqli_fetch_assoc($result);
                 $leaveType = trim($leaveDetails['typeOfLeave']);
                 $employeeID = $leaveDetails['employeeID'];
+                $fromDate = $leaveDetails['fromDate'];
                 $leaveDuration = $leaveDetails['leaveDuration'];
                 $FitnessCertificatePath = $leaveDetails['FitnessCertificatePath'];
                 $noOfDaysExtend = $leaveDetails['NoOfDaysExtend'];
@@ -234,10 +235,13 @@ class ApproveLeaveMaster {
                             mysqli_stmt_bind_param($stmt, "ss", $this->rejectionReason, $this->applyLeaveID);
                         } else if ($row['status'] === 'ExtendedApplied' && $this->status === 'Rejected') {
                             // If status was ReApplied, update to Approved
+                            $fromDate = date('Y-m-d', strtotime($row['fromDate']).' + '.$leaveDuration.' day');
+                            echo $fromDate;
                             $statusUpdateQuery = "UPDATE tblApplyLeave 
-                                            SET status = 'Approved', isExtend = 0, reasonForExtend = NULL, NoOfDaysExtend = NULL  WHERE applyLeaveID = ?";
-                            $stmt = mysqli_prepare($connect_var, $statusUpdateQuery);
-                            mysqli_stmt_bind_param($stmt, "s", $this->applyLeaveID);
+                                            SET status = 'Approved', isExtend = 0, reasonForExtend = NULL, NoOfDaysExtend = NULL, fromDate = '$fromDate' WHERE applyLeaveID = ?";
+                            echo $statusUpdateQuery;
+                            //$stmt = mysqli_prepare($connect_var, $statusUpdateQuery);
+                            //mysqli_stmt_bind_param($stmt, "s", $this->applyLeaveID);
                         } 
                         
                         mysqli_stmt_execute($stmt);
