@@ -232,10 +232,6 @@ class AttendanceOperationMaster{
             mysqli_stmt_bind_param($holidayStmt, "s", $dateToCheck);
             mysqli_stmt_execute($holidayStmt);
             $result = mysqli_stmt_get_result($holidayStmt);
-            if (mysqli_num_rows($result) > 0) {
-                $currentDate->modify('+1 day');
-                continue;
-            }
             
             // Bind parameters and execute for each date
             mysqli_stmt_bind_param($stmt, "ss", $dateToInsert, $dateToInsert);
