@@ -127,6 +127,99 @@ class ApplyLeaveMaster {
         include('config.inc');
         header('Content-Type: application/json');
         try {
+           //check leaves applied 
+            $queryPendingLeaves = "SELECT SUM(leaveDuration) as totalPending
+                                 FROM tblApplyLeave 
+                                 WHERE employeeID = '$this->empID' 
+                                 AND typeOfLeave = '$this->leaveType'
+                                 AND status IN ('Yet To Be Approved')";
+           
+            $pendingResult = mysqli_query($connect_var, $queryPendingLeaves);
+            if (!$pendingResult) {
+            
+                throw new Exception("Database query failed");
+            }
+            
+            if ($row = mysqli_fetch_assoc($pendingResult)) {
+                $totalPending = floatval($row['totalPending'] ?: 0);
+            } else {
+                $totalPending = 0;
+            }
+            // Get current leave balance
+            $leaveTypeColumn = $this->leaveType === 'Medical Leave' ? 'MedicalLeave' : 
+                             ($this->leaveType === 'Privilege Leave' ? 'PrivilegeLeave' : 
+                             ($this->leaveType === 'Casual Leave' ? 'CasualLeave' : 
+                             ($this->leaveType === 'Special Casual Leave' ? 'SpecialCasualLeave' : '')));
+
+            $queryLeaveBalance = "SELECT $leaveTypeColumn as balance 
+                                FROM tblLeaveBalance 
+                                WHERE employeeID = '$this->empID'";
+            
+            
+            $balanceResult = mysqli_query($connect_var, $queryLeaveBalance);
+            if (!$balanceResult) {
+                throw new Exception("Database query failed");
+            }
+            
+            if ($row = mysqli_fetch_assoc($balanceResult)) {
+                $currentBalance = floatval($row['balance'] ?: 0);
+            } else {
+                $currentBalance = 0;
+            }
+            // Check if new application + pending applications exceed balance
+            if (($totalPending + $this->leaveDuration) > $currentBalance) {
+                $errorMessage = "Cannot apply for leave. Total pending applications ($totalPending days) plus new application ($this->leaveDuration days) exceeds available balance ($currentBalance days)";
+               
+                echo json_encode(array(
+                    "status" => "warning",
+                    "message_text" => $errorMessage
+                ), JSON_FORCE_OBJECT);
+                mysqli_close($connect_var);
+                return;
+            }
+            // check for overlapping dates
+            $queryCheckOverlap = "SELECT COUNT(*) as overlap_count
+                                FROM tblApplyLeave 
+                                WHERE employeeID = '$this->empID' 
+                                AND typeOfLeave = '$this->leaveType'
+                                AND status IN ('Yet To Be Approved', 'Approved', 'ExtendedApplied', 'ReApplied')
+                                AND (
+                                    (fromDate BETWEEN '$this->fromDate' AND '$this->toDate')
+                                    OR (toDate BETWEEN '$this->fromDate' AND '$this->toDate')
+                                    OR ('$this->fromDate' BETWEEN fromDate AND toDate)
+                                )";
+            
+            $overlapResult = mysqli_query($connect_var, $queryCheckOverlap);
+            if (!$overlapResult) {
+                error_log("Error in overlap check query: " . mysqli_error($connect_var));
+                throw new Exception("Database query failed");
+            }
+            
+            $overlapData = mysqli_fetch_assoc($overlapResult);
+            
+            if ($overlapData['overlap_count'] > 0) {
+                $errorMessage = "Cannot apply for leave. The selected dates overlap with existing leave applications";
+                echo json_encode(array(
+                    "status" => "warning",
+                    "message_text" => $errorMessage
+                ), JSON_FORCE_OBJECT);
+                mysqli_close($connect_var);
+                return;
+            }
+
+            // Debug query to see all leaves
+            $debugQuery = "SELECT applyLeaveID, fromDate, toDate, leaveDuration, typeOfLeave, status
+                         FROM tblApplyLeave 
+                         WHERE employeeID = '$this->empID' 
+                         AND typeOfLeave = '$this->leaveType'
+                         AND status IN ('Yet To Be Approved', 'Approved', 'ExtendedApplied', 'ReApplied')
+                         ORDER BY fromDate";
+            
+            $debugResult = mysqli_query($connect_var, $debugQuery);
+            while ($row = mysqli_fetch_assoc($debugResult)) {
+            }
+            
+
             // For Casual Leave validation
             if ($this->leaveType === 'Casual Leave') {
                 // Get current year's start and mid dates
