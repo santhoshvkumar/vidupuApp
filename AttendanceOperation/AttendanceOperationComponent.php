@@ -204,9 +204,7 @@ class AttendanceOperationMaster{
              $rsd = mysqli_query($connect_var, $updateAutoCheckout);*/
 
             // Calculate date range
-            $endDate = date('Y-m-d'); // today
-            $startDate = date('Y-m-d', strtotime('-1 month')); // one month ago
-
+          
             // Prepare the query
             $queryInsertForLeave = "INSERT INTO tblAttendance (employeeID, attendanceDate, checkInTime, checkOutTime, TotalWorkingHour, isAutoCheckout)
                 SELECT e.employeeID, ?, NULL, NULL, NULL, 1
@@ -224,28 +222,26 @@ class AttendanceOperationMaster{
             $currentDate = new DateTime($startDate);
             $lastDate = new DateTime($endDate);
 
-            while ($currentDate <= $lastDate) {
-                $dateToInsert = $currentDate->format('Y-m-d');
-                
-                // Add this check inside the while loop
-                $dateToCheck = $currentDate->format('Y-m-d');
-                $holidayQuery = "SELECT 1 FROM tblHoliday WHERE date = ?";
-                $holidayStmt = mysqli_prepare($connect_var, $holidayQuery);
-                mysqli_stmt_bind_param($holidayStmt, "s", $dateToCheck);
-                mysqli_stmt_execute($holidayStmt);
-                $result = mysqli_stmt_get_result($holidayStmt);
-                if (mysqli_num_rows($result) > 0) {
-                    $currentDate->modify('+1 day');
-                    continue;
-                }
-                
-                // Bind parameters and execute for each date
-                mysqli_stmt_bind_param($stmt, "ss", $dateToInsert, $dateToInsert);
-                mysqli_stmt_execute($stmt);
-                
-                // Move to next day
+            
+            $dateToInsert = $currentDate->format('Y-m-d');
+            
+            // Add this check inside the while loop
+            $dateToCheck = $currentDate->format('Y-m-d');
+            $holidayQuery = "SELECT 1 FROM tblHoliday WHERE date = ?";
+            $holidayStmt = mysqli_prepare($connect_var, $holidayQuery);
+            mysqli_stmt_bind_param($holidayStmt, "s", $dateToCheck);
+            mysqli_stmt_execute($holidayStmt);
+            $result = mysqli_stmt_get_result($holidayStmt);
+            if (mysqli_num_rows($result) > 0) {
                 $currentDate->modify('+1 day');
+                continue;
             }
+            
+            // Bind parameters and execute for each date
+            mysqli_stmt_bind_param($stmt, "ss", $dateToInsert, $dateToInsert);
+            mysqli_stmt_execute($stmt);
+            
+            
 
             mysqli_stmt_close($stmt);
             
