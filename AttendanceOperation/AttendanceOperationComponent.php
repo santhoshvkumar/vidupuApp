@@ -255,7 +255,7 @@ class AttendanceOperationMaster{
         include('config.inc');
         header('Content-Type: application/json');
         try {
-         
+            echo $getMonth;
             // Query to get attendance history with pagination
             $query = "SELECT 
                         attendanceID, 
