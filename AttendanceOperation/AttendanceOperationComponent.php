@@ -268,7 +268,7 @@ class AttendanceOperationMaster{
                     FROM tblAttendance 
                     WHERE employeeID = ? 
                     AND MONTH(attendanceDate) = ?
-                    ORDER BY attendanceDate DESC;
+                    ORDER BY attendanceDate DESC";
             
             $stmt = mysqli_prepare($connect_var, $query);
             mysqli_stmt_bind_param($stmt, "ss", $employeeID, $getMonth);
