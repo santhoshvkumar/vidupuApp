@@ -16,6 +16,10 @@ class AttendanceOperationMaster{
         $this->empID = $decoded_items['employeeID'];
         return true;
     }
+    public function loadAutoCheckout(){
+        $this->dateOfCheckout = $decoded_items['dateOfCheckout'];
+        return true;
+    }
 
     public function checkInOnGivenDate(){
         include('config.inc');  
@@ -187,7 +191,7 @@ class AttendanceOperationMaster{
         header('Content-Type: application/json');
         try {
             $cutoffTime = '23:59:59'; // End of day cutoff
-            $currentDate = date('Y-m-d');
+            $currentDate = $this->dateOfCheckout;
             
             /*$updateAutoCheckout = "UPDATE tblAttendance
                                     SET 
@@ -439,7 +443,12 @@ function checkOut($decoded_items){
 function autoCheckout() {
     try {
         $attendanceOperationObject = new AttendanceOperationMaster();
-        $attendanceOperationObject->autoCheckoutProcess();
+        if($attendanceOperationObject->loadAutoCheckout()){
+            $attendanceOperationObject->autoCheckoutProcess();
+        }
+        else{
+            echo json_encode(array("status"=>"error","message_text"=>"Invalid Input Parameters"),JSON_FORCE_OBJECT);
+        }
     } catch(Exception $e) {
         echo json_encode(array(
             "status" => "error",
