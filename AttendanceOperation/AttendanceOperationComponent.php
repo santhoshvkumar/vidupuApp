@@ -16,7 +16,7 @@ class AttendanceOperationMaster{
         $this->empID = $decoded_items['employeeID'];
         return true;
     }
-    public function loadAutoCheckout(){
+    public function loadAutoCheckout($decoded_items){
         $this->dateOfCheckout = $decoded_items['dateOfCheckout'];
         return true;
     }
