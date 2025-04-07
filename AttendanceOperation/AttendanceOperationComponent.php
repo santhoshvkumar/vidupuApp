@@ -440,7 +440,7 @@ function checkOut($decoded_items){
     }
 }
 
-function autoCheckout() {
+function autoCheckout($decoded_items) {
     try {
         $attendanceOperationObject = new AttendanceOperationMaster();
         if($attendanceOperationObject->loadAutoCheckout($decoded_items)){
