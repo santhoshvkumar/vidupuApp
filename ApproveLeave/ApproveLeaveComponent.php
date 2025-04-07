@@ -240,9 +240,8 @@ class ApproveLeaveMaster {
                             $toDate = $date->format('Y-m-d');
                             $statusUpdateQuery = "UPDATE tblApplyLeave 
                                             SET status = 'Approved', isExtend = 0, reasonForExtend = NULL, NoOfDaysExtend = NULL, toDate = '$toDate' WHERE applyLeaveID = ?";
-                            echo $statusUpdateQuery;
-                            //$stmt = mysqli_prepare($connect_var, $statusUpdateQuery);
-                            //mysqli_stmt_bind_param($stmt, "s", $this->applyLeaveID);
+                            $stmt = mysqli_prepare($connect_var, $statusUpdateQuery);
+                            mysqli_stmt_bind_param($stmt, "s", $this->applyLeaveID);
                         } 
                         
                         mysqli_stmt_execute($stmt);
