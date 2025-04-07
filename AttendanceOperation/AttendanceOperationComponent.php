@@ -245,7 +245,7 @@ class AttendanceOperationMaster{
             
             echo json_encode(array(
                 "status" => "success",
-                "message_text" => "Attendance records created from $startDate to $endDate"
+                "message_text" => "Attendance records created from $currentDate "
             ), JSON_FORCE_OBJECT);
 
         } catch(Exception $e) {
