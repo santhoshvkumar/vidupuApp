@@ -72,7 +72,7 @@ $f3->route('POST /AutoCheckout',
     }
 );
 
-$f3->route('GET /attendance/employee/@empID',
+$f3->route('GET /attendance/employee/@empID/@month',
     function($f3) {
         getEmployeeAttendance($f3);
     }

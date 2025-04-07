@@ -251,13 +251,11 @@ class AttendanceOperationMaster{
         }
     }
 
-    public function getEmployeeAttendanceHistory($employeeID, $page = 1, $limit = 10) {
+    public function getEmployeeAttendanceHistory($employeeID, $getMonth) {
         include('config.inc');
         header('Content-Type: application/json');
         try {
-            // Calculate offset for pagination
-            $offset = ($page - 1) * $limit;
-            
+         
             // Query to get attendance history with pagination
             $query = "SELECT 
                         attendanceID, 
@@ -269,11 +267,11 @@ class AttendanceOperationMaster{
                         isAutoCheckout
                     FROM tblAttendance 
                     WHERE employeeID = ? 
-                    ORDER BY attendanceDate DESC
-                    LIMIT ?, ?";
+                    AND MONTH(attendanceDate) = ?
+                    ORDER BY attendanceDate DESC;
             
             $stmt = mysqli_prepare($connect_var, $query);
-            mysqli_stmt_bind_param($stmt, "sii", $employeeID, $offset, $limit);
+            mysqli_stmt_bind_param($stmt, "si", $employeeID, $getMonth);
             mysqli_stmt_execute($stmt);
             $result = mysqli_stmt_get_result($stmt);
             
@@ -445,20 +443,10 @@ function autoCheckout($decoded_items) {
 
 function getEmployeeAttendance($f3) {
     $employeeID = $f3->get('PARAMS.empID');
-    $page = isset($_GET['page']) ? intval($_GET['page']) : 1;
-    $limit = isset($_GET['limit']) ? intval($_GET['limit']) : 10;
-    
-    if (empty($employeeID)) {
-        echo json_encode(array(
-            "status" => "error",
-            "message_text" => "Employee ID is required"
-        ), JSON_FORCE_OBJECT);
-        return;
-    }
-    
+    $getMonth = $f3->get('PARAMS.month');
     try {
         $attendanceOperationObject = new AttendanceOperationMaster();
-        $attendanceOperationObject->getEmployeeAttendanceHistory($employeeID, $page, $limit);
+        $attendanceOperationObject->getEmployeeAttendanceHistory($employeeID, $getMonth);
     } catch(Exception $e) {
         echo json_encode(array(
             "status" => "error",
