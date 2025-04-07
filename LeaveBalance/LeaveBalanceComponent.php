@@ -128,11 +128,27 @@ class ApplyLeaveMaster {
         header('Content-Type: application/json');
         try {
            //check leaves applied 
-            $queryPendingLeaves = "SELECT SUM(leaveDuration) as totalPending
+            $leaveTypeColumn = $this->leaveType === 'Medical Leave' ? 'MedicalLeave' :
+                                ($this->leaveType === 'Privilege Leave' ? 'PrivilegeLeave' : 
+                                ($this->leaveType === 'Privilege Leave (Medical grounds)' ? 'PrivilegeLeave' : 
+                                ($this->leaveType === 'Casual Leave' ? 'CasualLeave' : 
+                                ($this->leaveType === 'Special Casual Leave' ? 'SpecialCasualLeave' : ''))));
+            if($leaveTypeColumn === 'MedicalLeave'||$leaveTypeColumn === 'PrivilegeLeave'||$leaveTypeColumn === 'Privilege Leave (Medical grounds)'){
+                $queryPendingLeaves = "SELECT SUM(leaveDuration) as totalPending,
+                                SUM(NoOfDaysExtend) as totalExtend
                                  FROM tblApplyLeave 
                                  WHERE employeeID = '$this->empID' 
                                  AND typeOfLeave = '$this->leaveType'
+                                 AND status IN ('Yet To Be Approved', 'Approved', 'ExtendedApplied')";
+            }
+            else{
+                $queryPendingLeaves = "SELECT SUM(leaveDuration) as totalPending,
+                                0 as totalExtend
+                                FROM tblApplyLeave 
+                                 WHERE employeeID = '$this->empID' 
+                                 AND typeOfLeave = '$this->leaveType'
                                  AND status IN ('Yet To Be Approved')";
+            }
            
             $pendingResult = mysqli_query($connect_var, $queryPendingLeaves);
             if (!$pendingResult) {
@@ -142,20 +158,38 @@ class ApplyLeaveMaster {
             
             if ($row = mysqli_fetch_assoc($pendingResult)) {
                 $totalPending = floatval($row['totalPending'] ?: 0);
+                $totalExtend = floatval($row['totalExtend'] ?: 0);
+                $totalPending = $totalPending + $totalExtend;
             } else {
                 $totalPending = 0;
+                $totalExtend = 0;
             }
             // Get current leave balance
-            $leaveTypeColumn = $this->leaveType === 'Medical Leave' ? 'MedicalLeave' : 
-                             ($this->leaveType === 'Privilege Leave' ? 'PrivilegeLeave' : 
-                             ($this->leaveType === 'Casual Leave' ? 'CasualLeave' : 
-                             ($this->leaveType === 'Special Casual Leave' ? 'SpecialCasualLeave' : '')));
+            $leaveTypeBalanceMap = array(
+                'Medical Leave' => 'MedicalLeave',
+                'Privilege Leave' => 'PrivilegeLeave',
+                'Privilege Leave (Medical grounds)' => 'PrivilegeLeave',
+                'Casual Leave' => 'CasualLeave',
+                'Special Casual Leave' => 'SpecialCasualLeave',
+                'Compensatory Off' => 'CompensatoryOff',
+                'Special Leave Blood Donation' => 'SpecialLeaveBloodDonation',
+                'Leave On Private Affairs' => 'LeaveOnPrivateAffairs'
+            );
+
+            $leaveTypeColumn = isset($leaveTypeBalanceMap[$this->leaveType]) ? $leaveTypeBalanceMap[$this->leaveType] : null;
+
+            if (!$leaveTypeColumn) {
+                echo json_encode(array(
+                    "status" => "error",
+                    "message_text" => "Invalid leave type: " . $this->leaveType
+                ), JSON_FORCE_OBJECT);
+                mysqli_close($connect_var);
+                return;
+            }
 
             $queryLeaveBalance = "SELECT $leaveTypeColumn as balance 
                                 FROM tblLeaveBalance 
                                 WHERE employeeID = '$this->empID'";
-            
-            
             $balanceResult = mysqli_query($connect_var, $queryLeaveBalance);
             if (!$balanceResult) {
                 throw new Exception("Database query failed");
