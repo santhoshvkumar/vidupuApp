@@ -271,7 +271,7 @@ class AttendanceOperationMaster{
                     ORDER BY attendanceDate DESC;
             
             $stmt = mysqli_prepare($connect_var, $query);
-            mysqli_stmt_bind_param($stmt, "si", $employeeID, $getMonth);
+            mysqli_stmt_bind_param($stmt, "ss", $employeeID, $getMonth);
             mysqli_stmt_execute($stmt);
             $result = mysqli_stmt_get_result($stmt);
             
