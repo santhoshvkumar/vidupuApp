@@ -218,10 +218,6 @@ class AttendanceOperationMaster{
 
             $stmt = mysqli_prepare($connect_var, $queryInsertForLeave);
 
-            // Loop through each date in the range
-            $currentDate = new DateTime($startDate);
-            $lastDate = new DateTime($endDate);
-
             
             $dateToInsert = $currentDate->format('Y-m-d');
             
