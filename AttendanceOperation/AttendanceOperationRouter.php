@@ -54,10 +54,21 @@ $f3->route('POST /Checkout',
     }
 );
 
-$f3->route('GET /AutoCheckout',
+$f3->route('POST /AutoCheckout',
     function($f3) {
         header('Content-Type: application/json');
-        autoCheckout();
+        $decoded_items = json_decode($f3->get('BODY'), true);
+        if (!$decoded_items == NULL) {
+            autoCheckout($decoded_items);
+        } else {
+            echo json_encode(
+                array(
+                    "status" => "error AutoCheckout",
+                    "message_text" => "Invalid input parameters"
+                ),
+                JSON_FORCE_OBJECT
+            );
+        }
     }
 );
 
