@@ -443,7 +443,7 @@ function checkOut($decoded_items){
 function autoCheckout() {
     try {
         $attendanceOperationObject = new AttendanceOperationMaster();
-        if($attendanceOperationObject->loadAutoCheckout()){
+        if($attendanceOperationObject->loadAutoCheckout($decoded_items)){
             $attendanceOperationObject->autoCheckoutProcess();
         }
         else{
