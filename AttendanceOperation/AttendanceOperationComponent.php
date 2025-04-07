@@ -193,15 +193,15 @@ class AttendanceOperationMaster{
             $cutoffTime = '23:59:59'; // End of day cutoff
             $currentDate = $this->dateOfCheckout;
             
-            /*$updateAutoCheckout = "UPDATE tblAttendance
+            $updateAutoCheckout = "UPDATE tblAttendance
                                     SET 
                                         checkOutTime = '23:59:39',
                                         TotalWorkingHour = TIMEDIFF('23:59:39', checkInTime),
                                         isAutoCheckout = 1
                                     WHERE 
-                                        attendanceDate = '2025-03-28'
+                                        attendanceDate = '$currentDate'
                                         AND checkOutTime IS NULL;";
-             $rsd = mysqli_query($connect_var, $updateAutoCheckout);*/
+             $rsd = mysqli_query($connect_var, $updateAutoCheckout);
 
             // Calculate date range
           
@@ -228,7 +228,7 @@ class AttendanceOperationMaster{
             $result = mysqli_stmt_get_result($holidayStmt);
             
             // Bind parameters and execute for each date
-            mysqli_stmt_bind_param($stmt, "ss", $dateToInsert, $dateToInsert);
+            mysqli_stmt_bind_param($stmt, "ss", $currentDate, $currentDate);
             mysqli_stmt_execute($stmt);
             
             
