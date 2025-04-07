@@ -235,7 +235,7 @@ class ApproveLeaveMaster {
                             mysqli_stmt_bind_param($stmt, "ss", $this->rejectionReason, $this->applyLeaveID);
                         } else if ($row['status'] === 'ExtendedApplied' && $this->status === 'Rejected') {
                             // If status was ReApplied, update to Approved
-                            echo $fromDate;
+                            echo $leaveDuration;
                             $toDate = date('Y-m-d', strtotime($fromDate).' + '.$leaveDuration.' day');
                             echo $toDate;
                             $statusUpdateQuery = "UPDATE tblApplyLeave 
