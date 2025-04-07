@@ -236,7 +236,7 @@ class ApproveLeaveMaster {
                         } else if ($row['status'] === 'ExtendedApplied' && $this->status === 'Rejected') {
                             // If status was ReApplied, update to Approved
                             echo $leaveDuration;
-                            $toDate = date('Y-m-d', strtotime($fromDate).' + '.$leaveDuration.' day');
+                            $toDate = date('Y-m-d', strtotime($fromDate).' + '.intval($leaveDuration).' day');
                             echo $toDate;
                             $statusUpdateQuery = "UPDATE tblApplyLeave 
                                             SET status = 'Approved', isExtend = 0, reasonForExtend = NULL, NoOfDaysExtend = NULL, toDate = '$toDate' WHERE applyLeaveID = ?";
