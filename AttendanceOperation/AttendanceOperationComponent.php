@@ -277,6 +277,12 @@ class AttendanceOperationMaster{
             
             $attendanceRecords = [];
             while ($row = mysqli_fetch_assoc($result)) {
+                if($row['checkInTime'] == NULL){
+                    $row['isAbsent'] = 1;
+                }
+                else{
+                    $row['isAbsent'] = 0;
+                }
                 $attendanceRecords[] = $row;
             }
             
