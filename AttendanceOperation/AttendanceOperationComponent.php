@@ -406,11 +406,10 @@ function updatePrivilageCount($f3){
     try{
         $getAllEmployee = "SELECT employeeID FROM tblEmployee";
         $rsd = mysqli_query($connect_var, $getAllEmployee);
+
         mysqli_begin_transaction($connect_var);
         while($row = mysqli_fetch_assoc($rsd)){
             $employeeID = $row['employeeID'];
-            //echo $employeeID;
-            //$getConsicutiveDays = "SELECT COUNT(*) as consicutiveDays FROM tblAttendance WHERE employeeID = '$employeeID' and isAutoCheckout = 0";
             $selectQuery = "
                 SELECT attendanceID, attendanceDate 
                 FROM tblAttendance 
@@ -429,11 +428,16 @@ function updatePrivilageCount($f3){
             if(count($attendanceRecords)  == 11){
                 $attendanceIDs = array_column($attendanceRecords, 'attendanceID');
                 $attendanceIDsString = implode(',', $attendanceIDs);
-                echo $attendanceIDsString .'--------------/'. $employeeID;
+                echo $attendanceIDsString;
+              
                 $updateQuery = "UPDATE tblAttendance SET isPrivilageCounted = 1 WHERE attendanceID IN ($attendanceIDsString)";
                 $rsdToUpdatePrivilageCount = mysqli_query($connect_var, $updateQuery);
+                echo $updateQuery . '\n';
+                $InsertQueryForPLHistory =  "INSERT INTO tblprivilageupdatehistory (attendanceID, EMPID, Date) VALUES ('2332', '$employeeID', CURDATE());";
+                echo $InsertQueryForPLHistory .'\n';
+                $rsdToInsertPrivilageHistory = mysqli_query($connect_var, $InsertQueryForPLHistory);
             }
-            echo json_encode(array("status"=>"success","data"=>$attendanceRecords),JSON_FORCE_OBJECT);
+           // echo json_encode(array("status"=>"success","data"=>$attendanceRecords),JSON_FORCE_OBJECT);
            
         }
     } catch(Exception $e){
