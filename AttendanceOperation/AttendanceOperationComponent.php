@@ -223,14 +223,14 @@ class AttendanceOperationMaster{
             mysqli_stmt_bind_param($leaveStmt, "ss", $currentDate, $currentDate);
             mysqli_stmt_execute($leaveStmt);
 
-            // Check holiday using prepared statement
+            // Check holiday 
             $holidayQuery = "SELECT 1 FROM tblHoliday WHERE date = ?";
             $holidayStmt = mysqli_prepare($connect_var, $holidayQuery);
             mysqli_stmt_bind_param($holidayStmt, "s", $currentDate);
             mysqli_stmt_execute($holidayStmt);
             $holidayResult = mysqli_stmt_get_result($holidayStmt);
 
-            // Update privilege leave using prepared statements
+            // Update privilege leave 
             $privilegeQuery = "SELECT 
                                 a.employeeID,
                                 COUNT(*) as consecutive_days
@@ -247,7 +247,7 @@ class AttendanceOperationMaster{
             while ($privilegeRow = mysqli_fetch_assoc($privilegeResult)) {
                 $employeeID = $privilegeRow['employeeID'];
                 
-                // Update privilege leave balance using prepared statement
+                // Update privilege leave balance
                 $updateBalance = "UPDATE tblLeaveBalance 
                                 SET PrivilegeLeave = PrivilegeLeave + 1 
                                 WHERE employeeID = ?";
@@ -477,6 +477,51 @@ class AttendanceOperationMaster{
             $errorResponse = array(
                 "status" => "error",
                 "message_text" => "Error Retrieving Employees: " . $e->getMessage()
+            );
+            echo json_encode($errorResponse);
+            exit;
+        }
+    }
+
+    public function getEmployeeRecords($employeeID) {
+        include('config.inc');
+        header('Content-Type: application/json');
+        
+        try {
+            $query = "SELECT 
+                        e.employeeID,
+                        e.employeeName
+                    FROM tblEmployee e
+                    WHERE e.managerID = ?
+                    ORDER BY e.employeeName ASC";
+            
+            $stmt = mysqli_prepare($connect_var, $query);
+            mysqli_stmt_bind_param($stmt, "s", $employeeID);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+            
+            $employees = [];
+            while ($row = mysqli_fetch_assoc($result)) {
+                $employees[] = array(
+                    "employeeID" => $row['employeeID'],
+                    "employeeName" => $row['employeeName']
+                );
+            }
+            
+            mysqli_close($connect_var);
+            
+            $response = array(
+                "status" => "success",
+                "data" => $employees
+            );
+            
+            echo json_encode($response);
+            exit;
+        } catch(Exception $e) {
+            error_log("Error in getEmployeeRecords: " . $e->getMessage());
+            $errorResponse = array(
+                "status" => "error",
+                "message_text" => "Error Retrieving Employee Records: " . $e->getMessage()
             );
             echo json_encode($errorResponse);
             exit;
