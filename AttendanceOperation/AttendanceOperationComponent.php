@@ -193,19 +193,22 @@ class AttendanceOperationMaster{
             $cutoffTime = '23:59:59'; // End of day cutoff
             $currentDate = $this->dateOfCheckout;
             
+            // Update auto checkout 
             $updateAutoCheckout = "UPDATE tblAttendance
-                                    SET 
-                                        checkOutTime = '23:59:39',
-                                        TotalWorkingHour = TIMEDIFF('23:59:39', checkInTime),
-                                        isAutoCheckout = 1
-                                    WHERE 
-                                        attendanceDate = '$currentDate'
-                                        AND checkOutTime IS NULL;";
-             $rsd = mysqli_query($connect_var, $updateAutoCheckout);
+                                SET 
+                                    checkOutTime = '23:59:39',
+                                    TotalWorkingHour = TIMEDIFF('23:59:39', checkInTime),
+                                    isAutoCheckout = 1
+                                WHERE 
+                                    attendanceDate = ?
+                                    AND checkOutTime IS NULL
+                                    AND checkInTime IS NOT NULL";
+            
+            $autoCheckoutStmt = mysqli_prepare($connect_var, $updateAutoCheckout);
+            mysqli_stmt_bind_param($autoCheckoutStmt, "s", $currentDate);
+            mysqli_stmt_execute($autoCheckoutStmt);
 
-            // Calculate date range
-          
-            // Prepare the query
+            // Insert for leave 
             $queryInsertForLeave = "INSERT INTO tblAttendance (employeeID, attendanceDate, checkInTime, checkOutTime, TotalWorkingHour, isAutoCheckout)
                 SELECT e.employeeID, ?, NULL, NULL, NULL, 1
                 FROM tblEmployee e
@@ -216,30 +219,84 @@ class AttendanceOperationMaster{
                     AND a.attendanceDate = ?
                 )";
 
-            $stmt = mysqli_prepare($connect_var, $queryInsertForLeave);
+            $leaveStmt = mysqli_prepare($connect_var, $queryInsertForLeave);
+            mysqli_stmt_bind_param($leaveStmt, "ss", $currentDate, $currentDate);
+            mysqli_stmt_execute($leaveStmt);
 
-            
-            
-            // Add this check inside the while loop
+            // Check holiday using prepared statement
             $holidayQuery = "SELECT 1 FROM tblHoliday WHERE date = ?";
             $holidayStmt = mysqli_prepare($connect_var, $holidayQuery);
             mysqli_stmt_bind_param($holidayStmt, "s", $currentDate);
             mysqli_stmt_execute($holidayStmt);
-            $result = mysqli_stmt_get_result($holidayStmt);
-            
-            // Bind parameters and execute for each date
-            mysqli_stmt_bind_param($stmt, "ss", $currentDate, $currentDate);
-            mysqli_stmt_execute($stmt);
-            
-            
+            $holidayResult = mysqli_stmt_get_result($holidayStmt);
 
-            mysqli_stmt_close($stmt);
+            // Update privilege leave using prepared statements
+            $privilegeQuery = "SELECT 
+                                a.employeeID,
+                                COUNT(*) as consecutive_days
+                            FROM tblAttendance a
+                            WHERE a.checkInTime IS NOT NULL
+                            AND a.isPrivilegeCount != 1
+                            GROUP BY a.employeeID
+                            HAVING COUNT(*) >= 11";
+
+            $privilegeStmt = mysqli_prepare($connect_var, $privilegeQuery);
+            mysqli_stmt_execute($privilegeStmt);
+            $privilegeResult = mysqli_stmt_get_result($privilegeStmt);
             
+            while ($privilegeRow = mysqli_fetch_assoc($privilegeResult)) {
+                $employeeID = $privilegeRow['employeeID'];
+                
+                // Update privilege leave balance using prepared statement
+                $updateBalance = "UPDATE tblLeaveBalance 
+                                SET PrivilegeLeave = PrivilegeLeave + 1 
+                                WHERE employeeID = ?";
+                
+                $balanceStmt = mysqli_prepare($connect_var, $updateBalance);
+                mysqli_stmt_bind_param($balanceStmt, "s", $employeeID);
+                mysqli_stmt_execute($balanceStmt);
+                
+                // Get the new balance for history tbl
+                $getBalance = "SELECT PrivilegeLeave FROM tblLeaveBalance WHERE employeeID = ?";
+                $getBalanceStmt = mysqli_prepare($connect_var, $getBalance);
+                mysqli_stmt_bind_param($getBalanceStmt, "s", $employeeID);
+                mysqli_stmt_execute($getBalanceStmt);
+                $balanceResult = mysqli_stmt_get_result($getBalanceStmt);
+                $balanceRow = mysqli_fetch_assoc($balanceResult);
+                
+                // Insert into privilege history tbl
+                $insertHistory = "INSERT INTO tblPrivilegeUpdatedHistory 
+                                (employeeID, updatedDate, previousBalance, newBalance) 
+                                VALUES (?, CURRENT_DATE(), ?, ?)";
+                
+                $historyStmt = mysqli_prepare($connect_var, $insertHistory);
+                $previousBalance = $balanceRow['PrivilegeLeave'] - 1;
+                $newBalance = $balanceRow['PrivilegeLeave'];
+                mysqli_stmt_bind_param($historyStmt, "sii", $employeeID, $previousBalance, $newBalance);
+                mysqli_stmt_execute($historyStmt);
+                
+                // Mark attendance records as counted
+                $updateAttendance = "UPDATE tblAttendance 
+                                   SET isPrivilegeCount = 1 
+                                   WHERE employeeID = ? 
+                                   AND checkInTime IS NOT NULL 
+                                   AND isPrivilegeCount != 1";
+                
+                $attendanceStmt = mysqli_prepare($connect_var, $updateAttendance);
+                mysqli_stmt_bind_param($attendanceStmt, "s", $employeeID);
+                mysqli_stmt_execute($attendanceStmt);
+            }
+
+            // Close all statements
+            mysqli_stmt_close($autoCheckoutStmt);
+            mysqli_stmt_close($leaveStmt);
+            mysqli_stmt_close($holidayStmt);
+            mysqli_stmt_close($privilegeStmt);
             mysqli_close($connect_var);
             
             echo json_encode(array(
                 "status" => "success",
-                "message_text" => "Attendance records created from $currentDate "
+                "message_text" => "Attendance records created and privilege leave updated from $currentDate "
             ), JSON_FORCE_OBJECT);
 
         } catch(Exception $e) {
@@ -254,148 +311,175 @@ class AttendanceOperationMaster{
     public function getEmployeeAttendanceHistory($employeeID, $getMonth) {
         include('config.inc');
         header('Content-Type: application/json');
+        
         try {
-            echo $getMonth;
-            // Query to get attendance history with pagination
+            // Get attendance and leave records and counts for early check out and late check in absence and leave
             $query = "SELECT 
-                        attendanceID, 
-                        employeeID, 
-                        attendanceDate, 
-                        checkInTime, 
-                        checkOutTime, 
-                        TotalWorkingHour, 
-                        isAutoCheckout
-                    FROM tblAttendance 
-                    WHERE employeeID = ? 
-                    AND MONTH(attendanceDate) = ?
+                        a.attendanceID, 
+                        a.employeeID, 
+                        a.attendanceDate, 
+                        a.checkInTime, 
+                        a.checkOutTime, 
+                        a.TotalWorkingHour, 
+                        a.isAutoCheckout,
+                        l.fromDate as leaveFromDate,
+                        l.toDate as leaveToDate,
+                        l.status as leaveStatus,
+                        CASE 
+                            WHEN a.checkInTime > '10:00:00' THEN 1 
+                            ELSE 0 
+                        END as isLateCheckIn,
+                        CASE 
+                            WHEN a.checkOutTime < '17:00:00' THEN 1 
+                            ELSE 0 
+                        END as isEarlyCheckOut
+                    FROM tblAttendance a
+                    LEFT JOIN tblApplyLeave l ON 
+                        a.employeeID = l.employeeID 
+                        AND a.attendanceDate = l.fromDate
+                        AND l.status = 'Approved'
+                    WHERE a.employeeID = ? 
+                    AND MONTH(a.attendanceDate) = ?
+                    
+                    UNION
+                    
+                    SELECT 
+                        NULL as attendanceID,
+                        l.employeeID,
+                        l.fromDate as attendanceDate,
+                        NULL as checkInTime,
+                        NULL as checkOutTime,
+                        NULL as TotalWorkingHour,
+                        0 as isAutoCheckout,
+                        l.fromDate,
+                        l.toDate,
+                        l.status,
+                        0 as isLateCheckIn,
+                        0 as isEarlyCheckOut
+                    FROM tblApplyLeave l
+                    WHERE l.employeeID = ?
+                    AND MONTH(l.fromDate) = ?
+                    AND l.status = 'Approved'
+                    AND NOT EXISTS (
+                        SELECT 1 
+                        FROM tblAttendance a 
+                        WHERE a.employeeID = l.employeeID 
+                        AND a.attendanceDate = l.fromDate
+                    )
+                    
                     ORDER BY attendanceDate DESC";
             
             $stmt = mysqli_prepare($connect_var, $query);
-            mysqli_stmt_bind_param($stmt, "ss", $employeeID, $getMonth);
+            mysqli_stmt_bind_param($stmt, "sisi", $employeeID, $getMonth, $employeeID, $getMonth);
             mysqli_stmt_execute($stmt);
             $result = mysqli_stmt_get_result($stmt);
             
             $attendanceRecords = [];
+            $lateCheckInCount = 0;
+            $earlyCheckOutCount = 0;
+            $leaveCount = 0;
+            $absentCount = 0;
+            
             while ($row = mysqli_fetch_assoc($result)) {
+                // Check for leave
                 if($row['checkInTime'] == NULL){
-                    $row['isAbsent'] = 1;
-                }
-                else{
+                    if($row['leaveFromDate'] != NULL) {
+                        $row['isLeave'] = 1;
+                        $row['isAbsent'] = 0;
+                        $leaveCount++;
+                        $row['leaveDetails'] = array(
+                            'fromDate' => $row['leaveFromDate'],
+                            'toDate' => $row['leaveToDate'],
+                            'status' => $row['leaveStatus']
+                        );
+                    } else {
+                        $row['isLeave'] = 0;
+                        $row['isAbsent'] = 1;
+                        $absentCount++;
+                    }
+                } else {
                     $row['isAbsent'] = 0;
+                    $row['isLeave'] = 0;
+                    if($row['isLateCheckIn'] == 1) {
+                        $lateCheckInCount++;
+                    }
+                    if($row['isEarlyCheckOut'] == 1) {
+                        $earlyCheckOutCount++;
+                    }
                 }
+                
                 $attendanceRecords[] = $row;
             }
             
             mysqli_close($connect_var);
             
-            if (count($attendanceRecords) > 0) {
-                echo json_encode(array(
-                    "status" => "success",
-                    "data" => $attendanceRecords
-                ));
-            } else {
-                echo json_encode(array(
-                    "status" => "success",
-                    "data" => []
-                ));
-            }
+            $response = array(
+                "status" => "success",
+                "data" => $attendanceRecords,
+                "counts" => array(
+                    "lateCheckIn" => $lateCheckInCount,
+                    "earlyCheckOut" => $earlyCheckOutCount,
+                    "leave" => $leaveCount,
+                    "absent" => $absentCount
+                )
+            );
+            
+            echo json_encode($response);
+            exit;
         } catch(Exception $e) {
-            echo json_encode(array(
+            error_log("Error in getEmployeeAttendanceHistory: " . $e->getMessage());
+            $errorResponse = array(
                 "status" => "error",
-                "message_text" => "Error retrieving attendance history: " . $e->getMessage()
-            ), JSON_FORCE_OBJECT);
+                "message_text" => "Error Retrieving Attendance History: " . $e->getMessage()
+            );
+            echo json_encode($errorResponse);
+            exit;
         }
     }
-    public function getEmployeeAttendanceStats($employeeID) {
+
+    public function getEmployeesUnderManager($managerID) {
         include('config.inc');
         header('Content-Type: application/json');
+        
         try {
-            // Query to get early check-ins count
-            $earlyCheckInQuery = "SELECT 
-                    COUNT(*) as earlyCheckInCount
-                FROM tblAttendance 
-                WHERE employeeID = ? 
-                AND checkInTime < ?";
+            $query = "SELECT 
+                        e.employeeID,
+                        e.employeeName
+                    FROM tblEmployee e
+                    WHERE e.managerID = ?
+                    AND e.isActive = 1
+                    ORDER BY e.employeeName ASC";
             
-            $earlyStmt = mysqli_prepare($connect_var, $earlyCheckInQuery);
-            mysqli_stmt_bind_param($earlyStmt, "ss", $employeeID, $GLOBALS['STANDARD_CHECK_IN_TIME']);
-            mysqli_stmt_execute($earlyStmt);
-            $earlyResult = mysqli_stmt_get_result($earlyStmt);
-            $earlyData = mysqli_fetch_assoc($earlyResult);
+            $stmt = mysqli_prepare($connect_var, $query);
+            mysqli_stmt_bind_param($stmt, "s", $managerID);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
             
-            // Query to get late check-outs count
-            $lateCheckOutQuery = "SELECT 
-                    COUNT(*) as lateCheckOutCount
-                FROM tblAttendance 
-                WHERE employeeID = ? 
-                AND checkOutTime > ?
-                AND checkOutTime IS NOT NULL";
-            
-            $lateStmt = mysqli_prepare($connect_var, $lateCheckOutQuery);
-            mysqli_stmt_bind_param($lateStmt, "ss", $employeeID, $GLOBALS['STANDARD_CHECK_OUT_TIME']);
-            mysqli_stmt_execute($lateStmt);
-            $lateResult = mysqli_stmt_get_result($lateStmt);
-            $lateData = mysqli_fetch_assoc($lateResult);
-            
-            // Get recent records of each type (optional)
-            $recentEarlyQuery = "SELECT 
-                    attendanceID, 
-                    attendanceDate, 
-                    checkInTime
-                FROM tblAttendance 
-                WHERE employeeID = ? 
-                AND checkInTime < ?
-                ORDER BY attendanceDate DESC
-                LIMIT 5";
-                
-            $recentEarlyStmt = mysqli_prepare($connect_var, $recentEarlyQuery);
-            mysqli_stmt_bind_param($recentEarlyStmt, "ss", $employeeID, $GLOBALS['STANDARD_CHECK_IN_TIME']);
-            mysqli_stmt_execute($recentEarlyStmt);
-            $recentEarlyResult = mysqli_stmt_get_result($recentEarlyStmt);
-            
-            $recentEarlyRecords = [];
-            while ($row = mysqli_fetch_assoc($recentEarlyResult)) {
-                $recentEarlyRecords[] = $row;
-            }
-            
-            $recentLateQuery = "SELECT 
-                    attendanceID, 
-                    attendanceDate, 
-                    checkOutTime
-                FROM tblAttendance 
-                WHERE employeeID = ? 
-                AND checkOutTime > ?
-                AND checkOutTime IS NOT NULL
-                AND MONTH(attendanceDate) = MONTH(CURRENT_DATE())
-                AND YEAR(attendanceDate) = YEAR(CURRENT_DATE())
-                ORDER BY attendanceDate DESC";
-                
-            $recentLateStmt = mysqli_prepare($connect_var, $recentLateQuery);
-            mysqli_stmt_bind_param($recentLateStmt, "ss", $employeeID, $GLOBALS['STANDARD_CHECK_OUT_TIME']);
-            mysqli_stmt_execute($recentLateStmt);
-            $recentLateResult = mysqli_stmt_get_result($recentLateStmt);
-            
-            $recentLateRecords = [];
-            while ($row = mysqli_fetch_assoc($recentLateResult)) {
-                $recentLateRecords[] = $row;
+            $employees = [];
+            while ($row = mysqli_fetch_assoc($result)) {
+                $employees[] = array(
+                    "employeeID" => $row['employeeID'],
+                    "employeeName" => $row['employeeName']
+                );
             }
             
             mysqli_close($connect_var);
             
-            echo json_encode(array(
+            $response = array(
                 "status" => "success",
-                "data" => array(
-                    "earlyCheckInCount" => $earlyData['earlyCheckInCount'],
-                    "lateCheckOutCount" => $lateData['lateCheckOutCount'],
-                    "recentEarlyCheckIns" => $recentEarlyRecords,
-                    "recentLateCheckOuts" => $recentLateRecords
-                )
-            ));
+                "data" => $employees
+            );
+            
+            echo json_encode($response);
+            exit;
         } catch(Exception $e) {
-            echo json_encode(array(
+            error_log("Error in getEmployeesUnderManager: " . $e->getMessage());
+            $errorResponse = array(
                 "status" => "error",
-                "message_text" => "Error retrieving attendance statistics: " . $e->getMessage()
-            ), JSON_FORCE_OBJECT);
+                "message_text" => "Error Retrieving Employees: " . $e->getMessage()
+            );
+            echo json_encode($errorResponse);
+            exit;
         }
     }
 }
@@ -461,24 +545,11 @@ function getEmployeeAttendance($f3) {
     }
 }
 
-function getEmployeeAttendanceStats($f3) {
-    $employeeID = $f3->get('PARAMS.empID');
-    
-    if (empty($employeeID)) {
-        echo json_encode(array(
-            "status" => "error",
-            "message_text" => "Employee ID is required"
-        ), JSON_FORCE_OBJECT);
-        return;
-    }
-    
+function getEmployeesUnderManager($f3) {
+    $managerID = $f3->get('PARAMS.managerID');
     try {
-        // Define standard times as globals for use in the method
-        $GLOBALS['STANDARD_CHECK_IN_TIME'] = "09:00:00";
-        $GLOBALS['STANDARD_CHECK_OUT_TIME'] = "18:00:00";
-        
         $attendanceOperationObject = new AttendanceOperationMaster();
-        $attendanceOperationObject->getEmployeeAttendanceStats($employeeID);
+        $attendanceOperationObject->getEmployeesUnderManager($managerID);
     } catch(Exception $e) {
         echo json_encode(array(
             "status" => "error",
