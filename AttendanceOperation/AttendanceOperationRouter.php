@@ -72,9 +72,9 @@ $f3->route('POST /AutoCheckout',
     }
 );
 
-$f3->route('GET /attendance/employee/@empID/@month',
+$f3->route('GET /attendance/updatePrivilageCount',
     function($f3) {
-        getEmployeeAttendance($f3);
+        updatePrivilageCount($f3);
     }
 );
 

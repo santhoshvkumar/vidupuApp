@@ -400,6 +400,47 @@ class AttendanceOperationMaster{
     }
 }
 
+function updatePrivilageCount($f3){
+    include('config.inc');
+    header('Content-Type: application/json');
+    try{
+        $getAllEmployee = "SELECT employeeID FROM tblEmployee";
+        $rsd = mysqli_query($connect_var, $getAllEmployee);
+        mysqli_begin_transaction($connect_var);
+        while($row = mysqli_fetch_assoc($rsd)){
+            $employeeID = $row['employeeID'];
+            //echo $employeeID;
+            //$getConsicutiveDays = "SELECT COUNT(*) as consicutiveDays FROM tblAttendance WHERE employeeID = '$employeeID' and isAutoCheckout = 0";
+            $selectQuery = "
+                SELECT attendanceID, attendanceDate 
+                FROM tblAttendance 
+                WHERE employeeID = '$employeeID' 
+                AND isPrivilageCounted = 0 
+                AND attendanceDate < CURDATE()
+                AND checkInTime IS NOT NULL
+                ORDER BY attendanceDate
+                LIMIT 11";
+            
+            $rsdToRunPrivilageCOunt = mysqli_query($connect_var, $selectQuery);
+            $attendanceRecords = [];
+            while($row = mysqli_fetch_assoc($rsdToRunPrivilageCOunt)){
+                $attendanceRecords[] = $row;
+            }
+            if(count($attendanceRecords)  == 11){
+                $attendanceIDs = array_column($attendanceRecords, 'attendanceID');
+                $attendanceIDsString = implode(',', $attendanceIDs);
+                echo $attendanceIDsString .'--------------/'. $employeeID;
+                $updateQuery = "UPDATE tblAttendance SET isPrivilageCounted = 1 WHERE attendanceID IN ($attendanceIDsString)";
+                $rsdToUpdatePrivilageCount = mysqli_query($connect_var, $updateQuery);
+            }
+            echo json_encode(array("status"=>"success","data"=>$attendanceRecords),JSON_FORCE_OBJECT);
+           
+        }
+    } catch(Exception $e){
+        echo json_encode(array("status"=>"error","message_text"=>"Error Updating Privilage Count"),JSON_FORCE_OBJECT);
+    }
+}
+
 function cancelLeave($decoded_items){
     $attendanceOperationObject = new AttendanceOperationMaster;
     if($attendanceOperationObject->loadCancelLeave($decoded_items)){
