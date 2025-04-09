@@ -434,6 +434,9 @@ function updatePrivilageCount($f3){
                 $rsdToUpdatePrivilageCount = mysqli_query($connect_var, $updateQuery);
                 $InsertQueryForPLHistory =  "INSERT INTO tblprivilageupdatehistory (attendanceID, EMPID, Date) VALUES ('$attendanceIDsString', '$employeeID', CURDATE());";
                 $rsdToInsertPrivilageHistory = mysqli_query($connect_var, $InsertQueryForPLHistory);
+
+                $updateQueryForPrivilageCOunt = "UPDATE tblleavebalance SET PrivilegeLeave = PrivilegeLeave + 1 WHERE EmployeeID IN ($employeeID)";
+                $rsdToUpdatePrivilageCount = mysqli_query($connect_var, $updateQueryForPrivilageCOunt);
             }
             mysqli_commit($connect_var);
            // echo json_encode(array("status"=>"success","data"=>$attendanceRecords),JSON_FORCE_OBJECT);
