@@ -78,9 +78,23 @@ $f3->route('GET /attendance/updatePrivilageCount',
     }
 );
 
-$f3->route('GET /attendance/stats/@empID',
+$f3->route('GET /employee/records/@employeeID',
     function($f3) {
-        getEmployeeAttendanceStats($f3);
+        header('Content-Type: application/json');
+        $employeeID = $f3->get('PARAMS.employeeID');
+        
+        if ($employeeID) {
+            $attendanceOperationObject = new AttendanceOperationMaster();
+            $attendanceOperationObject->getEmployeeRecords($employeeID);
+        } else {
+            echo json_encode(
+                array(
+                    "status" => "error",
+                    "message_text" => "Missing employee ID parameter"
+                ),
+                JSON_FORCE_OBJECT
+            );
+        }
     }
 );
 ?>
