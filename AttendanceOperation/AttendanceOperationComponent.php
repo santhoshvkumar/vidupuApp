@@ -426,17 +426,16 @@ function updatePrivilageCount($f3){
                 $attendanceRecords[] = $row;
             }
             if(count($attendanceRecords)  == 11){
+                echo "here";
                 $attendanceIDs = array_column($attendanceRecords, 'attendanceID');
                 $attendanceIDsString = implode(',', $attendanceIDs);
-                echo $attendanceIDsString;
               
                 $updateQuery = "UPDATE tblAttendance SET isPrivilageCounted = 1 WHERE attendanceID IN ($attendanceIDsString)";
                 $rsdToUpdatePrivilageCount = mysqli_query($connect_var, $updateQuery);
-                echo $updateQuery . '\n';
-                $InsertQueryForPLHistory =  "INSERT INTO tblprivilageupdatehistory (attendanceID, EMPID, Date) VALUES ('2332', '$employeeID', CURDATE());";
-                echo $InsertQueryForPLHistory .'\n';
+                $InsertQueryForPLHistory =  "INSERT INTO tblprivilageupdatehistory (attendanceID, EMPID, Date) VALUES ('$attendanceIDsString', '$employeeID', CURDATE());";
                 $rsdToInsertPrivilageHistory = mysqli_query($connect_var, $InsertQueryForPLHistory);
             }
+            mysqli_commit($connect_var);
            // echo json_encode(array("status"=>"success","data"=>$attendanceRecords),JSON_FORCE_OBJECT);
            
         }
