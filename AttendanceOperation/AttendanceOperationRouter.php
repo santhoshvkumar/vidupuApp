@@ -72,24 +72,9 @@ $f3->route('POST /AutoCheckout',
     }
 );
 
-$f3->route('GET /attendance/employee/@empID/@month',
+$f3->route('GET /attendance/updatePrivilageCount',
     function($f3) {
-        header('Content-Type: application/json');
-        $employeeID = $f3->get('PARAMS.empID');
-        $month = $f3->get('PARAMS.month');
-        
-        if ($employeeID && $month) {
-            $attendanceOperationObject = new AttendanceOperationMaster();
-            $attendanceOperationObject->getEmployeeAttendanceHistory($employeeID, $month);
-        } else {
-            echo json_encode(
-                array(
-                    "status" => "error",
-                    "message_text" => "Missing required parameters"
-                ),
-                JSON_FORCE_OBJECT
-            );
-        }   
+        updatePrivilageCount($f3);
     }
 );
 
