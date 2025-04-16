@@ -127,44 +127,7 @@ class ApplyLeaveMaster {
         include('config.inc');
         header('Content-Type: application/json');
         try {
-           //check leaves applied 
-            $leaveTypeColumn = $this->leaveType === 'Medical Leave' ? 'MedicalLeave' :
-                                ($this->leaveType === 'Privilege Leave' ? 'PrivilegeLeave' : 
-                                ($this->leaveType === 'Privilege Leave (Medical grounds)' ? 'PrivilegeLeave' : 
-                                ($this->leaveType === 'Casual Leave' ? 'CasualLeave' : 
-                                ($this->leaveType === 'Special Casual Leave' ? 'SpecialCasualLeave' : ''))));
-            if($leaveTypeColumn === 'MedicalLeave'||$leaveTypeColumn === 'PrivilegeLeave'||$leaveTypeColumn === 'Privilege Leave (Medical grounds)'){
-                $queryPendingLeaves = "SELECT SUM(leaveDuration) as totalPending,
-                                SUM(NoOfDaysExtend) as totalExtend
-                                 FROM tblApplyLeave 
-                                 WHERE employeeID = '$this->empID' 
-                                 AND typeOfLeave = '$this->leaveType'
-                                 AND status IN ('Yet To Be Approved', 'Approved', 'ExtendedApplied')";
-            }
-            else{
-                $queryPendingLeaves = "SELECT SUM(leaveDuration) as totalPending,
-                                0 as totalExtend
-                                FROM tblApplyLeave 
-                                 WHERE employeeID = '$this->empID' 
-                                 AND typeOfLeave = '$this->leaveType'
-                                 AND status IN ('Yet To Be Approved')";
-            }
-           
-            $pendingResult = mysqli_query($connect_var, $queryPendingLeaves);
-            if (!$pendingResult) {
-            
-                throw new Exception("Database query failed");
-            }
-            
-            if ($row = mysqli_fetch_assoc($pendingResult)) {
-                $totalPending = floatval($row['totalPending'] ?: 0);
-                $totalExtend = floatval($row['totalExtend'] ?: 0);
-                $totalPending = $totalPending + $totalExtend;
-            } else {
-                $totalPending = 0;
-                $totalExtend = 0;
-            }
-            // Get current leave balance
+            // Map leave types to their balance columns
             $leaveTypeBalanceMap = array(
                 'Medical Leave' => 'MedicalLeave',
                 'Privilege Leave' => 'PrivilegeLeave',
@@ -177,7 +140,7 @@ class ApplyLeaveMaster {
             );
 
             $leaveTypeColumn = isset($leaveTypeBalanceMap[$this->leaveType]) ? $leaveTypeBalanceMap[$this->leaveType] : null;
-
+            
             if (!$leaveTypeColumn) {
                 echo json_encode(array(
                     "status" => "error",
@@ -186,24 +149,84 @@ class ApplyLeaveMaster {
                 mysqli_close($connect_var);
                 return;
             }
-
+            
+            // Check if this is a Privilege Leave type
+            $isPLType = ($this->leaveType === 'Privilege Leave' || $this->leaveType === 'Privilege Leave (Medical grounds)');
+            
+            // First, get current balance from database
             $queryLeaveBalance = "SELECT $leaveTypeColumn as balance 
                                 FROM tblLeaveBalance 
                                 WHERE employeeID = '$this->empID'";
             $balanceResult = mysqli_query($connect_var, $queryLeaveBalance);
             if (!$balanceResult) {
+                error_log("Balance query failed: " . mysqli_error($connect_var));
                 throw new Exception("Database query failed");
             }
             
             if ($row = mysqli_fetch_assoc($balanceResult)) {
                 $currentBalance = floatval($row['balance'] ?: 0);
+                error_log("Current balance: " . $currentBalance);
             } else {
                 $currentBalance = 0;
+                error_log("No balance found");
             }
-            // Check if new application + pending applications exceed balance
-            if (($totalPending + $this->leaveDuration) > $currentBalance) {
-                $errorMessage = "Cannot apply for leave. Total pending applications ($totalPending days) plus new application ($this->leaveDuration days) exceeds available balance ($currentBalance days)";
-               
+
+            // Now check used leaves - handle PL types specially
+            if ($isPLType) {
+                // For PL types (regular and medical grounds), we need to sum both together
+                $queryPendingAndUsed = "SELECT
+                    SUM(CASE WHEN status IN ('Yet To Be Approved', 'ExtendedApplied') THEN leaveDuration ELSE 0 END) as pendingDays,
+                    SUM(CASE WHEN status = 'Approved' THEN leaveDuration ELSE 0 END) as approvedDays,
+                    SUM(CASE WHEN status IN ('Yet To Be Approved', 'Approved', 'ExtendedApplied') THEN NoOfDaysExtend ELSE 0 END) as extendedDays
+                FROM tblApplyLeave
+                WHERE employeeID = '$this->empID'
+                AND (typeOfLeave = 'Privilege Leave' OR typeOfLeave = 'Privilege Leave (Medical grounds)')";
+            } else {
+                // For other leave types, just check the specific type
+                $queryPendingAndUsed = "SELECT
+                    SUM(CASE WHEN status IN ('Yet To Be Approved', 'ExtendedApplied') THEN leaveDuration ELSE 0 END) as pendingDays,
+                    SUM(CASE WHEN status = 'Approved' THEN leaveDuration ELSE 0 END) as approvedDays,
+                    SUM(CASE WHEN status IN ('Yet To Be Approved', 'Approved', 'ExtendedApplied') THEN NoOfDaysExtend ELSE 0 END) as extendedDays
+                FROM tblApplyLeave
+                WHERE employeeID = '$this->empID'
+                AND typeOfLeave = '$this->leaveType'";
+            }
+            
+            $pendingResult = mysqli_query($connect_var, $queryPendingAndUsed);
+            if (!$pendingResult) {
+                error_log("Used leaves query failed: " . mysqli_error($connect_var));
+                throw new Exception("Database query failed");
+            }
+            
+            $pendingDays = 0;
+            $approvedDays = 0;
+            $extendedDays = 0;
+            
+            if ($row = mysqli_fetch_assoc($pendingResult)) {
+                $pendingDays = floatval($row['pendingDays'] ?: 0);
+                $approvedDays = floatval($row['approvedDays'] ?: 0);
+                $extendedDays = floatval($row['extendedDays'] ?: 0);
+            }
+            
+            $totalUsedAndPending = $pendingDays + $approvedDays + $extendedDays;
+            
+            // Check if new application would exceed balance
+            $totalRequested = $totalUsedAndPending + $this->leaveDuration;
+            error_log("Total requested (used+pending+new): " . $totalRequested . 
+                      " (used+pending: " . $totalUsedAndPending . 
+                      ", new: " . $this->leaveDuration . ")");
+            
+            if ($totalRequested > $currentBalance) {
+                $errorMessage = "Cannot apply for leave. You have already applied for " . 
+                                "$totalUsedAndPending days. Adding $this->leaveDuration more days " . 
+                                "would exceed your available balance of $currentBalance days.";
+                
+                if ($isPLType) {
+                    $errorMessage .= " Insufficient Privilege Leave Balance.";
+                }
+                
+                error_log("Validation failed: " . $errorMessage);
+                
                 echo json_encode(array(
                     "status" => "warning",
                     "message_text" => $errorMessage
@@ -211,7 +234,8 @@ class ApplyLeaveMaster {
                 mysqli_close($connect_var);
                 return;
             }
-            // check for overlapping dates
+            
+            // Check for overlapping dates
             $queryCheckOverlap = "SELECT COUNT(*) as overlap_count
                                 FROM tblApplyLeave 
                                 WHERE employeeID = '$this->empID' 
@@ -282,61 +306,169 @@ class ApplyLeaveMaster {
                 
                 $availableBalance = floatval($balanceData[$leaveTypeBalanceMap[$this->leaveType]]);
                 
-                // Check for split leaves that would exceed available balance
-                $querySplitLeaves = "SELECT fromDate, toDate, leaveDuration FROM tblApplyLeave 
+                // Get all casual leave applications (active, not cancelled/rejected)
+                $queryCasualLeaves = "SELECT fromDate, toDate, leaveDuration 
+                    FROM tblApplyLeave 
                     WHERE employeeID = '$this->empID' 
-                    AND typeOfLeave = '$this->leaveType' 
-                    AND status != 'Cancelled' 
-                    AND status != 'Rejected' 
+                    AND typeOfLeave = 'Casual Leave' 
+                    AND status NOT IN ('Cancelled', 'Rejected')
                     AND fromDate >= '$yearStart' 
                     AND toDate <= '$yearEnd' 
                     ORDER BY fromDate";
                 
-                $splitResult = mysqli_query($connect_var, $querySplitLeaves);
-                $totalStretch = 0;
-                $lastEndDate = null;
+                $casualResult = mysqli_query($connect_var, $queryCasualLeaves);
                 
-                while ($row = mysqli_fetch_assoc($splitResult)) {
-                    $leaveStart = new DateTime($row['fromDate']);
-                    $leaveEnd = new DateTime($row['toDate']);
+                // Collect all leave days including the new application
+                $leaveDays = array();
+                
+                // Add the new application dates to our collection
+                $newFromDate = new DateTime($this->fromDate);
+                $newToDate = new DateTime($this->toDate);
+                $newToDate->setTime(23, 59, 59); // Set to end of day
+                
+                // Add each day of the new application to the collection
+                $currentDate = clone $newFromDate;
+                while ($currentDate <= $newToDate) {
+                    $dateString = $currentDate->format('Y-m-d');
+                    $leaveDays[$dateString] = true;
+                    $currentDate->modify('+1 day');
+                }
+                
+                // Add all existing leave application days to the collection
+                while ($row = mysqli_fetch_assoc($casualResult)) {
+                    $fromDate = new DateTime($row['fromDate']);
+                    $toDate = new DateTime($row['toDate']);
+                    $toDate->setTime(23, 59, 59); // Set to end of day
                     
-                    if ($lastEndDate !== null) {
-                        $lastEnd = new DateTime($lastEndDate);
-                        $interval = $lastEnd->diff($leaveStart);
-                        $daysBetween = $interval->days;
+                    $currentDate = clone $fromDate;
+                    while ($currentDate <= $toDate) {
+                        $dateString = $currentDate->format('Y-m-d');
+                        $leaveDays[$dateString] = true;
+                        $currentDate->modify('+1 day');
+                    }
+                }
+                
+                // Find the earliest and latest leave dates
+                if (count($leaveDays) > 0) {
+                    $leaveDayKeys = array_keys($leaveDays);
+                    sort($leaveDayKeys);
+                    
+                    $earliestLeaveDay = new DateTime(reset($leaveDayKeys));
+                    $latestLeaveDay = new DateTime(end($leaveDayKeys));
+                    
+                    // Now check for continuous leave periods (including holidays)
+                    $continuousLeavePeriods = array();
+                    $currentPeriodStart = clone $earliestLeaveDay;
+                    $currentPeriodEnd = clone $earliestLeaveDay;
+                    $previousDay = clone $earliestLeaveDay;
+                    
+                    foreach ($leaveDayKeys as $index => $dateString) {
+                        if ($index === 0) continue; // Skip the first day as it's already handled
                         
-                        if ($daysBetween <= 2) {
-                            $totalStretch += $row['leaveDuration'];
-                        } else {
-                            $totalStretch = $row['leaveDuration'];
+                        $currentDay = new DateTime($dateString);
+                        $dayDiff = $previousDay->diff($currentDay)->days;
+                        
+                        // If gap between days is 3 or more, it's a new period
+                        if ($dayDiff > 3) {
+                            // Save the completed period
+                            $continuousLeavePeriods[] = array(
+                                'start' => clone $currentPeriodStart,
+                                'end' => clone $currentPeriodEnd,
+                                'days' => $currentPeriodEnd->diff($currentPeriodStart)->days + 1
+                            );
+                            
+                            // Start a new period
+                            $currentPeriodStart = clone $currentDay;
                         }
-                    } else {
-                        $totalStretch = $row['leaveDuration'];
+                        
+                        $currentPeriodEnd = clone $currentDay;
+                        $previousDay = clone $currentDay;
                     }
                     
-                    $lastEndDate = $row['toDate'];
-                }
-                
-                $totalStretch += $this->leaveDuration;
-                
-                // Special check for Casual Leave (10 days limit)
-                if ($this->leaveType === 'Casual Leave' && $totalStretch > 10) {
-                    echo json_encode(array(
-                        "status" => "warning",
-                        "message_text" => "Cannot exceed 10 days of Casual Leave. Your total stretch would be $totalStretch days."
-                    ), JSON_FORCE_OBJECT);
-                    mysqli_close($connect_var);
-                    return;
-                }
-                
-                // Check if total stretch exceeds available balance for all leave types
-                if ($totalStretch > $availableBalance) {
-                    echo json_encode(array(
-                        "status" => "warning",
-                        "message_text" => "Cannot exceed available $this->leaveType balance. You have $availableBalance days available, but your total stretch would be $totalStretch days."
-                    ), JSON_FORCE_OBJECT);
-                    mysqli_close($connect_var);
-                    return;
+                    // Add the last period
+                    $continuousLeavePeriods[] = array(
+                        'start' => clone $currentPeriodStart,
+                        'end' => clone $currentPeriodEnd,
+                        'days' => $currentPeriodEnd->diff($currentPeriodStart)->days + 1
+                    );
+                    
+                    // Check for any period exceeding 10 days
+                    foreach ($continuousLeavePeriods as $period) {
+                        if ($period['days'] > 10) {
+                            echo json_encode(array(
+                                "status" => "warning",
+                                "message_text" => "Cannot apply for this Casual Leave. The total calendar days (including holidays) would exceed the 10-day limit. Your continuous leave period would be " . $period['days'] . " days from " . $period['start']->format('Y-m-d') . " to " . $period['end']->format('Y-m-d') . "."
+                            ), JSON_FORCE_OBJECT);
+                            mysqli_close($connect_var);
+                            return;
+                        }
+                    }
+                    
+                    // Calculate total calendar days between earliest and latest leave (inclusive)
+                    $totalCalendarDays = $latestLeaveDay->diff($earliestLeaveDay)->days + 1;
+                    
+                    // Create array of all dates between earliest and latest
+                    $allDatesInRange = array();
+                    $currentDate = clone $earliestLeaveDay;
+                    while ($currentDate <= $latestLeaveDay) {
+                        $dateString = $currentDate->format('Y-m-d');
+                        $allDatesInRange[] = $dateString;
+                        $currentDate->modify('+1 day');
+                    }
+                    
+                    // Find consecutive periods by checking for gaps less than 3 days
+                    $consecutivePeriods = array();
+                    $currentPeriod = array();
+                    $previousDate = null;
+                    
+                    foreach ($leaveDayKeys as $dateString) {
+                        $currentDate = new DateTime($dateString);
+                        
+                        if ($previousDate === null) {
+                            $currentPeriod[] = $dateString;
+                        } else {
+                            $previousDateTime = new DateTime($previousDate);
+                            $daysBetween = $previousDateTime->diff($currentDate)->days;
+                            
+                            // If the gap is 3 days or less, consider it part of the same period
+                            if ($daysBetween <= 3) {
+                                // Fill in the gap with dates
+                                $gapDate = clone $previousDateTime;
+                                $gapDate->modify('+1 day');
+                                while ($gapDate < $currentDate) {
+                                    $currentPeriod[] = $gapDate->format('Y-m-d');
+                                    $gapDate->modify('+1 day');
+                                }
+                                $currentPeriod[] = $dateString;
+                            } else {
+                                // This is a new period
+                                if (count($currentPeriod) > 0) {
+                                    $consecutivePeriods[] = $currentPeriod;
+                                }
+                                $currentPeriod = array($dateString);
+                            }
+                        }
+                        
+                        $previousDate = $dateString;
+                    }
+                    
+                    // Add the last period
+                    if (count($currentPeriod) > 0) {
+                        $consecutivePeriods[] = $currentPeriod;
+                    }
+                    
+                    // Check each consecutive period for exceeding 10 days
+                    foreach ($consecutivePeriods as $period) {
+                        $periodLength = count($period);
+                        if ($periodLength > 10) {
+                            echo json_encode(array(
+                                "status" => "warning",
+                                "message_text" => "Cannot apply for this Casual Leave. Your continuous leave period (including holidays) would be $periodLength days, which exceeds the 10-day limit."
+                            ), JSON_FORCE_OBJECT);
+                            mysqli_close($connect_var);
+                            return;
+                        }
+                    }
                 }
                 
                 // Check total casual leaves taken in the year (only for Casual Leave)
@@ -411,11 +543,11 @@ class ApplyLeaveMaster {
             $overlapData = mysqli_fetch_assoc($overlapResult);
             
             if ($overlapData['overlap_count'] > 0) {
-                $existingLeaveTypes = explode(',', $overlapData['leave_types']);
+                $existingLeaveTypes = !empty($overlapData['leave_types']) ? explode(',', $overlapData['leave_types']) : [];
                 if (!in_array($this->leaveType, $existingLeaveTypes)) {
                     echo json_encode(array(
                         "status" => "warning",
-                        "message_text" => "Cannot apply different leave types on consecutive days. Existing leave type(s): " . $overlapData['leave_types']
+                        "message_text" => "Cannot apply different leave types on consecutive days. Existing leave type(s): " . ($overlapData['leave_types'] ?? 'None')
                     ), JSON_FORCE_OBJECT);
                     mysqli_close($connect_var);
                     return;
