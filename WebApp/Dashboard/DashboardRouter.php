@@ -9,10 +9,16 @@ $f3->route('GET /DashboardDetails',
             if(!$decoded_items == NULL)
                 DashboardDetails($decoded_items);
             else
-                echo json_encode(array("status"=>"error Login Value","message_text"=>"Invalid input parameters"),JSON_FORCE_OBJECT);
+                echo json_encode(array("status"=>"error Here for Dashboard Value","message_text"=>"Invalid input parameters"),JSON_FORCE_OBJECT);
 
     }
+);
+$f3->route('GET /DashboardAttendanceDetails',
 
+    function($f3){
+                DashboardDetails();
+
+    }
 );
 /*****************  End Login User Temp *****************/
 
