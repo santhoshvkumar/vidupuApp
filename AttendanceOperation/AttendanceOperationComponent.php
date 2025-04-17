@@ -308,7 +308,7 @@ class AttendanceOperationMaster{
         }
     }
 
-    public function getEmployeeAttendanceHistory($employeeID, $getMonth) {
+    public function getEmployeeAttendanceHistory($employeeID, $getYear, $getMonth) {
         include('config.inc');
         header('Content-Type: application/json');
         
@@ -339,6 +339,7 @@ class AttendanceOperationMaster{
                         AND a.attendanceDate = l.fromDate
                         AND l.status = 'Approved'
                     WHERE a.employeeID = ? 
+                    AND YEAR(a.attendanceDate) = ?
                     AND MONTH(a.attendanceDate) = ?
                     
                     UNION
@@ -358,6 +359,7 @@ class AttendanceOperationMaster{
                         0 as isEarlyCheckOut
                     FROM tblApplyLeave l
                     WHERE l.employeeID = ?
+                    AND YEAR(l.fromDate) = ?
                     AND MONTH(l.fromDate) = ?
                     AND l.status = 'Approved'
                     AND NOT EXISTS (
@@ -370,7 +372,7 @@ class AttendanceOperationMaster{
                     ORDER BY attendanceDate DESC";
             
             $stmt = mysqli_prepare($connect_var, $query);
-            mysqli_stmt_bind_param($stmt, "sisi", $employeeID, $getMonth, $employeeID, $getMonth);
+            mysqli_stmt_bind_param($stmt, "siisii", $employeeID, $getYear, $getMonth, $employeeID, $getYear, $getMonth);
             mysqli_stmt_execute($stmt);
             $result = mysqli_stmt_get_result($stmt);
             
