@@ -72,9 +72,25 @@ $f3->route('POST /AutoCheckout',
     }
 );
 
-$f3->route('GET /attendance/updatePrivilageCount',
+$f3->route('GET /attendance/employee/@empID/@year/@month',
     function($f3) {
-        updatePrivilageCount($f3);
+        header('Content-Type: application/json');
+        $employeeID = $f3->get('PARAMS.empID');
+        $year = $f3->get('PARAMS.year');
+        $month = $f3->get('PARAMS.month');
+        
+        if ($employeeID && $year && $month) {
+            $attendanceOperationObject = new AttendanceOperationMaster();
+            $attendanceOperationObject->getEmployeeAttendanceHistory($employeeID, $year, $month);
+        } else {
+            echo json_encode(
+                array(
+                    "status" => "error",
+                    "message_text" => "Missing required parameters (employeeID, year, month)"
+                ),
+                JSON_FORCE_OBJECT
+            );
+        }   
     }
 );
 
