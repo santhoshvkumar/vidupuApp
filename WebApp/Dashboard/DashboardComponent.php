@@ -10,56 +10,104 @@ class DashboardComponent{
         return true;
     }
 
-    public function DashboardDetails(){
+    public function DashboardDetails() {
         include('config.inc');
         header('Content-Type: application/json');
-        try{
+    
+        try {
+            // Initialize an array to hold the results
+            $data = [];
+    
+            // 1. Fetch all dashboard details
             $queryDashboardDetails = "SELECT * FROM tblDashboardDetails";
             $rsd = mysqli_query($connect_var, $queryDashboardDetails);
-
-            $queryDashboardDetails = "SELECT COUNT(*) FROM tblEmployee WHERE isActive != 1";
-            $rsd = mysqli_query($connect_var, $queryDashboardDetails);
-
-            $queryDashboardDetails = "SELECT COUNT(*) FROM tblEmployee WHERE isActive != 1";
-            $rsd = mysqli_query($connect_var, $queryDashboardDetails);         
-
+            $dashboardDetails = [];
+            while ($row = mysqli_fetch_assoc($rsd)) {
+                $dashboardDetails[] = $row;
+            }
+            $data['dashboardDetails'] = $dashboardDetails;
+    
+            // 2. Count of inactive employees
+            $queryInactiveEmployees = "SELECT COUNT(*) as inactive_count FROM tblEmployee WHERE isActive != 1";
+            $rsd = mysqli_query($connect_var, $queryInactiveEmployees);
+            $row = mysqli_fetch_assoc($rsd);
+            $data['inactiveEmployees'] = $row['inactive_count'];
+    
+            // 3. (Same as above – maybe you meant a different query here?)
+            // Just reusing for example
+            $rsd = mysqli_query($connect_var, $queryInactiveEmployees);
+            $row = mysqli_fetch_assoc($rsd);
+            $data['inactiveEmployeesAgain'] = $row['inactive_count']; // Change label as needed
+    
+            echo json_encode([
+                "status" => "success",
+                "data" => $data
+            ]);
+    
         } catch (Exception $e) {
-            echo json_encode(array("status" => "error", "message_text" => $e->getMessage()), JSON_FORCE_OBJECT);
+            echo json_encode([
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ], JSON_FORCE_OBJECT);
         }
     }
+    
 
-    public function DashboardAttendanceDetails(){
+    public function DashboardAttendanceDetails() {
         include('config.inc');
         header('Content-Type: application/json');
-        try{
-            $queryActiveEmployeeDetails = "SELECT COUNT(*) FROM tblEmployee";
-            $rowofactiveEmployees = mysqli_query($connect_var, $queryActiveEmployeeDetails);
-            echo $rowofactiveEmployees;
-            
-            $queryCheckInDetails = "SELECT COUNT(*) FROM tblAttendance WHERE attendanceDate = CURDATE()";
-            $rowofCheckInDetails = mysqli_query($connect_var, $queryCheckInDetails);
-            echo $rowofCheckInDetails;
-            $queryLateCheckInDetails = "SELECT COUNT(*) FROM tblAttendance WHERE checkInTime > '10:10:00' AND attendanceDate = CURDATE()";
-            $rowofLateCheckInDetails = mysqli_query($connect_var, $queryLateCheckInDetails);
-
-            $queryEarlyCheckOutDetails = "SELECT COUNT(*) FROM tblAttendance WHERE checkOutTime < '17:00:00' AND attendanceDate = CURDATE()";
-            $rowofEarlyCheckoutDetails = mysqli_query($connect_var, $queryEarlyCheckOutDetails);            
-
-            $queryLeaveDetails = "SELECT COUNT(*) FROM tblApplyLeave WHERE CURDATE() BETWEEN fromDate AND toDate";
-            $rowofLeaveDetails = mysqli_query($connect_var, $queryLeaveDetails);
-
-           // $rowofAbsentDetails = $queryActiveEmployeeDetails - $rowofLeaveDetails;
+    
+        try {
+            $data = [];
+    
+            // 1. Total active employees
+            $queryActiveEmployeeDetails = "SELECT COUNT(*) as total FROM tblEmployee";
+            $result = mysqli_query($connect_var, $queryActiveEmployeeDetails);
+            $row = mysqli_fetch_assoc($result);
+            $data['totalEmployees'] = $row['total'];
+    
+            // 2. Today's check-ins
+            $queryCheckInDetails = "SELECT COUNT(*) as checked_in FROM tblAttendance WHERE attendanceDate = CURDATE()";
+            $result = mysqli_query($connect_var, $queryCheckInDetails);
+            $row = mysqli_fetch_assoc($result);
+            $data['checkedInToday'] = $row['checked_in'];
+    
+            // 3. Late check-ins
+            $queryLateCheckInDetails = "SELECT COUNT(*) as late_checkin FROM tblAttendance WHERE checkInTime > '10:10:00' AND attendanceDate = CURDATE()";
+            $result = mysqli_query($connect_var, $queryLateCheckInDetails);
+            $row = mysqli_fetch_assoc($result);
+            $data['lateCheckIns'] = $row['late_checkin'];
+    
+            // 4. Early check-outs
+            $queryEarlyCheckOutDetails = "SELECT COUNT(*) as early_checkout FROM tblAttendance WHERE checkOutTime < '17:00:00' AND attendanceDate = CURDATE()";
+            $result = mysqli_query($connect_var, $queryEarlyCheckOutDetails);
+            $row = mysqli_fetch_assoc($result);
+            $data['earlyCheckOuts'] = $row['early_checkout'];
+    
+            // 5. Employees on leave
+            $queryLeaveDetails = "SELECT COUNT(*) as on_leave FROM tblApplyLeave WHERE CURDATE() BETWEEN fromDate AND toDate";
+            $result = mysqli_query($connect_var, $queryLeaveDetails);
+            $row = mysqli_fetch_assoc($result);
+            $data['onLeave'] = $row['on_leave'];
+    
+            // 6. Calculate absentees (optional)
+            $data['absentees'] = $data['totalEmployees'] - ($data['checkedInToday'] + $data['onLeave']);
+    
+            echo json_encode([
+                "status" => "success",
+                "data" => $data
+            ]);
         } catch (Exception $e) {
-            echo json_encode(array("status" => "error", "message_text" => $e->getMessage()), JSON_FORCE_OBJECT);
+            echo json_encode([
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ], JSON_FORCE_OBJECT);
         }
     }
+    
+} // Close the DashboardComponent class
 
-}
-
-function DashboardDetails(){
+function DashboardDetails() {
     $dashboardComponent = new DashboardComponent();
-   
-        $dashboardComponent->DashboardAttendanceDetails();
-  
+    $dashboardComponent->DashboardAttendanceDetails();
 }
-?>
