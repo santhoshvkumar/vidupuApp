@@ -53,34 +53,34 @@ class DashboardComponent{
             $queryActiveEmployeeDetails = "SELECT COUNT(*) as total FROM tblEmployee";
             $result = mysqli_query($connect_var, $queryActiveEmployeeDetails);
             $row = mysqli_fetch_assoc($result);
-            $data['totalEmployees'] = $row['total'];
+            $data['totalEmployees'] = intval($row['total']);
     
             // 2. Today's check-ins
             $queryCheckInDetails = "SELECT COUNT(*) as checked_in FROM tblAttendance WHERE attendanceDate = CURDATE()";
             $result = mysqli_query($connect_var, $queryCheckInDetails);
             $row = mysqli_fetch_assoc($result);
-            $data['checkedInToday'] = $row['checked_in'];
+            $data['checkedInToday'] = intval($row['checked_in']);
     
             // 3. Late check-ins
             $queryLateCheckInDetails = "SELECT COUNT(*) as late_checkin FROM tblAttendance WHERE checkInTime > '10:10:00' AND attendanceDate = CURDATE()";
             $result = mysqli_query($connect_var, $queryLateCheckInDetails);
             $row = mysqli_fetch_assoc($result);
-            $data['lateCheckIns'] = $row['late_checkin'];
+            $data['lateCheckIns'] = intval($row['late_checkin']);
     
             // 4. Early check-outs
             $queryEarlyCheckOutDetails = "SELECT COUNT(*) as early_checkout FROM tblAttendance WHERE checkOutTime < '17:00:00' AND attendanceDate = CURDATE()";
             $result = mysqli_query($connect_var, $queryEarlyCheckOutDetails);
             $row = mysqli_fetch_assoc($result);
-            $data['earlyCheckOuts'] = $row['early_checkout'];
+            $data['earlyCheckOuts'] = intval($row['early_checkout']);
     
             // 5. Employees on leave
             $queryLeaveDetails = "SELECT COUNT(*) as on_leave FROM tblApplyLeave WHERE CURDATE() BETWEEN fromDate AND toDate";
             $result = mysqli_query($connect_var, $queryLeaveDetails);
             $row = mysqli_fetch_assoc($result);
-            $data['onLeave'] = $row['on_leave'];
+            $data['onLeave'] = intval($row['on_leave']);
     
             // 6. Calculate absentees
-            $data['absentees'] = $data['totalEmployees'] - ($data['checkedInToday'] + $data['onLeave']);
+            $data['absentees'] = intval($data['totalEmployees']) - (intval($data['checkedInToday']) + intval($data['onLeave']));
     
             echo json_encode([
                 "status" => "success",
