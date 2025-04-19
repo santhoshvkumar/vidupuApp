@@ -25,19 +25,8 @@ class DashboardComponent{
             while ($row = mysqli_fetch_assoc($rsd)) {
                 $dashboardDetails[] = $row;
             }
-            $data['dashboardDetails'] = $dashboardDetails;
-    
-            // 2. Count of inactive employees
-            $queryInactiveEmployees = "SELECT COUNT(*) as inactive_count FROM tblEmployee WHERE isActive != 1";
-            $rsd = mysqli_query($connect_var, $queryInactiveEmployees);
-            $row = mysqli_fetch_assoc($rsd);
-            $data['inactiveEmployees'] = $row['inactive_count'];
-    
-            // 3. (Same as above – maybe you meant a different query here?)
-            // Just reusing for example
-            $rsd = mysqli_query($connect_var, $queryInactiveEmployees);
-            $row = mysqli_fetch_assoc($rsd);
-            $data['inactiveEmployeesAgain'] = $row['inactive_count']; // Change label as needed
+            $data['dashboardDetails'] = $dashboardDetails;    
+            
     
             echo json_encode([
                 "status" => "success",
@@ -90,7 +79,7 @@ class DashboardComponent{
             $row = mysqli_fetch_assoc($result);
             $data['onLeave'] = $row['on_leave'];
     
-            // 6. Calculate absentees (optional)
+            // 6. Calculate absentees
             $data['absentees'] = $data['totalEmployees'] - ($data['checkedInToday'] + $data['onLeave']);
     
             echo json_encode([
