@@ -20,7 +20,12 @@ $f3->route('GET /DashboardAttendanceDetails',
 
     }
 );
+$f3->route('GET /DashboardAttendanceForHeadOffice',
+
+    function($f3){
+                DashboardDetailsForHO();
+
+    }
+);
 /*****************  End Login User Temp *****************/
-
-
 ?>
