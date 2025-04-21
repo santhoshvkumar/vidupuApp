@@ -100,43 +100,38 @@ class DashboardComponent{
             $data = [];   
                       
             // 1. Total active employees in Head Office
-            $queryActiveEmployeeinHO = "SELECT s.sectionName, COUNT(e.employeeID) AS totalEmployeesinHO FROM tblEmployee e JOIN tblAssignedSection a ON e.employeeID = a.employeeID JOIN tblSection s ON a.sectionID = s.sectionID WHERE a.isActive = 1  GROUP BY s.sectionName ORDER BY s.sectionName";
+            $queryActiveEmployeeinHO = "SELECT s.sectionName, COUNT(e.employeeID) AS totalEmployeesinHO FROM tblEmployee e JOIN tblAssignedSection a ON e.employeeID = a.employeeID JOIN tblSection s ON a.sectionID = s.sectionID WHERE a.isActive = 1
+            GROUP BY s.sectionName ORDER BY s.sectionName";
             $result = mysqli_query($connect_var, $queryActiveEmployeeinHO);
             $row = mysqli_fetch_assoc($result);
-            $data['totalEmployeesinHO'] = intval($row['total']);
+            $data['totalEmployeesinHO'] = isset($row['totalEmployeesinHO']) ? intval($row['totalEmployeesinHO']) : 0;
 
             // 2. Today's check-ins in Head Office
-            $queryCheckInDetailsinHO = "SELECT s.sectionName, COUNT(DISTINCT att.employeeID) AS checked_in FROM tblSection s JOIN tblAssignedSection a ON s.sectionID = a.sectionID JOIN tblEmployee e ON a.employeeID = e.employeeID LEFT JOIN tblAttendance att ON e.employeeID = att.employeeID AND att.attendanceDate = CURDATE()
-            WHERE a.isActive = 1 GROUP BY s.sectionName ORDER BY s.sectionName";
+            $queryCheckInDetailsinHO = "SELECT s.sectionName, COUNT(DISTINCT att.employeeID) AS checked_in FROM tblSection s JOIN tblAssignedSection a ON s.sectionID = a.sectionID JOIN tblEmployee e ON a.employeeID = e.employeeID LEFT JOIN tblAttendance att ON e.employeeID = att.employeeID AND att.attendanceDate = CURDATE() WHERE a.isActive = 1 GROUP BY s.sectionName ORDER BY s.sectionName";
             $result = mysqli_query($connect_var, $queryCheckInDetailsinHO);
             $row = mysqli_fetch_assoc($result);
-            $data['checkedInTodayinHO'] = intval($row['checked_in']);
+            $data['checkedInTodayinHO'] = isset($row['checked_in']) ? intval($row['checked_in']) : 0;
 
             // 3. Late check-ins in Head Office
-            $queryLateCheckInDetailsinHO = "SELECT s.sectionName, COUNT(DISTINCT att.employeeID) AS late_checkin
-            FROM tblSection s JOIN tblAssignedSection a ON s.sectionID = a.sectionID JOIN tblEmployee e ON a.employeeID = e.employeeID LEFT JOIN tblAttendance att ON e.employeeID = att.employeeID AND att.attendanceDate = CURDATE()
-            AND att.checkInTime > '10:10:00' WHERE a.isActive = 1 GROUP BY s.sectionName ORDER BY s.sectionName";
+            $queryLateCheckInDetailsinHO = "SELECT s.sectionName, COUNT(DISTINCT att.employeeID) AS late_checkin FROM tblSection s JOIN tblAssignedSection a ON s.sectionID = a.sectionID JOIN tblEmployee e ON a.employeeID = e.employeeID LEFT JOIN tblAttendance att ON e.employeeID = att.employeeID AND att.attendanceDate = CURDATE() AND att.checkInTime > '10:10:00' 
+            WHERE a.isActive = 1 GROUP BY s.sectionName ORDER BY s.sectionName";
             $result = mysqli_query($connect_var, $queryLateCheckInDetailsinHO);
             $row = mysqli_fetch_assoc($result);
-            $data['lateCheckInsinHO'] = intval($row['late_checkin']);
+            $data['lateCheckInsinHO'] = isset($row['late_checkin']) ? intval($row['late_checkin']) : 0;
 
             // 4. Early check-outs in Head Office
-            $queryEarlyCheckOutDetailsinHO = "SELECT s.sectionName, COUNT(DISTINCT att.employeeID) AS early_checkout
-            FROM tblSection s JOIN tblAssignedSection a ON s.sectionID = a.sectionID JOIN tblEmployee e ON a.employeeID = e.employeeID LEFT JOIN tblAttendance att ON e.employeeID = att.employeeID AND att.attendanceDate = CURDATE()
-            AND att.checkOutTime < '17:00:00' AND att.checkOutTime IS NOT NULL WHERE a.isActive = 1 GROUP BY s.sectionName
-            ORDER BY s.sectionName";
+            $queryEarlyCheckOutDetailsinHO = "SELECT s.sectionName, COUNT(DISTINCT att.employeeID) AS early_checkout FROM tblSection s JOIN tblAssignedSection a ON s.sectionID = a.sectionID 
+            JOIN tblEmployee e ON a.employeeID = e.employeeID LEFT JOIN tblAttendance att ON e.employeeID = att.employeeID AND att.attendanceDate = CURDATE() AND att.checkOutTime < '17:00:00' AND att.checkOutTime IS NOT NULL WHERE a.isActive = 1 GROUP BY s.sectionName ORDER BY s.sectionName";
             $result = mysqli_query($connect_var, $queryEarlyCheckOutDetailsinHO);
             $row = mysqli_fetch_assoc($result);
-            $data['earlyCheckOutsinHO'] = intval($row['early_checkout']);
+            $data['earlyCheckOutsinHO'] = isset($row['early_checkout']) ? intval($row['early_checkout']) : 0;
 
             // 5. Employees on leave in Head Office
-            $queryLeaveDetailsinHO = "SELECT s.sectionName, COUNT(DISTINCT l.employeeID) AS on_leave FROM tblSection s
-            JOIN tblAssignedSection a ON s.sectionID = a.sectionID JOIN tblEmployee e ON a.employeeID = e.employeeID
-            LEFT JOIN tblApplyLeave l ON e.employeeID = l.employeeID AND CURDATE() BETWEEN l.fromDate AND l.toDate
-            WHERE a.isActive = 1 GROUP BY s.sectionName ORDER BY s.sectionName";
+            $queryLeaveDetailsinHO = "SELECT s.sectionName, COUNT(DISTINCT l.employeeID) AS on_leave FROM tblSection s JOIN tblAssignedSection a ON s.sectionID = a.sectionID 
+            JOIN tblEmployee e ON a.employeeID = e.employeeID LEFT JOIN tblApplyLeave l ON e.employeeID = l.employeeID AND CURDATE() BETWEEN l.fromDate AND l.toDate WHERE a.isActive = 1 GROUP BY s.sectionName ORDER BY s.sectionName";
             $result = mysqli_query($connect_var, $queryLeaveDetailsinHO);
             $row = mysqli_fetch_assoc($result);
-            $data['onLeaveinHO'] = intval($row['on_leave']);
+            $data['onLeaveinHO'] = isset($row['on_leave']) ? intval($row['on_leave']) : 0;
 
             // 6. Calculate absentees in Head Office
             $data['absenteesinHO'] = intval($data['totalEmployeesinHO']) - (intval($data['checkedInTodayinHO']) + intval($data['onLeaveinHO']));
@@ -161,5 +156,5 @@ function DashboardDetails() {
 }
 function DashboardDetailsForHO() {
     $dashboardfordepartmentComponent = new DashboardComponent();
-   // $dashboardfordepartmentComponent->DashboardAttendanceForHeadOffice();
+    $dashboardfordepartmentComponent->DashboardAttendanceForHeadOffice();
 }
