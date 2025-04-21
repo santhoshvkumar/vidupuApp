@@ -158,10 +158,8 @@ class DashboardComponent{
 function DashboardDetails() {
     $dashboardComponent = new DashboardComponent();
     $dashboardComponent->DashboardAttendanceDetails();
-    $dashboardfordepartmentComponent = new DashboardForDepartmentComponent();
-    $dashboardfordepartmentComponent->DashboardAttendanceForHeadOffice();
 }
 function DashboardDetailsForHO() {
-    $dashboardfordepartmentComponent = new DashboardForDepartmentComponent();
+    $dashboardfordepartmentComponent = new DashboardComponent();
     $dashboardfordepartmentComponent->DashboardAttendanceForHeadOffice();
 }
