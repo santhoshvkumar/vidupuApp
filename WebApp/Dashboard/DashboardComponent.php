@@ -161,5 +161,5 @@ function DashboardDetails() {
 }
 function DashboardDetailsForHO() {
     $dashboardfordepartmentComponent = new DashboardComponent();
-    $dashboardfordepartmentComponent->DashboardAttendanceForHeadOffice();
+   // $dashboardfordepartmentComponent->DashboardAttendanceForHeadOffice();
 }
