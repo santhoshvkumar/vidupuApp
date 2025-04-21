@@ -10,44 +10,93 @@ class DashboardComponent{
         return true;
     }
 
-    public function getActiveEmployees(){
+    public function DashboardDetails() {
         include('config.inc');
         header('Content-Type: application/json');
-        $queryActiveEmployees = "SELECT  count(*) as totalActiveEmployees FROM tblEmployee WHERE isActive = 1";
-        $rsd = mysqli_query($connect_var, $queryActiveEmployees);
-        $row = mysqli_fetch_assoc($rsd);
-        return $row['totalActiveEmployees'];
-    }
-
-    function ActiveEmployees(array $data){
-        $dashboardComponent = new DashboardComponent(); 
-        if($dashboardComponent->loadDashboardDetails($data)){
-            $dashboardComponent->getActiveEmployees();
-        }else{
-            echo json_encode(array("status"=>"error","message_text"=>"Invalid input parameters"),JSON_FORCE_OBJECT);
+    
+        try {
+            // Initialize an array to hold the results
+            $data = [];
+    
+            // 1. Fetch all dashboard details
+            $queryDashboardDetails = "SELECT * FROM tblDashboardDetails";
+            $rsd = mysqli_query($connect_var, $queryDashboardDetails);
+            $dashboardDetails = [];
+            while ($row = mysqli_fetch_assoc($rsd)) {
+                $dashboardDetails[] = $row;
+            }
+            $data['dashboardDetails'] = $dashboardDetails;    
+            
+    
+            echo json_encode([
+                "status" => "success",
+                "data" => $data
+            ]);
+    
+        } catch (Exception $e) {
+            echo json_encode([
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ], JSON_FORCE_OBJECT);
         }
     }
-
-
-
-
     
-    public function DashboardDetails(){
+
+    public function DashboardAttendanceDetails() {
         include('config.inc');
         header('Content-Type: application/json');
-            $queryDashboardDetails = "SELECT * FROM tblDashboardDetails";
-        $rsd = mysqli_query($connect_var, $queryDashboardDetails);
-        $row = mysqli_fetch_assoc($rsd);
-        return $row;
+    
+        try {
+            $data = [];
+    
+            // 1. Total active employees
+            $queryActiveEmployeeDetails = "SELECT COUNT(*) as total FROM tblEmployee";
+            $result = mysqli_query($connect_var, $queryActiveEmployeeDetails);
+            $row = mysqli_fetch_assoc($result);
+            $data['totalEmployees'] = intval($row['total']);
+    
+            // 2. Today's check-ins
+            $queryCheckInDetails = "SELECT COUNT(*) as checked_in FROM tblAttendance WHERE attendanceDate = CURDATE()";
+            $result = mysqli_query($connect_var, $queryCheckInDetails);
+            $row = mysqli_fetch_assoc($result);
+            $data['checkedInToday'] = intval($row['checked_in']);
+    
+            // 3. Late check-ins
+            $queryLateCheckInDetails = "SELECT COUNT(*) as late_checkin FROM tblAttendance WHERE checkInTime > '10:10:00' AND attendanceDate = CURDATE()";
+            $result = mysqli_query($connect_var, $queryLateCheckInDetails);
+            $row = mysqli_fetch_assoc($result);
+            $data['lateCheckIns'] = intval($row['late_checkin']);
+    
+            // 4. Early check-outs
+            $queryEarlyCheckOutDetails = "SELECT COUNT(*) as early_checkout FROM tblAttendance WHERE checkOutTime < '17:00:00' AND attendanceDate = CURDATE()";
+            $result = mysqli_query($connect_var, $queryEarlyCheckOutDetails);
+            $row = mysqli_fetch_assoc($result);
+            $data['earlyCheckOuts'] = intval($row['early_checkout']);
+    
+            // 5. Employees on leave
+            $queryLeaveDetails = "SELECT COUNT(*) as on_leave FROM tblApplyLeave WHERE CURDATE() BETWEEN fromDate AND toDate";
+            $result = mysqli_query($connect_var, $queryLeaveDetails);
+            $row = mysqli_fetch_assoc($result);
+            $data['onLeave'] = intval($row['on_leave']);
+    
+            // 6. Calculate absentees
+            $data['absentees'] = intval($data['totalEmployees']) - (intval($data['checkedInToday']) + intval($data['onLeave']));
+    
+            echo json_encode([
+                "status" => "success",
+                "data" => $data
+            ]);
+        } catch (Exception $e) {
+            echo json_encode([
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ], JSON_FORCE_OBJECT);
+        }
     }
+    
+} // Close the DashboardComponent class
 
-}
-
-function DashboardDetails(array $data){
+function DashboardDetails() {
     $dashboardComponent = new DashboardComponent();
-    if($dashboardComponent->loadDashboardDetails($data)){
-        $dashboardComponent->DashboardDetails();
-    } else {
-        echo json_encode(array("status"=>"error","message_text"=>"Invalid input parameters"),JSON_FORCE_OBJECT);
-    }
+    $dashboardComponent->DashboardAttendanceDetails();
 }
