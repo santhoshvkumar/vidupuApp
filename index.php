@@ -35,6 +35,9 @@ require 'ApproveLeave/ApproveLeaveComponent.php';
 require 'WebApp/Dashboard/DashboardRouter.php';
 require 'WebApp/Dashboard/DashboardComponent.php';
 
+require 'WebApp/Dashboard/EmployeeComponent.php';
+require 'WebApp\Dashboard\EmployeeRouter.php';
+
 // require 'LeaveHistory/LeaveHistoryRouter.php';
 // require 'LeaveHistory/LeaveHistoryComponent.php';
 // require 'Attendance/AttendanceRouter.php';
