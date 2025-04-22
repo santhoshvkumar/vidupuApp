@@ -4,12 +4,19 @@ class EmployeeComponent{
     public $employeeID;
     public $employeeRole;
     public $EmployeePassword;
-    public $branchID;
-
+    public $PresentBranchID;
+    public $NewBranchID;
+    public $interChangeDate;
     public function loadEmployeeDetails(array $data){
-        $this->employeeID = $data['employeeID'];
-        $this->branchID = $data['branchID'];
-        return true;
+        if (isset($data['employeeID']) && isset($data['currentBranchID'])) {
+            $this->employeeID = $data['employeeID'];
+            $this->PresentBranchID = $data['currentBranchID'];
+            $this->NewBranchID = $data['newBranchID'];
+            $this->interChangeDate = $data['interChangeDate'];
+            return true;
+        } else {
+            return false;
+        }
     }
 
     public function EmployeeDetails() {
@@ -58,10 +65,8 @@ class EmployeeComponent{
             // Initialize an array to hold all employee details
             $employees = [];
             while ($row = mysqli_fetch_assoc($result)) {
-                $employees[] = $row; // Add each row to the employees array
+                $data[] = $row; // Add each row to the employees array
             }
-            $data['allemployees'] = $employees; // Store the array of employees            
-
             echo json_encode([
                 "status" => "success",
                 "data" => $data
@@ -82,32 +87,32 @@ class EmployeeComponent{
         try {
             $data = [];    
 
-            // Ensure the required fields are present in the input
-            if (isset($decoded_items['branchID']) && isset($decoded_items['employeeID'])) {
-                $this->employeeID = $decoded_items['employeeID'];
-                $this->branchID = $decoded_items['branchID']; // Assuming branchID is being used as EmployeePassword
+            // 1. Update a branch of Employee due to Transfer to employee
+            $queryUpdateBranchofEmployee = "UPDATE tblmapEmp SET branchID = ? WHERE employeeID = ?;";
+            $stmt = mysqli_prepare($connect_var, $queryUpdateBranchofEmployee);
+            mysqli_stmt_bind_param($stmt, "ss", $this->NewBranchID, $this->employeeID);
+            mysqli_stmt_execute($stmt);
 
-                // 1. Update a branch of Employee due to Transfer to employee
-                $queryUpdateBranchofEmployee = "UPDATE tblmapemp SET branchID = ? WHERE employeeID = ?;";
-                $stmt = mysqli_prepare($connect_var, $queryUpdateBranchofEmployee);
-                mysqli_stmt_bind_param($stmt, "ss", $this->branchID, $this->employeeID);
-                mysqli_stmt_execute($stmt);
+            $currentDate = date('Y-m-d');
+            // 2. Insert a branch inter change history
+            $queryInsertBranchInterChangeHistory = "INSERT INTO tblBranchInterChange (employeeID, fromBranchID, toBranchID, createdOn, AssignedDate) VALUES (?, ?, ?, ?, ?);";
+            $stmtInterChangeHistory = mysqli_prepare($connect_var, $queryInsertBranchInterChangeHistory);
+            mysqli_stmt_bind_param($stmtInterChangeHistory, "sssss", $this->employeeID, $this->PresentBranchID, $this->NewBranchID, $currentDate, $this->interChangeDate);
+            mysqli_stmt_execute($stmtInterChangeHistory);
 
-                // Check if the update was successful
-                if (mysqli_stmt_affected_rows($stmt) > 0) {
-                    echo json_encode([
-                        "status" => "success",
-                        "data" => $data
-                    ]);
-                } else {
-                    echo json_encode([
-                        "status" => "error",
-                        "message_text" => "No rows updated. Check if the employeeID exists."
-                    ], JSON_FORCE_OBJECT);
-                }
+            // Check if the update was successful
+            if (mysqli_stmt_affected_rows($stmtInterChangeHistory) > 0) {
+                echo json_encode([
+                    "status" => "success",
+                    "message_text" => "Branch inter change history inserted successfully."
+                ]);
             } else {
-                echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
+                echo json_encode([
+                    "status" => "error",
+                    "message_text" => "No rows updated. Check if the employeeID exists."
+                ], JSON_FORCE_OBJECT);
             }
+           
         } catch (Exception $e) {
             echo json_encode([
                 "status" => "error",
