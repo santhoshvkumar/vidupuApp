@@ -919,7 +919,7 @@ class ApplyLeaveMaster {
             $employeeID = isset($this->employeeID) ? $this->employeeID : null;
             
             // Update column names to match the actual database structure
-            $sql = "SELECT compOffID, EmployeeID, date, reason, validTill, status, createdOn, approvedBy, rejectedReason 
+            $sql = "SELECT compOffID, EmployeeID, date, reason, validTill, status, createdOn, approvedBy, rejectedReason, isUsed, usedOn 
                    FROM tblcompoff";
             
             // Add employee filter if provided
@@ -945,7 +945,9 @@ class ApplyLeaveMaster {
                     'status' => $row['status'],
                     'createdOn' => $row['createdOn'],
                     'approvedBy' => $row['approvedBy'],
-                    'rejectedReason' => $row['rejectedReason']
+                    'rejectedReason' => $row['rejectedReason'],
+                    'isUsed' => $row['isUsed'],
+                    'usedOn' => $row['usedOn']
                 );
             }
             
