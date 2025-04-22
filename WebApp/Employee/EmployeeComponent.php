@@ -51,8 +51,8 @@ class EmployeeComponent{
             $data = [];
     
             // 1. Get all active employees Name, ID and BranchID
-            $queryAllEmployeeDetails = "SELECT e.employeeID, e.employeeName, b.branchID FROM 
-            tblEmployee e JOIN tblmapemp b ON e.employeeID = b.employeeID";
+            $queryAllEmployeeDetails = "SELECT tblE.employeeID, tblE.employeeName, tblME.branchID FROM 
+            tblEmployee tblE JOIN tblmapEmp tblME ON tblE.employeeID = tblME.employeeID";
             $result = mysqli_query($connect_var, $queryAllEmployeeDetails);            
 
             // Initialize an array to hold all employee details
