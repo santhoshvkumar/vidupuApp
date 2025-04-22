@@ -11,6 +11,8 @@ class ApproveLeaveMaster {
     public $employeeID;
     public $startDate;
     public $endDate;
+    public $isCompOff;
+    public $rejectionReason;
     /**
      * Set manager ID for leave approval
      * @param string $managerID
@@ -33,11 +35,51 @@ class ApproveLeaveMaster {
     }
 
     public function loadLeaveStatus($decoded_items) {
+        if (!isset($decoded_items['applyLeaveID']) || !isset($decoded_items['status'])) {
+            throw new Exception("Missing required parameters: applyLeaveID and status");
+        }
+        
         $this->applyLeaveID = $decoded_items['applyLeaveID'];
         $this->status = $decoded_items['status'];
+        
+        // Check if this is a compensatory off leave
+        include('config.inc');
+        $checkQuery = "SELECT * FROM tblCompOff WHERE compOffID = ?";
+        $stmt = mysqli_prepare($connect_var, $checkQuery);
+        if (!$stmt) {
+            throw new Exception("Prepare statement failed: " . mysqli_error($connect_var));
+        }
+        
+        mysqli_stmt_bind_param($stmt, "s", $this->applyLeaveID);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
+        
+        if (mysqli_num_rows($result) > 0) {
+            $this->isCompOff = true;
+            $compOffDetails = mysqli_fetch_assoc($result);
+            
+            // Debug logging
+            error_log("Compensatory off details: " . print_r($compOffDetails, true));
+            
+            if (!isset($compOffDetails['EmployeeID'])) {
+                error_log("No EmployeeID found in compensatory off record. Available fields: " . implode(', ', array_keys($compOffDetails)));
+                throw new Exception("Employee ID not found in compensatory off record");
+            }
+            
+            $employeeID = $compOffDetails['EmployeeID'];
+            $this->employeeID = $employeeID; // Set the class property
+            
+            error_log("Found comp off request for employee ID: " . $employeeID);
+        } else {
+            $this->isCompOff = false;
+            // For regular leaves, we'll get the employeeID in processLeaveStatus
+            error_log("Not a compensatory off leave, will process as regular leave");
+        }
+        
         if (isset($decoded_items['rejectionReason']) && !empty($decoded_items['rejectionReason'])) {
             $this->rejectionReason = $decoded_items['rejectionReason'];
         }
+        
         return true;
     }
 
@@ -49,10 +91,11 @@ class ApproveLeaveMaster {
                 throw new Exception("Database connection failed");
             }
 
+            // Regular leave approval query
             $queryLeaveApproval = "SELECT 
                 tblE.employeeID,
                 tblE.employeeName,
-                tblL.applyLeaveID,
+                tblL.applyLeaveID as id,
                 tblE.empID,
                 tblL.fromDate,
                 tblL.toDate,
@@ -65,7 +108,8 @@ class ApproveLeaveMaster {
                 tblL.MedicalCertificatePath,
                 tblL.FitnessCertificatePath,
                 DATEDIFF(tblL.toDate, tblL.fromDate) + 1 as NoOfDays,
-                tblL.leaveDuration
+                tblL.leaveDuration,
+                'leave' as recordType
             FROM 
                 tblEmployee tblE
             INNER JOIN 
@@ -85,10 +129,48 @@ class ApproveLeaveMaster {
                     mysqli_real_escape_string($connect_var, $this->endDate) . "'";
             }
             
-            // Order by most recent first
-            $queryLeaveApproval .= " ORDER BY tblL.createdOn DESC";
+            // Compensatory off approval query
+            $compOffApprovalQuery = "SELECT 
+                tblE.employeeID,
+                tblE.employeeName,
+                tblC.compOffID as id,
+                tblE.empID,
+                tblC.date as fromDate,
+                tblC.date as toDate,
+                'Compensatory Off' as typeOfLeave,
+                tblC.reason,
+                tblC.createdOn,
+                tblC.status,
+                NULL as NoOfDaysExtend,
+                NULL as reasonForExtend,
+                NULL as MedicalCertificatePath,
+                NULL as FitnessCertificatePath,
+                1 as NoOfDays,
+                1 as leaveDuration,
+                'compoff' as recordType
+            FROM 
+                tblEmployee tblE
+            INNER JOIN 
+                tblCompOff tblC ON tblE.employeeID = tblC.EmployeeID
+            WHERE 
+                tblE.managerID = '" . mysqli_real_escape_string($connect_var, $this->employeeID) . "'  
+                AND tblC.status = 'Yet To Be Approved'";
+            
+            // Add date filters for comp off if provided
+            if (isset($this->startDate) && !empty($this->startDate)) {
+                $compOffApprovalQuery .= " AND tblC.date >= '" . 
+                    mysqli_real_escape_string($connect_var, $this->startDate) . "'";
+            }
+            
+            if (isset($this->endDate) && !empty($this->endDate)) {
+                $compOffApprovalQuery .= " AND tblC.date <= '" . 
+                    mysqli_real_escape_string($connect_var, $this->endDate) . "'";
+            }
+            
+            // Combine the queries
+            $combinedQuery = "($queryLeaveApproval) UNION ($compOffApprovalQuery) ORDER BY createdOn DESC";
 
-            $rsd = mysqli_query($connect_var, $queryLeaveApproval);
+            $rsd = mysqli_query($connect_var, $combinedQuery);
             
             if (!$rsd) {
                 throw new Exception(mysqli_error($connect_var));
@@ -98,6 +180,11 @@ class ApproveLeaveMaster {
             $count = 0;
             
             while($rs = mysqli_fetch_assoc($rsd)) {
+                // Normalize field names for backward compatibility
+                if (!isset($rs['applyLeaveID']) && isset($rs['id'])) {
+                    $rs['applyLeaveID'] = $rs['id'];
+                }
+                
                 $resultArr[] = $rs;
                 $count++;
             }
@@ -126,6 +213,163 @@ class ApproveLeaveMaster {
         }
     }
 
+    public function processCompOffStatus() {
+        include('config.inc');
+        header('Content-Type: application/json');
+        try {
+            if (!$connect_var) {
+                throw new Exception("Database connection failed");
+            }
+            
+            // Add debug logging
+            error_log("Starting processCompOffStatus for ID: " . $this->applyLeaveID);
+            error_log("Status received: '" . $this->status . "'");
+            
+            // Check if isUsed and usedOn columns exist in tblCompOff
+            $checkColumnsQuery = "SHOW COLUMNS FROM tblCompOff LIKE 'isUsed'";
+            $columnsResult = mysqli_query($connect_var, $checkColumnsQuery);
+            
+            // If isUsed column doesn't exist, add it
+            if (mysqli_num_rows($columnsResult) == 0) {
+                error_log("Adding isUsed and usedOn columns to tblCompOff table");
+                $addColumnsQuery = "ALTER TABLE tblCompOff 
+                                  ADD COLUMN isUsed TINYINT(1) DEFAULT 0,
+                                  ADD COLUMN usedOn DATETIME NULL";
+                mysqli_query($connect_var, $addColumnsQuery);
+            }
+            
+            // Determine if this is a comp off ID
+            $checkQuery = "SELECT * FROM tblCompOff WHERE compOffID = ?";
+            $stmt = mysqli_prepare($connect_var, $checkQuery);
+            if (!$stmt) {
+                throw new Exception("Prepare statement failed: " . mysqli_error($connect_var));
+            }
+            
+            mysqli_stmt_bind_param($stmt, "s", $this->applyLeaveID);
+            $executeResult = mysqli_stmt_execute($stmt);
+            
+            if (!$executeResult) {
+                throw new Exception("Execute failed: " . mysqli_stmt_error($stmt));
+            }
+            
+            $result = mysqli_stmt_get_result($stmt);
+            
+            if (mysqli_num_rows($result) === 0) {
+                // This is not a comp off request, so return false to let other handlers process it
+                error_log("No comp off found with ID: " . $this->applyLeaveID);
+                return false;
+            }
+            
+            $compOffDetails = mysqli_fetch_assoc($result);
+            if (!isset($compOffDetails['EmployeeID'])) {
+                error_log("No EmployeeID found in compensatory off record. Available fields: " . implode(', ', array_keys($compOffDetails)));
+                throw new Exception("Employee ID not found in compensatory off record");
+            }
+            
+            $employeeID = $compOffDetails['EmployeeID'];
+            $this->employeeID = $employeeID; // Set the class property
+            
+            error_log("Found comp off request for employee ID: " . $employeeID);
+            
+            // Begin transaction
+            mysqli_begin_transaction($connect_var);
+            
+            try {
+                // Update the comp off status
+                $updateStatusQuery = "UPDATE tblCompOff SET status = ? WHERE compOffID = ?";
+                $stmt = mysqli_prepare($connect_var, $updateStatusQuery);
+                if (!$stmt) {
+                    throw new Exception("Prepare update status failed: " . mysqli_error($connect_var));
+                }
+                
+                mysqli_stmt_bind_param($stmt, "ss", $this->status, $this->applyLeaveID);
+                $executeResult = mysqli_stmt_execute($stmt);
+                
+                if (!$executeResult) {
+                    throw new Exception("Status update failed: " . mysqli_stmt_error($stmt));
+                }
+                
+                error_log("Updated comp off status to: " . $this->status);
+                
+                // If approved, update the leave balance
+                if (strtolower($this->status) === 'approved') {
+                    error_log("Status match found for 'Approved', proceeding with balance update");
+                    // Add 1 day to CompensatoryOff balance
+                    // Make sure employeeID is properly formatted - cast to int if needed
+                    $empID = (int)$employeeID;
+                    
+                    // Check if the employee exists in the leave balance table
+                    $checkBalanceQuery = "SELECT employeeID FROM tblLeaveBalance WHERE employeeID = ?";
+                    $checkStmt = mysqli_prepare($connect_var, $checkBalanceQuery);
+                    if (!$checkStmt) {
+                        throw new Exception("Check balance prepare failed: " . mysqli_error($connect_var));
+                    }
+                    
+                    mysqli_stmt_bind_param($checkStmt, "i", $empID);
+                    mysqli_stmt_execute($checkStmt);
+                    $balanceResult = mysqli_stmt_get_result($checkStmt);
+                    
+                    if (mysqli_num_rows($balanceResult) === 0) {
+                        throw new Exception("Employee ID " . $empID . " not found in leave balance table");
+                    }
+                    
+                    error_log("Updating leave balance for employee ID: " . $empID);
+                    
+                    $updateBalanceQuery = "UPDATE tblLeaveBalance 
+                                          SET CompensatoryOff = CompensatoryOff + 1
+                                          WHERE employeeID = ?";
+                    $stmt = mysqli_prepare($connect_var, $updateBalanceQuery);
+                    if (!$stmt) {
+                        throw new Exception("Update balance prepare failed: " . mysqli_error($connect_var));
+                    }
+                    
+                    mysqli_stmt_bind_param($stmt, "i", $empID);
+                    $executeResult = mysqli_stmt_execute($stmt);
+                    
+                    if (!$executeResult) {
+                        throw new Exception("Balance update failed: " . mysqli_stmt_error($stmt));
+                    }
+                    
+                    error_log("Successfully updated compensatory off balance");
+                } else {
+                    error_log("Status is not 'approved' (case-insensitive), no balance update needed");
+                }
+                
+                // Commit the transaction
+                mysqli_commit($connect_var);
+                
+                echo json_encode(array(
+                    "status" => "success",
+                    "message_text" => (strtolower($this->status) === 'approved') ? 
+                        "Compensatory off request approved and balance updated" : 
+                        "Compensatory off request rejected",
+                    "leaveType" => "Compensatory Off",
+                    "duration" => 1
+                ));
+                
+                // Return true to indicate we've processed this request
+                return true;
+                
+            } catch (Exception $e) {
+                mysqli_rollback($connect_var);
+                error_log("Error in comp off transaction: " . $e->getMessage());
+                throw $e;
+            }
+            
+        } catch (Exception $e) {
+            error_log("Error in processCompOffStatus: " . $e->getMessage());
+            echo json_encode(array(
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ), JSON_FORCE_OBJECT);
+            return true; // Indicate we've handled this even though it failed
+        } finally {
+            if (isset($connect_var)) {
+                mysqli_close($connect_var);
+            }
+        }
+    }
+
     public function processLeaveStatus() {
         include('config.inc');
         header('Content-Type: application/json');
@@ -134,14 +378,34 @@ class ApproveLeaveMaster {
                 throw new Exception("Database connection failed");
             }
 
-            error_log("Starting processLeaveStatus for leave ID: " . $this->applyLeaveID);
+            // Check if compOffID column exists in tblApplyLeave
+            $checkColumnsQuery = "SHOW COLUMNS FROM tblApplyLeave LIKE 'compOffID'";
+            $columnsResult = mysqli_query($connect_var, $checkColumnsQuery);
+            
+            // If compOffID column doesn't exist, add it
+            if (mysqli_num_rows($columnsResult) == 0) {
+                error_log("Adding compOffID column to tblApplyLeave table");
+                $addColumnsQuery = "ALTER TABLE tblApplyLeave ADD COLUMN compOffID INT NULL";
+                mysqli_query($connect_var, $addColumnsQuery);
+            }
+
+            // If this is a compensatory off leave, process it accordingly
+            if ($this->isCompOff) {
+                return $this->processCompOffStatus();
+            }
 
             // Get leave details
             $queryGetLeave = "SELECT applyLeaveID, typeOfLeave, employeeID, status, 
                               DATEDIFF(toDate, fromDate) + 1 as NoOfDays, fromDate, 
-                              leaveDuration, FitnessCertificatePath, NoOfDaysExtend
-                              FROM tblApplyLeave 
-                              WHERE applyLeaveID = ?";
+                              leaveDuration, FitnessCertificatePath, NoOfDaysExtend";
+                              
+            // Check if compOffID column exists before adding it to query
+            $checkIfColumnExists = mysqli_query($connect_var, "SHOW COLUMNS FROM tblApplyLeave LIKE 'compOffID'");
+            if (mysqli_num_rows($checkIfColumnExists) > 0) {
+                $queryGetLeave .= ", compOffID";
+            }
+            
+            $queryGetLeave .= " FROM tblApplyLeave WHERE applyLeaveID = ?";
                              
             $stmt = mysqli_prepare($connect_var, $queryGetLeave);
             mysqli_stmt_bind_param($stmt, "s", $this->applyLeaveID);
@@ -156,6 +420,8 @@ class ApproveLeaveMaster {
                 $leaveDuration = $leaveDetails['leaveDuration'];
                 $FitnessCertificatePath = $leaveDetails['FitnessCertificatePath'];
                 $noOfDaysExtend = $leaveDetails['NoOfDaysExtend'];
+                $compOffID = isset($leaveDetails['compOffID']) ? $leaveDetails['compOffID'] : null;
+                
                 $decoded_items = array(
                     'applyLeaveID' => $this->applyLeaveID,
                     'typeOfLeave' => $leaveType,
@@ -163,7 +429,7 @@ class ApproveLeaveMaster {
                     'status' => $this->status,
                     'employeeID' => $employeeID
                 );
-                $updateQuery = '';
+                
                 // Begin transaction
                 mysqli_begin_transaction($connect_var);
 
@@ -184,7 +450,6 @@ class ApproveLeaveMaster {
                                 WHERE applyLeaveID = ?";
                             $stmt = mysqli_prepare($connect_var, $statusUpdateQuery);
                             mysqli_stmt_bind_param($stmt, "ss", $this->rejectionReason, $this->applyLeaveID);
-                            //echo $updateQuery;
                         } else if ($row['status'] === 'ReApplied' && $this->status === 'Approved') {
                             // For other statuses, use original update logic
                             if ($leaveType === 'Medical Leave'){
@@ -270,6 +535,104 @@ class ApproveLeaveMaster {
                                 $canUpdateBalance = true;
                                 break;
                             
+                            case "Compensatory Off":
+                                // For Compensatory Off leaves, reduce the balance
+                                $canUpdateBalance = true;
+                                
+                                // Update the comp off used status if we have a valid compOffID
+                                if ($compOffID) {
+                                    $updateCompOffQuery = "UPDATE tblCompOff SET isUsed = 1, usedOn = NOW() WHERE compOffID = ?";
+                                    $compOffStmt = mysqli_prepare($connect_var, $updateCompOffQuery);
+                                    mysqli_stmt_bind_param($compOffStmt, "s", $compOffID);
+                                    $compOffResult = mysqli_stmt_execute($compOffStmt);
+                                    
+                                    if (!$compOffResult) {
+                                        error_log("Failed to update comp off status: " . mysqli_stmt_error($compOffStmt));
+                                    } else {
+                                        error_log("Successfully marked comp off ID $compOffID as used");
+                                    }
+                                    
+                                    mysqli_stmt_close($compOffStmt);
+                                    
+                                    // Explicitly get current balance first
+                                    $getBalanceQuery = "SELECT CompensatoryOff FROM tblLeaveBalance WHERE employeeID = ?";
+                                    $balanceCheckStmt = mysqli_prepare($connect_var, $getBalanceQuery);
+                                    mysqli_stmt_bind_param($balanceCheckStmt, "s", $employeeID);
+                                    mysqli_stmt_execute($balanceCheckStmt);
+                                    $balanceResult = mysqli_stmt_get_result($balanceCheckStmt);
+                                    
+                                    if ($balanceRow = mysqli_fetch_assoc($balanceResult)) {
+                                        $currentBalance = (int)$balanceRow['CompensatoryOff'];
+                                        error_log("Current CompensatoryOff balance for employee $employeeID: $currentBalance");
+                                        
+                                        if ($currentBalance > 0) {
+                                            // Reduce the CompensatoryOff balance by 1
+                                            $updateBalanceQuery = "UPDATE tblLeaveBalance 
+                                                                SET CompensatoryOff = CompensatoryOff - 1
+                                                                WHERE employeeID = ?";
+                                            $balanceStmt = mysqli_prepare($connect_var, $updateBalanceQuery);
+                                            mysqli_stmt_bind_param($balanceStmt, "s", $employeeID);
+                                            $balanceUpdateResult = mysqli_stmt_execute($balanceStmt);
+                                            
+                                            if (!$balanceUpdateResult) {
+                                                error_log("Failed to reduce CompensatoryOff balance: " . mysqli_stmt_error($balanceStmt));
+                                            } else {
+                                                error_log("Successfully reduced CompensatoryOff balance for employee $employeeID from $currentBalance to " . ($currentBalance-1));
+                                                
+                                                // Add a direct non-parameterized query as a fallback
+                                                $directQuery = "UPDATE tblLeaveBalance SET CompensatoryOff = " . ($currentBalance - 1) . " WHERE employeeID = $employeeID";
+                                                error_log("Executing direct query as fallback: $directQuery");
+                                                mysqli_query($connect_var, $directQuery);
+                                                
+                                                // Check if balance was actually updated
+                                                $verifyQuery = "SELECT CompensatoryOff FROM tblLeaveBalance WHERE employeeID = $employeeID";
+                                                $verifyResult = mysqli_query($connect_var, $verifyQuery);
+                                                if ($verifyRow = mysqli_fetch_assoc($verifyResult)) {
+                                                    $newBalance = (int)$verifyRow['CompensatoryOff'];
+                                                    error_log("VERIFICATION: CompensatoryOff balance is now: $newBalance (should be " . ($currentBalance-1) . ")");
+                                                    
+                                                    // If balance did not change, force it with another query
+                                                    if ($newBalance === $currentBalance) {
+                                                        error_log("Balance did not change! Forcing update...");
+                                                        $forceQuery = "UPDATE tblLeaveBalance SET CompensatoryOff = CompensatoryOff - 1 WHERE employeeID = $employeeID AND CompensatoryOff > 0";
+                                                        mysqli_query($connect_var, $forceQuery);
+                                                    }
+                                                }
+                                            }
+                                            
+                                            mysqli_stmt_close($balanceStmt);
+                                        } else {
+                                            error_log("Warning: Cannot reduce CompensatoryOff balance for employee $employeeID because current balance is $currentBalance");
+                                        }
+                                    } else {
+                                        error_log("Failed to retrieve current CompensatoryOff balance for employee $employeeID");
+                                    }
+                                    
+                                    mysqli_stmt_close($balanceCheckStmt);
+                                } else {
+                                    error_log("Warning: No compOffID found for Compensatory Off leave ID: $this->applyLeaveID, employee ID: $employeeID");
+                                    
+                                    // Debug: Check if the leave is actually a Compensatory Off type
+                                    error_log("DEBUG: Leave type from database is: '$leaveType'");
+                                    error_log("DEBUG: Is this really a Compensatory Off leave? " . ($leaveType === 'Compensatory Off' ? 'YES' : 'NO'));
+                                    
+                                    // Try to reduce balance directly without compOffID
+                                    $debugQuery = "SELECT CompensatoryOff FROM tblLeaveBalance WHERE employeeID = $employeeID";
+                                    $debugResult = mysqli_query($connect_var, $debugQuery);
+                                    if ($debugRow = mysqli_fetch_assoc($debugResult)) {
+                                        $debugBalance = (int)$debugRow['CompensatoryOff'];
+                                        error_log("DEBUG: Current balance is $debugBalance for employee $employeeID");
+                                        
+                                        if ($debugBalance > 0) {
+                                            $directUpdateQuery = "UPDATE tblLeaveBalance SET CompensatoryOff = CompensatoryOff - 1 WHERE employeeID = $employeeID AND CompensatoryOff > 0";
+                                            error_log("DEBUG: Executing direct update: $directUpdateQuery");
+                                            $directUpdateResult = mysqli_query($connect_var, $directUpdateQuery);
+                                            error_log("DEBUG: Direct update result: " . ($directUpdateResult ? 'SUCCESS' : 'FAILED'));
+                                        }
+                                    }
+                                }
+                                break;
+                            
                             case "Medical Leave":
                                 if ($FitnessCertificatePath != null && $this->status != "Cancelled") {
                                     $decoded_items["numberOfDays"] = intval($noOfDaysExtend) + intval($leaveDuration);
@@ -284,7 +647,7 @@ class ApproveLeaveMaster {
                             $decoded_items["numberOfDays"] = intval($noOfDaysExtend) + intval($leaveDuration);
                             $canUpdateBalance = true;
                         }       
-                        if ($canUpdateBalance) {
+                        if ($canUpdateBalance && $leaveType !== "Compensatory Off") {
                             $updateQuery = $this->updatedLeaveBalance($decoded_items);
                             if ($updateQuery) {
                                 error_log("Executing balance update query: " . $updateQuery);
@@ -513,31 +876,58 @@ class ApproveLeaveMaster {
                 throw new Exception("Database connection failed");
             }
 
-            $query = "SELECT 
-                tblL.applyLeaveID,
+            // Regular leave query
+            $regularLeaveQuery = "SELECT 
+                tblL.applyLeaveID as id,
                 tblE.employeeID,
                 tblE.employeeName,
                 tblE.empID,
-                tblL.fromDate,
+                tblL.fromDate as fromDate,
                 tblL.toDate,
-                tblL.typeOfLeave,
+                tblL.typeOfLeave as leaveType,
                 tblL.reason,
                 tblL.createdOn,
                 tblL.status,
                 tblL.MedicalCertificatePath,
                 tblL.FitnessCertificatePath,
-                DATEDIFF(tblL.toDate, tblL.fromDate) + 1 as NoOfDays
+                DATEDIFF(tblL.toDate, tblL.fromDate) + 1 as NoOfDays,
+                'leave' as recordType
             FROM 
                 tblEmployee tblE
             INNER JOIN 
                 tblApplyLeave tblL ON tblE.employeeID = tblL.employeeID
             WHERE 
                 tblE.managerID = '" . mysqli_real_escape_string($connect_var, $this->employeeID) . "'  
-                AND tblL.status IN ('Approved', 'Rejected')
-            ORDER BY tblL.createdOn DESC 
-            LIMIT 50";
+                AND tblL.status IN ('Approved', 'Rejected')";
 
-            $rsd = mysqli_query($connect_var, $query);
+            // Compensatory off leave query
+            $compOffQuery = "SELECT 
+                tblC.compOffID as id,
+                tblE.employeeID,
+                tblE.employeeName,
+                tblE.empID,
+                tblC.date as fromDate,
+                tblC.date as toDate,
+                'Compensatory Off' as leaveType,
+                tblC.reason,
+                tblC.createdOn,
+                tblC.status,
+                NULL as MedicalCertificatePath,
+                NULL as FitnessCertificatePath,
+                1 as NoOfDays,
+                'compoff' as recordType
+            FROM 
+                tblEmployee tblE
+            INNER JOIN 
+                tblCompOff tblC ON tblE.employeeID = tblC.EmployeeID
+            WHERE 
+                tblE.managerID = '" . mysqli_real_escape_string($connect_var, $this->employeeID) . "'  
+                AND tblC.status IN ('Approved', 'Rejected')";
+
+            // Combine queries with UNION
+            $combinedQuery = "($regularLeaveQuery) UNION ($compOffQuery) ORDER BY createdOn DESC LIMIT 50";
+
+            $rsd = mysqli_query($connect_var, $combinedQuery);
             
             if (!$rsd) {
                 throw new Exception(mysqli_error($connect_var));
@@ -547,6 +937,14 @@ class ApproveLeaveMaster {
             $count = 0;
             
             while($rs = mysqli_fetch_assoc($rsd)) {
+                // Normalize field names to maintain backward compatibility
+                if (!isset($rs['applyLeaveID']) && isset($rs['id'])) {
+                    $rs['applyLeaveID'] = $rs['id'];
+                }
+                if (!isset($rs['typeOfLeave']) && isset($rs['leaveType'])) {
+                    $rs['typeOfLeave'] = $rs['leaveType'];
+                }
+                
                 $resultArr[] = $rs;
                 $count++;
             }

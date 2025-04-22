@@ -17,6 +17,7 @@ class ApplyLeaveMaster {
     public $MedicalCertificatePath;
     public $noOfDaysExtend;
     public $reasonForExtend;
+    public $employeeID;
     
     public function loadEmployeeDetails(array $data) {
         $this->empID = $data['empID'];
@@ -89,18 +90,78 @@ class ApplyLeaveMaster {
         include('config.inc');
         header('Content-Type: application/json');
         try {
-            $queryLeaveHistory = "SELECT applyLeaveID, fromDate, toDate, leaveDuration, typeOfLeave, 
-                                  reason, status, RejectReason, MedicalCertificatePath, FitnessCertificatePath, NoOfDaysExtend, reasonForExtend 
-                                  FROM tblApplyLeave 
-                                  WHERE employeeID = '$this->empID'
-                                  ORDER by applyLeaveID DESC";
-            $rsd = mysqli_query($connect_var, $queryLeaveHistory);
+            // Get regular leave history - ensure fields are properly cast/formatted
+            $queryLeaveHistory = "SELECT 
+                                    applyLeaveID as id, 
+                                    fromDate as date, 
+                                    toDate, 
+                                    leaveDuration, 
+                                    typeOfLeave as type, 
+                                    reason, 
+                                    status, 
+                                    RejectReason, 
+                                    MedicalCertificatePath, 
+                                    FitnessCertificatePath, 
+                                    NoOfDaysExtend, 
+                                    reasonForExtend, 
+                                    'leave' as recordType 
+                                 FROM tblApplyLeave 
+                                 WHERE employeeID = '$this->empID'";
+            
+            // Get comp off history - ensure data types match with leave query
+            $queryCompOffHistory = "SELECT 
+                                      compOffID as id, 
+                                      date, 
+                                      NULL as toDate, 
+                                      1 as leaveDuration, 
+                                      'Compensatory Off' as type, 
+                                      reason, 
+                                      status, 
+                                      NULL as RejectReason, 
+                                      NULL as MedicalCertificatePath, 
+                                      NULL as FitnessCertificatePath, 
+                                      NULL as NoOfDaysExtend, 
+                                      NULL as reasonForExtend, 
+                                      'compoff' as recordType 
+                                   FROM tblCompOff 
+                                   WHERE EmployeeID = '$this->empID'";
+            
+            // Log the queries for debugging
+            error_log("Leave query: " . $queryLeaveHistory);
+            error_log("CompOff query: " . $queryCompOffHistory);
+            
+            // Run separately to debug
+            $rsdLeave = mysqli_query($connect_var, $queryLeaveHistory);
+            if (!$rsdLeave) {
+                throw new Exception("Leave query failed: " . mysqli_error($connect_var));
+            }
+            
+            $rsdCompOff = mysqli_query($connect_var, $queryCompOffHistory);
+            if (!$rsdCompOff) {
+                throw new Exception("CompOff query failed: " . mysqli_error($connect_var));
+            }
+            
+            // Combine results manually instead of UNION
             $resultArr = array();
             $count = 0;
-            while($rs = mysqli_fetch_assoc($rsd)) {
+            
+            // Add leave results
+            while ($rs = mysqli_fetch_assoc($rsdLeave)) {
                 $resultArr[] = $rs;
                 $count++;
             }
+            
+            // Add comp off results
+            while ($rs = mysqli_fetch_assoc($rsdCompOff)) {
+                $resultArr[] = $rs;
+                $count++;
+            }
+            
+            // Sort by date (newest first)
+            usort($resultArr, function($a, $b) {
+                return strtotime($b['date']) - strtotime($a['date']);
+            });
+            
             mysqli_close($connect_var);
 
             if($count > 0) {
@@ -116,7 +177,7 @@ class ApplyLeaveMaster {
                     "message_text" => "No leave history found for employee ID: $this->empID"
                 ), JSON_FORCE_OBJECT);
             }
-        } catch(PDOException $e) {
+        } catch(Exception $e) {
             echo json_encode(array(
                 "status" => "error",
                 "message_text" => $e->getMessage()
@@ -727,6 +788,181 @@ class ApplyLeaveMaster {
         $this->leaveId = isset($data['leaveId']) ? $data['leaveId'] : null;
         $this->certificateType = isset($data['type']) ? $data['type'] : 'Medical';
         return true;
+    }
+
+    public function getHolidays() {
+        include('config.inc');
+        header('Content-Type: application/json');
+        try {
+            $query = "SELECT holidayID, date, holiday FROM tblHoliday ORDER BY date";
+            $result = mysqli_query($connect_var, $query);
+            
+            if (!$result) {
+                throw new Exception("Database query failed: " . mysqli_error($connect_var));
+            }
+            
+            $holidays = array();
+            while ($row = mysqli_fetch_assoc($result)) {
+                $holidays[] = array(
+                    'holidayID' => $row['holidayID'],
+                    'date' => $row['date'],
+                    'holiday' => $row['holiday']
+                );
+            }
+            
+            echo json_encode(array(
+                "status" => "success",
+                "data" => $holidays
+            ));
+            
+        } catch (Exception $e) {
+            echo json_encode(array(
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ), JSON_FORCE_OBJECT);
+        }
+    }
+
+    public function applyCompOff($data) {
+        include('config.inc');
+        header('Content-Type: application/json');
+        try {
+            $employeeID = $data['employeeID'];
+            $date = $data['date'];
+            $reason = $data['reason'];
+            
+            // Calculate valid till date (date + 180 days)
+            $dateObj = new DateTime($date);
+            $dateObj->modify('+180 days');
+            $validTill = $dateObj->format('Y-m-d');
+
+            // Validate required fields
+            if (empty($employeeID) || empty($date) || empty($reason)) {
+                throw new Exception("Missing required fields");
+            }
+
+            // Validate date format
+            if (!DateTime::createFromFormat('Y-m-d', $date)) {
+                throw new Exception("Invalid date format");
+            }
+
+            // Check if date is a holiday
+            $isHoliday = $this->isHoliday($date);
+            if (!$isHoliday) {
+                throw new Exception("Comp off can only be applied for holiday dates");
+            }
+
+            // Check for duplicate requests
+            $checkDuplicateSql = "SELECT COUNT(*) as count FROM tblcompoff WHERE EmployeeID = ? AND date = ?";
+            $checkStmt = mysqli_prepare($connect_var, $checkDuplicateSql);
+            mysqli_stmt_bind_param($checkStmt, "is", $employeeID, $date);
+            mysqli_stmt_execute($checkStmt);
+            $checkResult = mysqli_stmt_get_result($checkStmt);
+            $count = mysqli_fetch_assoc($checkResult)['count'];
+            mysqli_stmt_close($checkStmt);
+            
+            if ($count > 0) {
+                throw new Exception("A compensatory off request already exists for this date");
+            }
+
+            // Prepare the SQL query
+            $sql = "INSERT INTO tblcompoff (EmployeeID, date, reason, validTill, status) 
+                    VALUES (?, ?, ?, ?, 'Yet To Be Approved')";
+            
+            $stmt = mysqli_prepare($connect_var, $sql);
+            mysqli_stmt_bind_param($stmt, "isss", $employeeID, $date, $reason, $validTill);
+            
+            if (mysqli_stmt_execute($stmt)) {
+                echo json_encode(array(
+                    "status" => "success",
+                    "message" => "Comp off request submitted successfully",
+                    "compOffID" => mysqli_insert_id($connect_var)
+                ));
+            } else {
+                throw new Exception("Failed to submit comp off request");
+            }
+
+            mysqli_stmt_close($stmt);
+            mysqli_close($connect_var);
+        } catch (Exception $e) {
+            echo json_encode(array(
+                "status" => "error",
+                "message" => $e->getMessage()
+            ));
+        }
+    }
+
+    private function isHoliday($date) {
+        include('config.inc');
+        // Convert input date to YYYY-MM-DD format
+        $formattedDate = date('Y-m-d', strtotime($date));
+        
+        $sql = "SELECT COUNT(*) as count FROM tblHoliday WHERE date = ?";
+        $stmt = mysqli_prepare($connect_var, $sql);
+        mysqli_stmt_bind_param($stmt, "s", $formattedDate);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
+        $row = mysqli_fetch_assoc($result);
+        mysqli_stmt_close($stmt);
+        mysqli_close($connect_var);
+        
+        // Debug log
+        error_log("Checking holiday for date: " . $formattedDate . ", count: " . $row['count']);
+        
+        return $row['count'] > 0;
+    }
+
+    public function getCompOffLeaves() {
+        include('config.inc');
+        header('Content-Type: application/json');
+        try {
+            $employeeID = isset($this->employeeID) ? $this->employeeID : null;
+            
+            // Update column names to match the actual database structure
+            $sql = "SELECT compOffID, EmployeeID, date, reason, validTill, status, createdOn, approvedBy, rejectedReason 
+                   FROM tblcompoff";
+            
+            // Add employee filter if provided
+            if ($employeeID) {
+                $sql .= " WHERE EmployeeID = ?";
+                $stmt = mysqli_prepare($connect_var, $sql);
+                mysqli_stmt_bind_param($stmt, "i", $employeeID);
+            } else {
+                $stmt = mysqli_prepare($connect_var, $sql);
+            }
+            
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+            
+            $compOffLeaves = array();
+            while ($row = mysqli_fetch_assoc($result)) {
+                $compOffLeaves[] = array(
+                    'id' => $row['compOffID'],
+                    'employeeID' => $row['EmployeeID'],
+                    'date' => $row['date'],
+                    'reason' => $row['reason'],
+                    'validTill' => $row['validTill'],
+                    'status' => $row['status'],
+                    'createdOn' => $row['createdOn'],
+                    'approvedBy' => $row['approvedBy'],
+                    'rejectedReason' => $row['rejectedReason']
+                );
+            }
+            
+            echo json_encode(array(
+                "status" => "success",
+                "data" => $compOffLeaves
+            ));
+            
+            mysqli_stmt_close($stmt);
+            mysqli_close($connect_var);
+            
+        } catch (Exception $e) {
+            echo json_encode(array(
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ), JSON_FORCE_OBJECT);
+        }
     }
 }
 

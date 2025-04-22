@@ -74,6 +74,28 @@ $f3->route('POST /GetLeaveHistory',
     }
 );
 
+/*****************   Get Holidays  *******************/
+$f3->route('POST /GetHolidays',
+    function($f3) {
+        header('Content-Type: application/json');
+        header('Access-Control-Allow-Origin: *');
+        header('Access-Control-Allow-Methods: POST');
+        header('Access-Control-Allow-Headers: Content-Type');
+        
+        try {
+            $leaveObject = new ApplyLeaveMaster;
+            $leaveObject->getHolidays();
+        } catch (Exception $e) {
+            error_log("Get Holidays error: " . $e->getMessage());
+            echo json_encode(array(
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ));
+        }
+    }
+);
+/*****************  End Get Holidays *****************/
+
 /*****************   Upload Medical Certificate  *******************/
 $f3->route('POST /UploadCertificate',
     function($f3) {
@@ -141,5 +163,34 @@ $f3->route('GET /GetCertificatePath',
                 'message' => $e->getMessage()
             ]);
         }
+    }
+);
+
+// Apply Comp Off
+$f3->route('POST /ApplyCompOff',
+    function($f3) {
+        header('Content-Type: application/json');
+        header('Access-Control-Allow-Origin: *');
+        header('Access-Control-Allow-Methods: POST');
+        header('Access-Control-Allow-Headers: Content-Type');
+
+        $data = json_decode($f3->get('BODY'), true);
+        $leaveBalance = new ApplyLeaveMaster();
+        $leaveBalance->applyCompOff($data);
+    }
+);
+
+// Get Comp Off Leaves
+$f3->route('GET /GetCompOffLeaves',
+    function($f3) {
+        header('Content-Type: application/json');
+        header('Access-Control-Allow-Origin: *');
+        header('Access-Control-Allow-Methods: GET');
+        header('Access-Control-Allow-Headers: Content-Type');
+
+        $employeeID = $f3->get('GET.employeeID');
+        $leaveBalance = new ApplyLeaveMaster();
+        $leaveBalance->employeeID = $employeeID;
+        $leaveBalance->getCompOffLeaves();
     }
 );

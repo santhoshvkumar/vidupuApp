@@ -22,14 +22,27 @@ $f3->route('POST /ApprovedLeave',
         header('Content-Type: application/json');
         $decoded_items = json_decode($f3->get('BODY'), true);
         if (!$decoded_items == NULL) {
-            approvedLeave($decoded_items);
+            // First try to process as comp off
+            $leaveObject = new ApproveLeaveMaster();
+            if($leaveObject->loadLeaveStatus($decoded_items)){
+                if($leaveObject->processCompOffStatus()) {
+                    return; // Already processed as comp off
+                }
+                // If not a comp off, process as regular leave
+                $leaveObject->processLeaveStatus();
+            } else {
+                echo json_encode(array(
+                    "status" => "error",
+                    "message_text" => "Invalid input parameters"
+                ), JSON_FORCE_OBJECT);
+            }
         } else {
             echo json_encode(array(
-                "status" => "error Approved Leave",
+                "status" => "error",
                 "message_text" => "Invalid input parameters"
             ), JSON_FORCE_OBJECT);
+        }
     }
-}
 );
 /*****************  End Approved Leave *****************/
 
@@ -39,7 +52,20 @@ $f3->route('POST /RejectedLeave',
         header('Content-Type: application/json');
         $decoded_items = json_decode($f3->get('BODY'), true);
         if (!$decoded_items == NULL) {
-            processRejectedLeave($decoded_items);
+            // First try to process as comp off
+            $leaveObject = new ApproveLeaveMaster();
+            if($leaveObject->loadLeaveStatus($decoded_items)){
+                if($leaveObject->processCompOffStatus()) {
+                    return; // Already processed as comp off
+                }
+                // If not a comp off, process as regular leave
+                $leaveObject->processLeaveStatus();
+            } else {
+                echo json_encode(array(
+                    "status" => "error",
+                    "message_text" => "Invalid input parameters"
+                ), JSON_FORCE_OBJECT);
+            }
         } else {
             echo json_encode(array(
                 "status" => "error",
@@ -48,6 +74,7 @@ $f3->route('POST /RejectedLeave',
         }
     }
 );
+/*****************  End Rejected Leave *****************/
 
 /*****************  Hold Leave *****************/
 $f3->route('POST /HoldLeave',
