@@ -20,16 +20,12 @@ $f3->route('GET /DashboardAttendanceDetails',
 
     }
 );
-/*****************  End Login User Temp *****************/
-$f3->route('GET /ActiveEmployees',
+$f3->route('GET /DashboardAttendanceForHeadOffice',
+
     function($f3){
-        header('Content-Type: application/json');
-        $decoded_items = json_decode($f3->get('BODY'),true);
-        if(!$decoded_items == NULL)
-            ActiveEmployees($decoded_items);
-        else
-            echo json_encode(array("status"=>"error Active Employees","message_text"=>"Invalid input parameters"),JSON_FORCE_OBJECT);
+                DashboardDetailsForHO();
+
     }
 );
-/*****************  End Active Employees *****************/
+/*****************  End Login User Temp *****************/
 ?>
