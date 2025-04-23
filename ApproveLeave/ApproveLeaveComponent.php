@@ -72,7 +72,7 @@ class ApproveLeaveMaster {
                 error_log("Found regular leave request for employee ID: " . $this->employeeID);
             } else {
                 // If not a regular leave, check if it's a compensatory off
-                $checkCompOffQuery = "SELECT * FROM tblcompoff WHERE compOffID = ?";
+                $checkCompOffQuery = "SELECT * FROM tblCompOff WHERE compOffID = ?";
                 $stmt = mysqli_prepare($connect_var, $checkCompOffQuery);
                 if (!$stmt) {
                     throw new Exception("Prepare statement failed: " . mysqli_error($connect_var));
@@ -254,7 +254,7 @@ class ApproveLeaveMaster {
             
             try {
                 // First verify the comp off exists and is not already used
-                $verifyQuery = "SELECT isUsed, usedOn FROM tblcompoff WHERE compOffID = ?";
+                $verifyQuery = "SELECT isUsed, usedOn FROM tblCompOff WHERE compOffID = ?";
                 $verifyStmt = mysqli_prepare($connect_var, $verifyQuery);
                 if (!$verifyStmt) {
                     throw new Exception("Prepare statement failed: " . mysqli_error($connect_var));
@@ -270,7 +270,7 @@ class ApproveLeaveMaster {
                     }
                     
                     // Update the comp off status and mark as used
-                    $updateCompOffQuery = "UPDATE tblcompoff 
+                    $updateCompOffQuery = "UPDATE tblCompOff 
                                          SET status = ?, 
                                              isUsed = 1, 
                                              usedOn = CURRENT_TIMESTAMP 
@@ -286,7 +286,7 @@ class ApproveLeaveMaster {
                     }
                     
                     // Verify the update
-                    $verifyAfterQuery = "SELECT isUsed, usedOn, status FROM tblcompoff WHERE compOffID = ?";
+                    $verifyAfterQuery = "SELECT isUsed, usedOn, status FROM tblCompOff WHERE compOffID = ?";
                     $verifyAfterStmt = mysqli_prepare($connect_var, $verifyAfterQuery);
                     mysqli_stmt_bind_param($verifyAfterStmt, "s", $this->applyLeaveID);
                     mysqli_stmt_execute($verifyAfterStmt);
@@ -557,7 +557,7 @@ class ApproveLeaveMaster {
                                     
                                     try {
                                         // First verify the comp off exists and is not already used
-                                        $verifyQuery = "SELECT isUsed FROM tblcompoff WHERE compOffID = ?";
+                                        $verifyQuery = "SELECT isUsed FROM tblCompOff WHERE compOffID = ?";
                                         $verifyStmt = mysqli_prepare($connect_var, $verifyQuery);
                                         mysqli_stmt_bind_param($verifyStmt, "i", $compOffID);
                                         mysqli_stmt_execute($verifyStmt);
@@ -569,7 +569,7 @@ class ApproveLeaveMaster {
                                             }
                                             
                                             // Update the comp off first
-                                            $updateCompOffQuery = "UPDATE tblcompoff SET isUsed = 1, usedOn = CURRENT_TIMESTAMP WHERE compOffID = ?";
+                                            $updateCompOffQuery = "UPDATE tblCompOff SET isUsed = 1, usedOn = CURRENT_TIMESTAMP WHERE compOffID = ?";
                                             $stmt = mysqli_prepare($connect_var, $updateCompOffQuery);
                                             mysqli_stmt_bind_param($stmt, "i", $compOffID);
                                             
@@ -578,7 +578,7 @@ class ApproveLeaveMaster {
                                             }
                                             
                                             // Verify the update
-                                            $verifyAfterQuery = "SELECT isUsed, usedOn FROM tblcompoff WHERE compOffID = ?";
+                                            $verifyAfterQuery = "SELECT isUsed, usedOn FROM tblCompOff WHERE compOffID = ?";
                                             $verifyAfterStmt = mysqli_prepare($connect_var, $verifyAfterQuery);
                                             mysqli_stmt_bind_param($verifyAfterStmt, "i", $compOffID);
                                             mysqli_stmt_execute($verifyAfterStmt);
