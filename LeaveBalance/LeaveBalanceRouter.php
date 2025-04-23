@@ -181,14 +181,14 @@ $f3->route('POST /ApplyCompOff',
 );
 
 // Get Comp Off Leaves
-$f3->route('GET /GetCompOffLeaves',
+$f3->route('POST /GetCompOffLeaves',
     function($f3) {
         header('Content-Type: application/json');
         header('Access-Control-Allow-Origin: *');
-        header('Access-Control-Allow-Methods: GET');
+        header('Access-Control-Allow-Methods: POST');
         header('Access-Control-Allow-Headers: Content-Type');
 
-        $employeeID = $f3->get('GET.employeeID');
+        $employeeID = $f3->get('POST.employeeID');
         $leaveBalance = new ApplyLeaveMaster();
         $leaveBalance->employeeID = $employeeID;
         $leaveBalance->getCompOffLeaves();
