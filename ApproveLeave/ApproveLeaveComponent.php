@@ -476,13 +476,39 @@ class ApproveLeaveMaster {
                                 mysqli_stmt_close($stmt);
                             }
                             
-                            // If approved, update the leave balance
+                            // If approved, update the leave balance conditionally
                             if ($this->status === 'Approved') {
-                                $updateQuery = $this->updatedLeaveBalance($decoded_items);
-                                if ($updateQuery) {
-                                    $stmtQueryUpdate = mysqli_prepare($connect_var, $updateQuery);
-                                    mysqli_stmt_execute($stmtQueryUpdate);
-                                    mysqli_stmt_close($stmtQueryUpdate);
+                                $deductBalance = true; // Assume deduction by default for approved leaves
+
+                                // Check if it's Medical Leave or PL (Medical Grounds)
+                                if ($leaveType === 'Medical Leave' || $leaveType === 'Privilege Leave (Medical grounds)') {
+                                    // For these types, only deduct if Fitness Certificate is present
+                                    if (empty($FitnessCertificatePath) || $FitnessCertificatePath === 'null') {
+                                        $deductBalance = false; // Do not deduct if fitness cert is missing
+                                        error_log("Skipping balance deduction for $leaveType (ID: $this->applyLeaveID) - Fitness Certificate missing.");
+                                    } else {
+                                         error_log("Proceeding with balance deduction for $leaveType (ID: $this->applyLeaveID) - Fitness Certificate found.");
+                                    }
+                                } else {
+                                     error_log("Proceeding with balance deduction for non-medical leave type: $leaveType (ID: $this->applyLeaveID).");
+                                }
+
+                                // Proceed with balance deduction if flagged
+                                if ($deductBalance) {
+                                    $updateQuery = $this->updatedLeaveBalance($decoded_items);
+                                    if ($updateQuery) {
+                                        $stmtQueryUpdate = mysqli_prepare($connect_var, $updateQuery);
+                                        if (!$stmtQueryUpdate) {
+                                            throw new Exception("Prepare statement failed for balance update: " . mysqli_error($connect_var));
+                                        }
+                                        if (!mysqli_stmt_execute($stmtQueryUpdate)) {
+                                             throw new Exception("Execute statement failed for balance update: " . mysqli_stmt_error($stmtQueryUpdate));
+                                        }
+                                        mysqli_stmt_close($stmtQueryUpdate);
+                                        error_log("Successfully deducted balance for leave ID: $this->applyLeaveID");
+                                    } else {
+                                         error_log("No balance update query generated for leave ID: $this->applyLeaveID");
+                                    }
                                 }
                             }
                         } else if ($row['status'] === 'ReApplied') {
