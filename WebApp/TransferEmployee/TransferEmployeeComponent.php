@@ -1,11 +1,14 @@
 <?php
 class TransferEmployeeComponent{
     public $empID;   
-    public $branchName;    
+    public $branchID;    
     public function loadTransferEmployeeDetails(array $data){
         if (isset($data['empID']) && isset($data['branchID'])) {
             $this->empID = $data['empID'];
-            $this->branchID = $data['branchID'];            
+            $this->branchID = $data['branchID'];
+            $this->createdOn = $data['createdOn'];
+            $this->createdBy = $data['createdBy'];
+            $this->AssignedDate = $data['AssignedDate'];                       
             return true;
         } else {
             return false;
@@ -20,11 +23,14 @@ class TransferEmployeeComponent{
             $data = [];
     
             // 1. Get all active employees Name, ID and BranchID
-            $queryTransferEmployeeDetails = "INSERT INTO tblBranchInterChange (empID, branchID) VALUES (?, ?);";
+            $queryTransferEmployeeDetails = "INSERT INTO tblBranchInterChange (empID, branchID, createdOn, createdBy, AssignedDate) VALUES (?, ?, ?, ?, ?);";
             $stmt = mysqli_prepare($connect_var, $queryTransferEmployeeDetails);
             mysqli_stmt_bind_param($stmt, "ss",
                 $this->empID,
-                $this->branchID
+                $this->branchID,
+                $this->createdOn,
+                $this->createdBy,
+                $this->AssignedDate
             );
 
             if (mysqli_stmt_execute($stmt)) {
