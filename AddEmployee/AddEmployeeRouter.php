@@ -1,5 +1,5 @@
 <?php
-
+/*****************   Add Employee Details  *******************/
 $f3->route('POST /AddEmployeeDetails',
     function($f3) {
         header('Content-Type: application/json');
@@ -10,4 +10,5 @@ $f3->route('POST /AddEmployeeDetails',
             echo json_encode(array("status"=>"error This value","message_text"=>"Invalid input parameters"),JSON_FORCE_OBJECT);
     }
 );
+/*****************  End Add Employee Details *****************/
 ?>

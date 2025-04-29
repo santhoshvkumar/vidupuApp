@@ -1,22 +1,25 @@
 <?php
-
 class AddEmployeeComponent{
     public $empID;
+    public $employeeID;
     public $employeeName;
     public $employeePhone;
     public $employeeGender;
-    public $Designation;
+    public $employeeDesignation;
     public $employeePassword;
+    public $PresentBranchID;
+    public $NewBranchID;
+    public $interChangeDate;
+    public $branchName;
     public $employeeBloodGroup;
     public $employeeDOB;
-    public $isManager;
     public function loadAddEmployeeDetails(array $data){
         if (isset($data['empID']) && isset($data['employeeName']) && isset($data['employeePhone']) && isset($data['employeeGender']) && isset($data['Designation']) && isset($data['employeePassword']) && isset($data['employeeBloodGroup']) && isset($data['employeeDOB'])) {
             $this->empID = $data['empID'];
             $this->employeeName = $data['employeeName'];
             $this->employeePhone = $data['employeePhone'];
             $this->employeeGender = $data['employeeGender'];
-            $this->Designation = $data['Designation'];
+            $this->employeeDesignation = $data['Designation'];
             $this->employeePassword = $data['employeePassword'];
             $this->employeeBloodGroup = $data['employeeBloodGroup'];
             $this->employeeDOB = $data['employeeDOB'];
@@ -25,7 +28,8 @@ class AddEmployeeComponent{
         } else {
             return false;
         }
-    }
+    }     
+
     public function AddEmployeeDetailForEmployee() {
         include('config.inc');
         header('Content-Type: application/json');
@@ -68,8 +72,8 @@ class AddEmployeeComponent{
             ], JSON_FORCE_OBJECT);
         }
     }
-}
 
+} // End of 
 function AddEmployeeDetails($decoded_items) {
     $EmployeeObject = new AddEmployeeComponent();
     if ($EmployeeObject->loadAddEmployeeDetails($decoded_items)) {
