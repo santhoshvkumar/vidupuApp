@@ -38,6 +38,9 @@ require 'WebApp/Dashboard/DashboardComponent.php';
 require 'WebApp/Employee/EmployeeComponent.php';
 require 'WebApp/Employee/EmployeeRouter.php';
 
+require 'WebApp/AddEmployee/AddEmployeeComponent.php';
+require 'WebApp/AddEmployee/AddEmployeeRouter.php';
+
 // require 'LeaveHistory/LeaveHistoryRouter.php';
 // require 'LeaveHistory/LeaveHistoryComponent.php';
 // require 'Attendance/AttendanceRouter.php';
