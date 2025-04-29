@@ -2,8 +2,11 @@
 class TransferEmployeeComponent{
     public $empID;   
     public $branchID;    
-    public function loadTransferEmployeeDetails(array $data){
-        if (isset($data['empID']) && isset($data['branchID'])) {
+    public $createdOn;
+    public $createdBy;
+    public $AssignedDate;
+    public function loadTransferEmployeeDetails(array $data){       
+        if (isset($data['empID']) && isset($data['branchID']) && isset($data['createdOn']) && isset($data['createdBy']) && isset($data['AssignedDate'])) {
             $this->empID = $data['empID'];
             $this->branchID = $data['branchID'];
             $this->createdOn = $data['createdOn'];
@@ -25,7 +28,7 @@ class TransferEmployeeComponent{
             // 1. Get all active employees Name, ID and BranchID
             $queryTransferEmployeeDetails = "INSERT INTO tblBranchInterChange (empID, branchID, createdOn, createdBy, AssignedDate) VALUES (?, ?, ?, ?, ?);";
             $stmt = mysqli_prepare($connect_var, $queryTransferEmployeeDetails);
-            mysqli_stmt_bind_param($stmt, "ss",
+            mysqli_stmt_bind_param($stmt, "sssss",
                 $this->empID,
                 $this->branchID,
                 $this->createdOn,
