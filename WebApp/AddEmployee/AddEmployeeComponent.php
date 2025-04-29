@@ -10,6 +10,7 @@ class AddEmployeeComponent{
     public $employeeBloodGroup;
     public $employeeDOB;
     public $isManager;
+    public $employeeID;
     public function loadAddEmployeeDetails(array $data){
         if (isset($data['empID']) && isset($data['employeeName']) && isset($data['employeePhone']) && isset($data['employeeGender']) && isset($data['Designation']) && isset($data['employeePassword']) && isset($data['employeeBloodGroup']) && isset($data['employeeDOB'])) {
             $this->empID = $data['empID'];
@@ -26,6 +27,32 @@ class AddEmployeeComponent{
             return false;
         }
     }
+    public function loadGetAllEmployeeNameAndID(array $data) {  
+        if (isset($data['employeeID'])) {
+            $this->employeeID = $data['employeeID'];
+            return true;
+        } else {
+            return false;
+        }
+    }
+    public function GetAllEmployeeNameAndID() {
+        include('config.inc');
+        header('Content-Type: application/json');
+        try {
+            $queryAllEmployeeDetails = "SELECT employeeID, employeeName FROM tblEmployee WHERE isActive = 1";
+            $result = mysqli_query($connect_var, $queryAllEmployeeDetails);
+            $employees = [];
+        while ($row = mysqli_fetch_assoc($result)) {
+            $employees[] = $row;
+            }
+            echo json_encode($employees);
+        } catch (Exception $e) {
+            echo json_encode([
+                "status" => "error", 
+                "message_text" => $e->getMessage()
+            ], JSON_FORCE_OBJECT);
+        }   
+    }   
     public function AddEmployeeDetailForEmployee() {
         include('config.inc');
         header('Content-Type: application/json');
@@ -41,7 +68,7 @@ class AddEmployeeComponent{
                 $this->employeeName,
                 $this->employeePhone,
                 $this->employeeGender,
-                $this->employeeDesignation,
+                $this->Designation,
                 $this->employeePassword,
                 $this->employeeBloodGroup,
                 $this->employeeDOB,
@@ -78,4 +105,12 @@ function AddEmployeeDetails($decoded_items) {
         echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
     }
 }
+function GetAllEmployeeNameAndID($decoded_items) {
+    $EmployeeObject = new AddEmployeeComponent();
+    if ($EmployeeObject->loadGetAllEmployeeNameAndID($decoded_items)) {
+        $EmployeeObject->GetAllEmployeeNameAndID($decoded_items);
+    } else {
+        echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
+    }   
+}   
 ?>
