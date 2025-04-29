@@ -853,7 +853,7 @@ class ApplyLeaveMaster {
             }
 
             // Check for duplicate requests
-            $checkDuplicateSql = "SELECT COUNT(*) as count FROM tblcompoff WHERE EmployeeID = ? AND date = ?";
+            $checkDuplicateSql = "SELECT COUNT(*) as count FROM tblCompOff WHERE EmployeeID = ? AND date = ?";
             $checkStmt = mysqli_prepare($connect_var, $checkDuplicateSql);
             mysqli_stmt_bind_param($checkStmt, "is", $employeeID, $date);
             mysqli_stmt_execute($checkStmt);
@@ -866,7 +866,7 @@ class ApplyLeaveMaster {
             }
 
             // Prepare the SQL query
-            $sql = "INSERT INTO tblcompoff (EmployeeID, date, reason, validTill, status) 
+            $sql = "INSERT INTO tblCompOff (EmployeeID, date, reason, validTill, status) 
                     VALUES (?, ?, ?, ?, 'Yet To Be Approved')";
             
             $stmt = mysqli_prepare($connect_var, $sql);
@@ -920,7 +920,7 @@ class ApplyLeaveMaster {
             
             // Update column names to match the actual database structure
             $sql = "SELECT compOffID, EmployeeID, date, reason, validTill, status, createdOn, approvedBy, rejectedReason, isUsed, usedOn 
-                   FROM tblcompoff";
+                   FROM tblCompOff";
             
             // Add employee filter if provided
             if ($employeeID) {

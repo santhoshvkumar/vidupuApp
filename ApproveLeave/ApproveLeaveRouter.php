@@ -22,13 +22,9 @@ $f3->route('POST /ApprovedLeave',
         header('Content-Type: application/json');
         $decoded_items = json_decode($f3->get('BODY'), true);
         if (!$decoded_items == NULL) {
-            // First try to process as comp off
             $leaveObject = new ApproveLeaveMaster();
             if($leaveObject->loadLeaveStatus($decoded_items)){
-                if($leaveObject->processCompOffStatus()) {
-                    return; // Already processed as comp off
-                }
-                // If not a comp off, process as regular leave
+                // Process as regular leave
                 $leaveObject->processLeaveStatus();
             } else {
                 echo json_encode(array(
@@ -52,13 +48,9 @@ $f3->route('POST /RejectedLeave',
         header('Content-Type: application/json');
         $decoded_items = json_decode($f3->get('BODY'), true);
         if (!$decoded_items == NULL) {
-            // First try to process as comp off
             $leaveObject = new ApproveLeaveMaster();
             if($leaveObject->loadLeaveStatus($decoded_items)){
-                if($leaveObject->processCompOffStatus()) {
-                    return; // Already processed as comp off
-                }
-                // If not a comp off, process as regular leave
+                // Process as regular leave
                 $leaveObject->processLeaveStatus();
             } else {
                 echo json_encode(array(
