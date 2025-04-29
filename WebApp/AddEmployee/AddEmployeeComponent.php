@@ -23,6 +23,7 @@ class AddEmployeeComponent{
             $this->employeePassword = $data['employeePassword'];
             $this->employeeBloodGroup = $data['employeeBloodGroup'];
             $this->employeeDOB = $data['employeeDOB'];
+            $this->isManager = $data['isManager'];
             return true;
         } else {
             return false;
@@ -37,9 +38,9 @@ class AddEmployeeComponent{
             $data = [];
     
             // 1. Get all active employees Name, ID and BranchID
-            $queryAllEmployeeDetails = "INSERT INTO tblEmployee (empID, employeeName, employeePhone, employeeGender, Designation, employeePassword, employeeBloodGroup, employeeDOB) VALUES (?, ?, ?, ?, ?, ?, ?, ?);";
+            $queryAllEmployeeDetails = "INSERT INTO tblEmployee (empID, employeeName, employeePhone, employeeGender, Designation, employeePassword, employeeBloodGroup, employeeDOB, isManager) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);";
             $stmt = mysqli_prepare($connect_var, $queryAllEmployeeDetails);
-            mysqli_stmt_bind_param($stmt, "ssssssss",
+            mysqli_stmt_bind_param($stmt, "sssssssss",
                 $this->empID,
                 $this->employeeName,
                 $this->employeePhone,
@@ -47,7 +48,8 @@ class AddEmployeeComponent{
                 $this->employeeDesignation,
                 $this->employeePassword,
                 $this->employeeBloodGroup,
-                $this->employeeDOB
+                $this->employeeDOB,
+                $this->isManager
             );
 
             if (mysqli_stmt_execute($stmt)) {
