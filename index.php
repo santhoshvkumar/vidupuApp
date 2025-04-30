@@ -45,7 +45,7 @@ require 'WebApp/AddEmployee/AddEmployeeRouter.php';
 // require 'LeaveHistory/LeaveHistoryComponent.php';
 // require 'Attendance/AttendanceRouter.php';
 // require 'Attendance/AttendanceComponent.php';
-
+ 
 
 $f3->route('GET /',
 	function($f3) {

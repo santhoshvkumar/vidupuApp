@@ -9,7 +9,7 @@ $f3->route('POST /AddEmployeeDetails',
         else
             echo json_encode(array("status"=>"error This value","message_text"=>"Invalid input parameters"),JSON_FORCE_OBJECT);
     }
-);
+); 
 $f3->route('POST /GetAllEmployeeNameAndID',
     function($f3) {
         header('Content-Type: application/json');

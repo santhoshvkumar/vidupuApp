@@ -96,6 +96,7 @@ class AddEmployeeComponent{
         }
     }
 }
+ 
 
 function AddEmployeeDetails($decoded_items) {
     $EmployeeObject = new AddEmployeeComponent();
