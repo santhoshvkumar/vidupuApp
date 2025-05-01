@@ -32,8 +32,8 @@ require 'AttendanceOperation/AttendanceOperationComponent.php';
 require 'ApproveLeave/ApproveLeaveRouter.php';
 require 'ApproveLeave/ApproveLeaveComponent.php';
 
-// require 'WebApp/Dashboard/DashboardRouter.php';
-// require 'WebApp/Dashboard/DashboardComponent.php';
+require 'WebApp/Dashboard/DashboardRouter.php';
+require 'WebApp/Dashboard/DashboardComponent.php';
 
 require 'WebApp/AddEmployee/AddEmployeeComponent.php';
 require 'WebApp/AddEmployee/AddEmployeeRouter.php';
