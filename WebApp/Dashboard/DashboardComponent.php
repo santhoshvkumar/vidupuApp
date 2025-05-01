@@ -157,7 +157,7 @@ class DashboardComponent{
             $queryGetAllSection = "SELECT * FROM tblSection";
 
             $result = mysqli_query($connect_var, $queryGetAllSection);
-            $sections[] = [];
+            $sections = [];
             while ($row = mysqli_fetch_assoc($result)) {
                 $sections[] = $row;
             }
