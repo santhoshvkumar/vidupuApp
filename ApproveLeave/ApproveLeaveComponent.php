@@ -11,6 +11,10 @@ class ApproveLeaveMaster {
     public $employeeID;
     public $startDate;
     public $endDate;
+    //added for comp off................................................................
+    public $compOffID;
+    public $rejectionReason;
+    //added for comp off................................................................
     /**
      * Set manager ID for leave approval
      * @param string $managerID
@@ -49,10 +53,11 @@ class ApproveLeaveMaster {
                 throw new Exception("Database connection failed");
             }
 
+            // Get regular leave requests
             $queryLeaveApproval = "SELECT 
                 tblE.employeeID,
                 tblE.employeeName,
-                tblL.applyLeaveID,
+                tblL.applyLeaveID ,
                 tblE.empID,
                 tblL.fromDate,
                 tblL.toDate,
@@ -84,23 +89,76 @@ class ApproveLeaveMaster {
                 $queryLeaveApproval .= " AND tblL.toDate <= '" . 
                     mysqli_real_escape_string($connect_var, $this->endDate) . "'";
             }
-            
-            // Order by most recent first
-            $queryLeaveApproval .= " ORDER BY tblL.createdOn DESC";
 
-            $rsd = mysqli_query($connect_var, $queryLeaveApproval);
+            // Get comp off requests
+            $queryCompOffApproval = "SELECT 
+                tblE.employeeID,
+                tblE.employeeName,
+                tblC.compOffID as id,
+                tblE.empID,
+                tblC.date as fromDate,
+                tblC.date as toDate,
+                'Compensatory Off' as typeOfLeave,
+                tblC.reason,
+                tblC.createdOn,
+                tblC.status,
+                NULL as NoOfDaysExtend,
+                NULL as reasonForExtend,
+                NULL as MedicalCertificatePath,
+                NULL as FitnessCertificatePath,
+                1 as NoOfDays,
+                1 as leaveDuration,
+                'compoff' as recordType
+            FROM 
+                tblEmployee tblE
+            INNER JOIN 
+                tblCompOff tblC ON tblE.employeeID = tblC.EmployeeID
+            WHERE 
+                tblE.managerID = '" . mysqli_real_escape_string($connect_var, $this->employeeID) . "'  
+                AND tblC.status = 'Yet To Be Approved'";
+
+            // Add date filters if provided
+            if (isset($this->startDate) && !empty($this->startDate)) {
+                $queryCompOffApproval .= " AND tblC.date >= '" . 
+                    mysqli_real_escape_string($connect_var, $this->startDate) . "'";
+            }
             
-            if (!$rsd) {
+            if (isset($this->endDate) && !empty($this->endDate)) {
+                $queryCompOffApproval .= " AND tblC.date <= '" . 
+                    mysqli_real_escape_string($connect_var, $this->endDate) . "'";
+            }
+
+            // Execute both queries
+            $rsdLeave = mysqli_query($connect_var, $queryLeaveApproval);
+            if (!$rsdLeave) {
                 throw new Exception(mysqli_error($connect_var));
             }
 
+            $rsdCompOff = mysqli_query($connect_var, $queryCompOffApproval);
+            if (!$rsdCompOff) {
+                throw new Exception(mysqli_error($connect_var));
+            }
+
+            // Combine results
             $resultArr = array();
             $count = 0;
             
-            while($rs = mysqli_fetch_assoc($rsd)) {
+            // Add leave results
+            while($rs = mysqli_fetch_assoc($rsdLeave)) {
                 $resultArr[] = $rs;
                 $count++;
             }
+
+            // Add comp off results
+            while($rs = mysqli_fetch_assoc($rsdCompOff)) {
+                $resultArr[] = $rs;
+                $count++;
+            }
+
+            // Sort by created date (most recent first)
+            usort($resultArr, function($a, $b) {
+                return strtotime($b['createdOn']) - strtotime($a['createdOn']);
+            });
             
             mysqli_close($connect_var);
 
@@ -503,6 +561,113 @@ class ApproveLeaveMaster {
     public function loadApprovalHistoryParams($decoded_items) {
         $this->employeeID = $decoded_items['employeeID'];
         return true;
+    }
+
+    public function loadCompOffStatus($decoded_items) {
+        $this->compOffID = $decoded_items['compOffID'];
+        $this->status = $decoded_items['status'];
+        if (isset($decoded_items['rejectionReason']) && !empty($decoded_items['rejectionReason'])) {
+            $this->rejectionReason = $decoded_items['rejectionReason'];
+        }
+        return true;
+    }
+
+    public function processCompOffStatus() {
+        include('config.inc');
+        header('Content-Type: application/json');
+        try {
+            if (!$connect_var) {
+                throw new Exception("Database connection failed");
+            }
+
+            // Validate required parameters
+            if (empty($this->compOffID) || empty($this->status)) {
+                throw new Exception("Missing required parameters");
+            }
+
+            // Get comp off details
+            $queryGetCompOff = "SELECT compOffID, employeeID, date, status 
+                              FROM tblCompOff 
+                              WHERE compOffID = ?";
+                             
+            $stmt = mysqli_prepare($connect_var, $queryGetCompOff);
+            if (!$stmt) {
+                throw new Exception("Failed to prepare statement: " . mysqli_error($connect_var));
+            }
+
+            mysqli_stmt_bind_param($stmt, "i", $this->compOffID);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+            
+            if (mysqli_num_rows($result) > 0) {
+                $compOffDetails = mysqli_fetch_assoc($result);
+                $employeeID = $compOffDetails['employeeID']; // Changed from EmployeeID to employeeID
+
+                // Begin transaction
+                if (!mysqli_begin_transaction($connect_var)) {
+                    throw new Exception("Failed to start transaction");
+                }
+
+                try {
+                    // Update comp off status
+                    $statusUpdateQuery = "UPDATE tblCompOff 
+                                        SET status = ?, 
+                                            approvedBy = ?, 
+                                            " . ($this->status === 'Rejected' ? "rejectedReason = ?" : "rejectedReason = NULL") . "
+                                        WHERE compOffID = ?";
+
+                    $stmt = mysqli_prepare($connect_var, $statusUpdateQuery);
+                    if (!$stmt) {
+                        throw new Exception("Failed to prepare status update statement: " . mysqli_error($connect_var));
+                    }
+
+                    if ($this->status === 'Rejected') {
+                        mysqli_stmt_bind_param($stmt, "sssi", $this->status, $this->employeeID, $this->rejectionReason, $this->compOffID);
+                    } else {
+                        mysqli_stmt_bind_param($stmt, "ssi", $this->status, $this->employeeID, $this->compOffID);
+                    }
+                    mysqli_stmt_execute($stmt);
+
+                    // If approved, update the leave balance
+                    if ($this->status === 'Approved') {
+                        $updateBalanceQuery = "UPDATE tblLeaveBalance 
+                                             SET CompensatoryOff = CompensatoryOff + 1 
+                                             WHERE employeeID = ?";
+                        $balanceStmt = mysqli_prepare($connect_var, $updateBalanceQuery);
+                        if (!$balanceStmt) {
+                            throw new Exception("Failed to prepare balance update statement: " . mysqli_error($connect_var));
+                        }
+                        mysqli_stmt_bind_param($balanceStmt, "s", $employeeID);
+                        mysqli_stmt_execute($balanceStmt);
+                        mysqli_stmt_close($balanceStmt);
+                    }
+
+                    mysqli_commit($connect_var);
+                    
+                    echo json_encode(array(
+                        "status" => "success",
+                        "message" => "Comp off request " . strtolower($this->status) . " successfully"
+                    ));
+                } catch (Exception $e) {
+                    mysqli_rollback($connect_var);
+                    throw $e;
+                }
+            } else {
+                echo json_encode(array(
+                    "status" => "failure",
+                    "message_text" => "Invalid comp off request"
+                ), JSON_FORCE_OBJECT);
+            }
+            
+            mysqli_close($connect_var);
+
+        } catch(Exception $e) {
+            error_log("Error in processCompOffStatus: " . $e->getMessage());
+            echo json_encode(array(
+                "status" => "error",
+                "message_text" => "Failed to process comp off request: " . $e->getMessage()
+            ), JSON_FORCE_OBJECT);
+        }
     }
 
     public function getApprovalHistoryInfo() {

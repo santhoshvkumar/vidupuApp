@@ -42,6 +42,31 @@ $f3->route('POST /ApprovedLeave',
 );
 /*****************  End Approved Leave *****************/
 
+/*****************  Approve Comp Off *****************/
+$f3->route('POST /ApproveCompOff',
+    function($f3) {
+        header('Content-Type: application/json');
+        $decoded_items = json_decode($f3->get('BODY'), true);
+        if (!$decoded_items == NULL) {
+            $leaveObject = new ApproveLeaveMaster();
+            if($leaveObject->loadCompOffStatus($decoded_items)){
+                $leaveObject->processCompOffStatus();
+            } else {
+                echo json_encode(array(
+                    "status" => "error",
+                    "message_text" => "Invalid input parameters"
+                ), JSON_FORCE_OBJECT);
+            }
+        } else {
+            echo json_encode(array(
+                "status" => "error",
+                "message_text" => "Invalid input parameters"
+            ), JSON_FORCE_OBJECT);
+        }
+    }
+);
+/*****************  End Approve Comp Off *****************/
+
 /*****************  Rejected Leave *****************/
 $f3->route('POST /RejectedLeave',
     function($f3) {
