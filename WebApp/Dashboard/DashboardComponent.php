@@ -148,6 +148,30 @@ class DashboardComponent{
             ], JSON_FORCE_OBJECT);
         }
     }  
+
+    public function DashboardGetAllSectionForGraph() {
+        include('config.inc');
+        header('Content-Type: application/json');
+        try {
+            $data = [];
+            
+            $queryGetAllSection = "SELECT * FROM tblSection";
+
+            $result = mysqli_query($connect_var, $queryGetAllSection);
+            $row = mysqli_fetch_assoc($result);
+            $data['allSection'] = $row;
+
+            echo json_encode([
+                "status" => "success",
+                "data" => $data
+            ]);
+        } catch (Exception $e) {
+            echo json_encode([
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ], JSON_FORCE_OBJECT);
+        }
+    }
 } // Close the DashboardComponent class
 
 function DashboardDetails() {
@@ -157,4 +181,9 @@ function DashboardDetails() {
 function DashboardDetailsForHO() {
     $dashboardfordepartmentComponent = new DashboardComponent();
     $dashboardfordepartmentComponent->DashboardAttendanceForHeadOffice();
+}
+
+function DashboardGetAllSection() {
+    $dashboardfordepartmentComponent = new DashboardComponent();
+    $dashboardfordepartmentComponent->DashboardGetAllSectionForGraph();
 }
