@@ -153,17 +153,18 @@ class DashboardComponent{
         include('config.inc');
         header('Content-Type: application/json');
         try {
-            $data = [];
             
             $queryGetAllSection = "SELECT * FROM tblSection";
 
             $result = mysqli_query($connect_var, $queryGetAllSection);
-            $row = mysqli_fetch_assoc($result);
-            $data['allSection'] = $row;
+            $sections[] = [];
+            while ($row = mysqli_fetch_assoc($result)) {
+                $sections[] = $row;
+            }
 
             echo json_encode([
                 "status" => "success",
-                "data" => $data
+                "data" => $sections
             ]);
         } catch (Exception $e) {
             echo json_encode([
