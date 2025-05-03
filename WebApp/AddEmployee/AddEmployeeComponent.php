@@ -39,7 +39,7 @@ class AddEmployeeComponent{
         include('config.inc');
         header('Content-Type: application/json');
         try {
-            $queryAllEmployeeDetails = "SELECT employeeID, employeeName FROM tblEmployee WHERE isActive = 1";
+            $queryAllEmployeeDetails = "SELECT employeeID, employeeName, empID FROM tblEmployee WHERE isActive = 1";
             $result = mysqli_query($connect_var, $queryAllEmployeeDetails);
             $employees = [];
         while ($row = mysqli_fetch_assoc($result)) {
