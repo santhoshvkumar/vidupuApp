@@ -76,7 +76,7 @@ class UserMaster{
                     $resultArr['IsManager'] = $rs['isManager'];
                     
                     // Update UserToken in database
-                    if($rs['deviceFingerprint'] == null){
+                    if($rs['deviceFingerprint'] == null && isset($this->deviceFingerprint)){
                         $updateToken = "UPDATE tblEmployee SET deviceFingerprint = '$this->deviceFingerprint', userToken = '$this->UserToken' 
                                   WHERE employeeID = '" . $rs['employeeID'] . "'";
                         mysqli_query($connect_var, $updateToken);
