@@ -8,7 +8,7 @@ class UserMaster{
     public $DatabaseName;
     public $GeneralCompanyID;
     public $GeneralAdminID;
-    
+    public $deviceFingerprint;
     public function loadLoginUser(array $data){
         $this->UserName = $data['EmployeePhone'];
         $this->UserPassword = $data['EmployeePassword'];
