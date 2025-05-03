@@ -326,7 +326,7 @@ class AttendanceOperationMaster{
                         l.toDate as leaveToDate,
                         l.status as leaveStatus,
                         CASE 
-                            WHEN a.checkInTime > '10:00:00' THEN 1 
+                            WHEN a.checkInTime > '10:10:00' THEN 1 
                             ELSE 0 
                         END as isLateCheckIn,
                         CASE 
