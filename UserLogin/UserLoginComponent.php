@@ -84,9 +84,12 @@ class UserMaster{
                         mysqli_query($connect_var, $updateToken);
                     }
                     $count++;
-                    if($fignerPrint != null && $fignerPrint !== $this->deviceFingerprint){
-                        $differentDevice = true;
-                        $count=0;
+                    if(isset($this->deviceFingerprint)){
+                        if($fignerPrint != null && $fignerPrint !== $this->deviceFingerprint){
+                            $differentDevice = true;
+                            $count=0;
+                        }
+                    }
                     }
                    
                }  
