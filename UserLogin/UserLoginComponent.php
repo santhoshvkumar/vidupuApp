@@ -102,7 +102,7 @@ class UserMaster{
                 echo json_encode(array("status"=>"failure","record_count"=>$count,"message_text"=>"This is not your registered device, Kindly contact HRD Section for more information"),JSON_FORCE_OBJECT);
             }
             else{
-                echo json_encode(array("status"=>"failure","record_count"=>$count,"message_text"=>"No user with userPhoneNumber='$this->UserName'"),JSON_FORCE_OBJECT);
+                echo json_encode(array("status"=>"failure","record_count"=>$count,"message_text"=>"Kindly Check your Credentials"),JSON_FORCE_OBJECT);
             }
         }   
         catch(PDOException $e) {
