@@ -24,6 +24,7 @@ class UserMaster{
         header('Content-Type: application/json');
         error_reporting( E_ALL );
         ini_set('display_errors', 1);
+        $differentDevice = false;
         try
         {
         
@@ -81,8 +82,12 @@ class UserMaster{
                                   WHERE employeeID = '" . $rs['employeeID'] . "'";
                         mysqli_query($connect_var, $updateToken);
                     }
-                    
                     $count++;
+                    if($rs['deviceFingerPrint'] != null && $rs['deviceFingerPrint'] !== $this->deviceFingerprint){
+                        $differentDevice = true;
+                        $count=0;
+                    }
+                   
                }  
             }
  
@@ -92,7 +97,12 @@ class UserMaster{
         if($count>0)
             echo json_encode(array("status"=>"success","record_count"=>$count,"result"=>$resultArr));
         else
-            echo json_encode(array("status"=>"failure","record_count"=>$count,"message_text"=>"No user with userPhoneNumber='$this->UserName'"),JSON_FORCE_OBJECT);
+            if($differentDevice){
+                echo json_encode(array("status"=>"failure","record_count"=>$count,"message_text"=>"This is not your registered device, Kindly contact HRD Section for more information"),JSON_FORCE_OBJECT);
+            }
+            else{
+                echo json_encode(array("status"=>"failure","record_count"=>$count,"message_text"=>"No user with userPhoneNumber='$this->UserName'"),JSON_FORCE_OBJECT);
+            }
         }   
         catch(PDOException $e) {
             echo json_encode(array("status"=>"error","message_text"=>$e->getMessage()),JSON_FORCE_OBJECT);
