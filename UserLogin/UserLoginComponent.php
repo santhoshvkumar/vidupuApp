@@ -13,6 +13,9 @@ class UserMaster{
         $this->UserName = $data['EmployeePhone'];
         $this->UserPassword = $data['EmployeePassword'];
         $this->UserToken = $data['userToken'];
+        if(isset($data['deviceFingerprint'])){
+            $this->deviceFingerprint = $data['deviceFingerprint'];
+        }
         return true;
     }
 
@@ -24,7 +27,7 @@ class UserMaster{
         try
         {
         
-            $queryUserLogin = "SELECT tblE.employeeID, tblE.empID, tblE.employeeName, tblE.managerID, tblE.employeePhoto, 
+            $queryUserLogin = "SELECT tblE.employeeID, tblE.empID, tblE.employeeName, tblE.managerID, tblE.employeePhoto, tblE.deviceFingerprint,
                 tblLB.CasualLeave, tblLB.MedicalLeave, PrivilegeLeave, tblLB.NoOfMaternityLeave, 
                 tblLB.SpecialCasualLeave, tblLB.CompensatoryOff, tblLB.SpecialLeaveBloodDonation, 
                 tblLB.LeaveOnPrivateAffairs, tblB.branchUniqueID, tblB.branchName, 
@@ -73,9 +76,11 @@ class UserMaster{
                     $resultArr['IsManager'] = $rs['isManager'];
                     
                     // Update UserToken in database
-                    $updateToken = "UPDATE tblEmployee SET userToken = '$this->UserToken' 
+                    if($rs['deviceFingerprint'] == null){
+                        $updateToken = "UPDATE tblEmployee SET deviceFingerprint = '$this->deviceFingerprint', userToken = '$this->UserToken' 
                                   WHERE employeeID = '" . $rs['employeeID'] . "'";
-                    mysqli_query($connect_var, $updateToken);
+                        mysqli_query($connect_var, $updateToken);
+                    }
                     
                     $count++;
                }  
