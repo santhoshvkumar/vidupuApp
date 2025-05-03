@@ -137,6 +137,37 @@ class EmployeeComponent{
             ], JSON_FORCE_OBJECT);
         }
     }
+    public function GetAllEmployeeDetails() {
+        include('config.inc');
+        header('Content-Type: application/json');
+    
+        try {
+            $data = [];
+    
+            // 1. Get all active employees Name, ID and BranchID
+            $queryGetEmployeeDetails = "SELECT tblE.empID, tblE.employeeName, tblE.employeePhone,
+            tblE.employeeGender, tblE.Designation, tblB.branchID, tblB.branchName FROM 
+            tblEmployee tblE JOIN tblmapEmp tblM ON tblE.employeeID = tblM.employeeID
+            JOIN tblBranch tblB ON tblM.branchID = tblB.branchID;";
+            $result = mysqli_query($connect_var, $queryGetEmployeeDetails);            
+
+            // Initialize an array to hold all employee details
+            $employees = [];
+            while ($row = mysqli_fetch_assoc($result)) {
+                $data[] = $row; // Add each row to the employees array
+            }
+            echo json_encode([
+                "status" => "success",
+                "data" => $data
+            ]);
+    
+        } catch (Exception $e) {
+            echo json_encode([
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ], JSON_FORCE_OBJECT);
+        }
+    }
     public function GetEmployeeBasedOnBranch($decoded_items) {
         include('config.inc');
         header('Content-Type: application/json');
@@ -224,6 +255,10 @@ function EmployeeDetails() {
     $EmployeeComponent->AllEmployeeDetails();
 }
 
+function GetAllEmployeeDetails() {
+    $EmployeeComponent = new EmployeeComponent();
+    $EmployeeComponent->GetAllEmployeeDetails();
+}
 
 function UpdateEmployeeDetails($decoded_items) {
     $EmployeeObject = new EmployeeComponent();

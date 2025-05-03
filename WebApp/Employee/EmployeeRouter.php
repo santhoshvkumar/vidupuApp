@@ -7,12 +7,22 @@ $f3->route('GET /EmployeeDetails',
             header('Content-Type: application/json');
             $decoded_items = json_decode($f3->get('BODY'),true);
             if(!$decoded_items == NULL)
-                DashboardDetails($decoded_items);
+            EmployeeDetails($decoded_items);
             else
                 echo json_encode(array("status"=>"error Here for Dashboard Value","message_text"=>"Invalid input parameters"),JSON_FORCE_OBJECT);
 
     }
 );
+
+$f3->route('GET /GetAllEmployeeDetails',
+
+    function($f3){
+            GetAllEmployeeDetails();
+
+}
+);
+
+
 $f3->route('GET /AllEmployeeDetails',
 
     function($f3){
@@ -48,6 +58,7 @@ $f3->route('POST /GetEmployeeDetails',
     }
 
 );
+
 
 $f3->route('POST /GetEmployeeBasedOnBranch',
 
