@@ -3,6 +3,16 @@
 class DashboardComponent{
     public $employeeID;
     public $employeeRole;
+    public $currentmonth;
+    public $previousmonth;
+    public $sectionName;
+
+    public function loadDashboardAttendanceForHeadOffice(array $data){
+        $this->currentmonth = $data['currentmonth'];
+        //$this->previousmonth = $data['previousmonth'];
+        $this->sectionName = $data['sectionName'];
+        return true;
+    }
 
     public function loadDashboardDetails(array $data){
         $this->employeeID = $data['employeeID'];
@@ -93,55 +103,67 @@ class DashboardComponent{
             ], JSON_FORCE_OBJECT);
         }
     }
-    public function DashboardAttendanceForHeadOffice() {
+    public function DashboardAttendanceForHeadOffice(array $data) {
         include('config.inc');
         header('Content-Type: application/json');    
-        try {
-            $data = [];   
+        try {       
+            $data = []; 
+            $currentmonth = date('m');
+            $previousmonth = date('m', strtotime('-1 month'));
                       
             // 1. Total active employees in Head Office
-            $queryActiveEmployeeinHO = "SELECT s.sectionName, COUNT(e.employeeID) AS totalEmployeesinHO FROM tblEmployee e JOIN tblAssignedSection a ON e.employeeID = a.employeeID JOIN tblSection s ON a.sectionID = s.sectionID WHERE a.isActive = 1
-            GROUP BY s.sectionName ORDER BY s.sectionName";
-            $result = mysqli_query($connect_var, $queryActiveEmployeeinHO);
-            $employees = [];
-            while ($row = mysqli_fetch_assoc($result)) {
-            $employees[] = $row;
-            }
-            echo json_encode($employees);
+            $queryHOEmployeeAttendanceSectionWise = "SELECT 
+                s.sectionName,
+                COUNT(DISTINCT e.employeeID) AS totalEmployeesinHO,
+                COUNT(DISTINCT CASE 
+                    WHEN MONTH(att.attendanceDate) = $this->currentmonth THEN e.employeeID 
+                END) AS checked_in,
+                COUNT(DISTINCT CASE 
+                    WHEN MONTH(att.attendanceDate) = $this->currentmonth AND att.checkInTime > '10:10:00' THEN e.employeeID 
+                END) AS late_checkin,
+                COUNT(DISTINCT CASE 
+                    WHEN MONTH(att.attendanceDate) = $this->currentmonth AND att.checkOutTime IS NOT NULL AND att.checkOutTime < '17:00:00' THEN e.employeeID 
+                END) AS early_checkout,
+                COUNT(DISTINCT CASE 
+                    WHEN CURDATE() BETWEEN l.fromDate AND l.toDate THEN e.employeeID 
+                END) AS on_leave
+            FROM 
+                tblSection s
+                JOIN tblAssignedSection a ON s.sectionID = a.sectionID
+                JOIN tblEmployee e ON a.employeeID = e.employeeID
+                LEFT JOIN tblAttendance att ON e.employeeID = att.employeeID
+                LEFT JOIN tblApplyLeave l ON e.employeeID = l.employeeID
+            WHERE 
+                a.isActive = 1
+                AND s.sectionName = '$this->sectionName'
+            GROUP BY 
+                s.sectionName
+            ORDER BY 
+                s.sectionName;";
+
+            $result = mysqli_query($connect_var, $queryHOEmployeeAttendanceSectionWise);
+            $row = mysqli_fetch_assoc($result);
             
-            // $result = mysqli_query($connect_var, $queryActiveEmployeeinHO);
-            // $row = mysqli_fetch_assoc($result);
-            // $data['totalEmployeesinHO'] = isset($row['totalEmployeesinHO']) ? intval($row['totalEmployeesinHO']) : 0;
-
-            // // 2. Today's check-ins in Head Office
-            // $queryCheckInDetailsinHO = "SELECT s.sectionName, COUNT(DISTINCT att.employeeID) AS checked_in FROM tblSection s JOIN tblAssignedSection a ON s.sectionID = a.sectionID JOIN tblEmployee e ON a.employeeID = e.employeeID LEFT JOIN tblAttendance att ON e.employeeID = att.employeeID AND att.attendanceDate = CURDATE() WHERE a.isActive = 1 GROUP BY s.sectionName ORDER BY s.sectionName";
-            // $result = mysqli_query($connect_var, $queryCheckInDetailsinHO);
-            // $row = mysqli_fetch_assoc($result);
-            // $data['checkedInTodayinHO'] = isset($row['checked_in']) ? intval($row['checked_in']) : 0;
-
-            // // 3. Late check-ins in Head Office
-            // $queryLateCheckInDetailsinHO = "SELECT s.sectionName, COUNT(DISTINCT att.employeeID) AS late_checkin FROM tblSection s JOIN tblAssignedSection a ON s.sectionID = a.sectionID JOIN tblEmployee e ON a.employeeID = e.employeeID LEFT JOIN tblAttendance att ON e.employeeID = att.employeeID AND att.attendanceDate = CURDATE() AND att.checkInTime > '10:10:00' 
-            // WHERE a.isActive = 1 GROUP BY s.sectionName ORDER BY s.sectionName";
-            // $result = mysqli_query($connect_var, $queryLateCheckInDetailsinHO);
-            // $row = mysqli_fetch_assoc($result);
-            // $data['lateCheckInsinHO'] = isset($row['late_checkin']) ? intval($row['late_checkin']) : 0;
-
-            // // 4. Early check-outs in Head Office
-            // $queryEarlyCheckOutDetailsinHO = "SELECT s.sectionName, COUNT(DISTINCT att.employeeID) AS early_checkout FROM tblSection s JOIN tblAssignedSection a ON s.sectionID = a.sectionID 
-            // JOIN tblEmployee e ON a.employeeID = e.employeeID LEFT JOIN tblAttendance att ON e.employeeID = att.employeeID AND att.attendanceDate = CURDATE() AND att.checkOutTime < '17:00:00' AND att.checkOutTime IS NOT NULL WHERE a.isActive = 1 GROUP BY s.sectionName ORDER BY s.sectionName";
-            // $result = mysqli_query($connect_var, $queryEarlyCheckOutDetailsinHO);
-            // $row = mysqli_fetch_assoc($result);
-            // $data['earlyCheckOutsinHO'] = isset($row['early_checkout']) ? intval($row['early_checkout']) : 0;
-
-            // // 5. Employees on leave in Head Office
-            // $queryLeaveDetailsinHO = "SELECT s.sectionName, COUNT(DISTINCT l.employeeID) AS on_leave FROM tblSection s JOIN tblAssignedSection a ON s.sectionID = a.sectionID 
-            // JOIN tblEmployee e ON a.employeeID = e.employeeID LEFT JOIN tblApplyLeave l ON e.employeeID = l.employeeID AND CURDATE() BETWEEN l.fromDate AND l.toDate WHERE a.isActive = 1 GROUP BY s.sectionName ORDER BY s.sectionName";
-            // $result = mysqli_query($connect_var, $queryLeaveDetailsinHO);
-            // $row = mysqli_fetch_assoc($result);
-            // $data['onLeaveinHO'] = isset($row['on_leave']) ? intval($row['on_leave']) : 0;
-
-            // // 6. Calculate absentees in Head Office
-            // $data['absenteesinHO'] = intval($data['totalEmployeesinHO']) - (intval($data['checkedInTodayinHO']) + intval($data['onLeaveinHO']));
+            if ($row) {
+                //$data['employees'] = $row;
+                $data['sectionName'] = $row['sectionName'];
+                $data['currentmonth'] = $this->currentmonth;
+                $data['totalEmployeesinHO'] = isset($row['totalEmployeesinHO']) ? intval($row['totalEmployeesinHO']) : 0;
+                $data['checkedInTodayinHO'] = isset($row['checked_in']) ? intval($row['checked_in']) : 0;
+                $data['onLeaveinHO'] = isset($row['on_leave']) ? intval($row['on_leave']) : 0;
+                $data['absenteesinHO'] = $data['totalEmployeesinHO'] - ($data['checkedInTodayinHO'] + $data['onLeaveinHO']);
+                $data['lateCheckIns'] = isset($row['late_checkin']) ? intval($row['late_checkin']) : 0;
+                $data['earlyCheckOuts'] = isset($row['early_checkout']) ? intval($row['early_checkout']) : 0;
+                echo json_encode([
+                    "status" => "success",
+                    "data" => $data
+                ]);
+            } else {
+                echo json_encode([
+                    "status" => "error",
+                    "message_text" => "No data found for the specified section"
+                ], JSON_FORCE_OBJECT);
+            }
             
         } catch (Exception $e) {
             echo json_encode([
@@ -181,12 +203,16 @@ function DashboardDetails() {
     $dashboardComponent = new DashboardComponent();
     $dashboardComponent->DashboardAttendanceDetails();
 }
-function DashboardDetailsForHO() {
-    $dashboardfordepartmentComponent = new DashboardComponent();
-    $dashboardfordepartmentComponent->DashboardAttendanceForHeadOffice();
-}
 
 function DashboardGetAllSection() {
     $dashboardfordepartmentComponent = new DashboardComponent();
     $dashboardfordepartmentComponent->DashboardGetAllSectionForGraph();
+}
+function DashboardDetailsForHO($decoded_items) {
+    $dashboardComponent = new DashboardComponent();
+    if ($dashboardComponent->loadDashboardAttendanceForHeadOffice($decoded_items)) {
+        $dashboardComponent->DashboardAttendanceForHeadOffice($decoded_items);
+    } else {
+        echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
+    }
 }
