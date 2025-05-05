@@ -1,5 +1,4 @@
-<?php
- 
+<?php 
 class UserMaster{
     public $User_ID;
     public $UserName;
@@ -8,7 +7,10 @@ class UserMaster{
     public $DatabaseName;
     public $GeneralCompanyID;
     public $GeneralAdminID;
+    public $UserToken;
+    public $UserPassword;
     
+
     public function loadLoginUser(array $data){
         $this->UserName = $data['EmployeePhone'];
         $this->UserPassword = $data['EmployeePassword'];

@@ -108,8 +108,8 @@ class DashboardComponent{
         header('Content-Type: application/json');    
         try {       
             $data = []; 
-            $currentmonth = date('m');
-            $previousmonth = date('m', strtotime('-1 month'));
+            $currentmonth = date('mm');
+            $previousmonth = date('mm', strtotime('-1 month'));
                       
             // 1. Total active employees in Head Office
             $queryHOEmployeeAttendanceSectionWise = "SELECT 
