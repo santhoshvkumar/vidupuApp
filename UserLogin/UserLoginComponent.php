@@ -76,13 +76,13 @@ class UserMaster{
                     $resultArr['branchRadius'] = $rs['branchRadius'];
                     $resultArr['IsManager'] = $rs['isManager'];
                     
-                    $fignerPrint = $rs['deviceFingerprint'];
-                    // Update UserToken in database
-                    if($fignerPrint == null && isset($this->deviceFingerprint)){
-                        $updateToken = "UPDATE tblEmployee SET deviceFingerprint = '$this->deviceFingerprint', userToken = '$this->UserToken' 
-                                  WHERE employeeID = '" . $rs['employeeID'] . "'";
-                        mysqli_query($connect_var, $updateToken);
+                    // Update UserToken & deviceFingerprint in database
+                    if($rs['deviceFingerprint'] == null){
+                        $updateDeviceFingerprint = "UPDATE tblEmployee SET deviceFingerprint = '$this->deviceFingerprint', userToken = '$this->UserToken'
+                                                    WHERE employeeID = '" . $rs['employeeID'] . "'";
+                        mysqli_query($connect_var, $updateDeviceFingerprint);
                     }
+                    
                     $count++;
                     if($fignerPrint != null && $fignerPrint !== $this->deviceFingerprint){
                         $differentDevice = true;
