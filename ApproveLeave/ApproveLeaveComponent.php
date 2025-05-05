@@ -208,8 +208,10 @@ class ApproveLeaveMaster {
                         if (!mysqli_stmt_execute($stmtBalance)) {
                             throw new Exception("Failed to update leave balance: " . mysqli_error($connect_var));
                         }
+                        mysqli_stmt_close($stmtBalance);
                     }
 
+                    mysqli_stmt_close($stmt);
                     mysqli_commit($connect_var);
                     
                     echo json_encode(array(
@@ -253,6 +255,9 @@ class ApproveLeaveMaster {
                 $leaveDuration = $leaveDetails['leaveDuration'];
                 $FitnessCertificatePath = $leaveDetails['FitnessCertificatePath'];
                 $noOfDaysExtend = $leaveDetails['NoOfDaysExtend'];
+                
+                mysqli_free_result($result);
+                mysqli_stmt_close($stmt);
 
                 // Begin transaction
                 mysqli_begin_transaction($connect_var);
@@ -272,8 +277,13 @@ class ApproveLeaveMaster {
 
                     $result = mysqli_stmt_get_result($checkStmt);
                     $row = mysqli_fetch_assoc($result);
+                    mysqli_free_result($result);
+                    mysqli_stmt_close($checkStmt);
 
                     if ($row) {
+                        $statusUpdateQuery = "";
+                        $stmt = null;
+                        
                         // Process based on current status
                         if ($row['status'] === 'ReApplied' && $this->status === 'Rejected') {
                             $statusUpdateQuery = "UPDATE tblApplyLeave 
@@ -303,6 +313,12 @@ class ApproveLeaveMaster {
                                 WHERE applyLeaveID = ?";
                             $stmt = mysqli_prepare($connect_var, $statusUpdateQuery);
                             mysqli_stmt_bind_param($stmt, "ss", $this->rejectionReason, $this->applyLeaveID);
+                        } else if ($row['status'] === 'Yet To Be Approved' && $this->status === 'Approved') {
+                            $statusUpdateQuery = "UPDATE tblApplyLeave 
+                                SET status = 'Approved'
+                                WHERE applyLeaveID = ?";
+                            $stmt = mysqli_prepare($connect_var, $statusUpdateQuery);
+                            mysqli_stmt_bind_param($stmt, "s", $this->applyLeaveID);
                         } else if ($row['status'] === 'ExtendedApplied' && $this->status === 'Rejected') {
                             $date = new DateTime($fromDate);
                             $date->modify('+'.intval($leaveDuration - 1).' day');
@@ -314,8 +330,12 @@ class ApproveLeaveMaster {
                             mysqli_stmt_bind_param($stmt, "s", $this->applyLeaveID);
                         }
 
-                        if (!mysqli_stmt_execute($stmt)) {
+                        if ($stmt && !mysqli_stmt_execute($stmt)) {
                             throw new Exception("Failed to update leave status: " . mysqli_error($connect_var));
+                        }
+                        
+                        if ($stmt) {
+                            mysqli_stmt_close($stmt);
                         }
                     }
 
