@@ -41,6 +41,9 @@ require 'WebApp/AddEmployee/AddEmployeeRouter.php';
 require 'WebApp/Employee/EmployeeComponent.php';
 require 'WebApp/Employee/EmployeeRouter.php';
 
+require 'WebApp/SectionWiseFetchDetails/SectionWiseFetchDetailsComponent.php';
+require 'WebApp/SectionWiseFetchDetails/SectionWiseFetchDetailsRouter.php';
+
 // require 'AddEmployee/AddEmployeeComponent.php';
 // require 'AddEmployee/AddEmployeeRouter.php';
 
