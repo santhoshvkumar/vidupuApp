@@ -33,37 +33,22 @@ class ApproveLeaveMaster {
         
         return true;
     }
-//added compOffID and isCompOff in $decode
+//added compOffID and isCompOff in loadLeaveStatus
     public function loadLeaveStatus($decoded_items) {
-        // Check if this is a comp off request
         $this->isCompOff = isset($decoded_items['isCompOff']) ? $decoded_items['isCompOff'] : false;
         
-        // Set the ID based on request type
         if ($this->isCompOff) {
-            if (!isset($decoded_items['compOffID'])) {
-                throw new Exception("compOffID is required for comp off requests");
-            }
-            $this->applyLeaveID = $decoded_items['compOffID']; 
+            $this->applyLeaveID = $decoded_items['compOffID'];
         } else {
-            if (!isset($decoded_items['applyLeaveID'])) {
-                throw new Exception("applyLeaveID is required for regular leave requests");
-            }
             $this->applyLeaveID = $decoded_items['applyLeaveID'];
         }
         
         $this->status = $decoded_items['status'];
+        
         if (isset($decoded_items['rejectionReason']) && !empty($decoded_items['rejectionReason'])) {
             $this->rejectionReason = $decoded_items['rejectionReason'];
         }
-
-        // Log the values for debugging
-        error_log("loadLeaveStatus values: " . json_encode([
-            'isCompOff' => $this->isCompOff,
-            'applyLeaveID' => $this->applyLeaveID,
-            'status' => $this->status,
-            'rejectionReason' => $this->rejectionReason ?? null
-        ]));
-
+        
         return true;
     }
 
