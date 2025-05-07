@@ -150,12 +150,12 @@ class SectionWiseFetchDetailsComponent{
                 $data['sectionID'] = $this->sectionID;
                 $data['currentMonth'] = $this->currentMonth;
                 $data['currentYear'] = $this->currentYear;
-                $data['totalactiveemployeesinsection'] = isset($row['totalactiveemployeesinsection']) ? intval($row['totalactiveemployeesinsection']) : 0;
-                $data['totalcheckins'] = isset($row['totalcheckins']) ? intval($row['totalcheckins']) : 0;
-                $data['on_leave'] = isset($row['on_leave']) ? intval($row['on_leave']) : 0;
-                $data['late_checkin'] = isset($row['late_checkin']) ? intval($row['late_checkin']) : 0;
-                $data['early_checkout'] = isset($row['early_checkout']) ? intval($row['early_checkout']) : 0;
-                $data['absenteesinHO'] = $data['totalactiveemployeesinsection'] - ($data['totalcheckins'] + $data['on_leave']);
+                $data['totalActiveEmployeesInSection'] = isset($row['totalactiveemployeesinsection']) ? intval($row['totalactiveemployeesinsection']) : 0;
+                $data['totalCheckIns'] = isset($row['totalcheckins']) ? intval($row['totalcheckins']) : 0;
+                $data['onLeave'] = isset($row['on_leave']) ? intval($row['on_leave']) : 0;
+                $data['lateCheckIn'] = isset($row['late_checkin']) ? intval($row['late_checkin']) : 0;
+                $data['earlyCheckOut'] = isset($row['early_checkout']) ? intval($row['early_checkout']) : 0;
+                $data['absenteesinHO'] = $data['totalActiveEmployeesInSection'] - ($data['totalCheckIns'] + $data['onLeave']);
                 
                 // Debug final data
                 error_log("Final Data: " . print_r($data, true));
