@@ -16,6 +16,17 @@ class SectionWiseFetchDetailsComponent{
         }
     }    
     
+    public function loadSectionEmployees(array $data) {
+        if (isset($data['sectionID']) && isset($data['currentMonth']) && isset($data['currentYear'])) {
+            $this->sectionID = $data['sectionID'];
+            $this->currentMonth = $data['currentMonth'];
+            $this->currentYear = $data['currentYear'];
+            return true;
+        } else {
+            return false;
+        }
+    }
+    
     public function SectionWiseFetchDetails() {
         include('config.inc');
         header('Content-Type: application/json');    
@@ -169,12 +180,112 @@ class SectionWiseFetchDetailsComponent{
             ], JSON_FORCE_OBJECT);
         }
     }  
-} // End of class SectionWiseFetchDetailsComponent
+
+    public function SectionEmployees() {
+        include('config.inc');
+        header('Content-Type: application/json');    
+        try {       
+            $data = [];                       
+
+            $query = "
+                SELECT DISTINCT
+                    e.employeeName,
+                    e.Designation,
+                    s.sectionName,
+                    l.fromDate,
+                    l.toDate,
+                    l.typeOfLeave,
+                    l.status,
+                    l.reason
+                FROM tblEmployee e
+                JOIN tblAssignedSection a ON e.employeeID = a.employeeID
+                JOIN tblSection s ON a.sectionID = s.sectionID
+                LEFT JOIN tblApplyLeave l ON e.employeeID = l.employeeID 
+                    AND MONTH(l.fromDate) = ? 
+                    AND YEAR(l.fromDate) = ?
+                WHERE s.sectionID = ?
+                AND a.isActive = 1
+                ORDER BY e.employeeName ASC, l.fromDate ASC";
+
+            $stmt = mysqli_prepare($connect_var, $query);
+            if (!$stmt) {
+                throw new Exception("Database prepare failed");
+            }
+
+            mysqli_stmt_bind_param($stmt, "iis", 
+                $this->currentMonth,
+                $this->currentYear,
+                $this->sectionID
+            );
+            
+            if (!mysqli_stmt_execute($stmt)) {
+                throw new Exception("Database execute failed");
+            }
+
+            $result = mysqli_stmt_get_result($stmt);
+            $employees = [];
+            $sectionName = "";
+            $currentEmployee = null;
+            
+            while ($row = mysqli_fetch_assoc($result)) {
+                if ($currentEmployee === null || $currentEmployee['employeeName'] !== $row['employeeName']) {
+                    if ($currentEmployee !== null) {
+                        $employees[] = $currentEmployee;
+                    }
+                    
+                    $currentEmployee = [
+                        'employeeName' => $row['employeeName'],
+                        'designation' => $row['Designation'],
+                        'leaves' => []
+                    ];
+                    $sectionName = $row['sectionName'];
+                }
+                
+                if ($row['fromDate'] !== null) {
+                    $currentEmployee['leaves'][] = [
+                        'fromDate' => $row['fromDate'],
+                        'toDate' => $row['toDate'],
+                        'typeOfLeave' => $row['typeOfLeave'],
+                        'status' => $row['status'], 
+                        'reason' => $row['reason']
+                    ];
+                }
+            }
+            
+            if ($currentEmployee !== null) {
+                $employees[] = $currentEmployee;
+            }
+            
+            $data['sectionName'] = $sectionName;
+            $data['employees'] = $employees;
+            
+            echo json_encode([
+                "status" => "success",
+                "data" => $data
+            ]);
+            
+        } catch (Exception $e) {
+            echo json_encode([
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ], JSON_FORCE_OBJECT);
+        }
+    }
+} 
 
 function SectionWiseFetchDetails($decoded_items) {
     $SectionWiseFetchDetailsObject = new SectionWiseFetchDetailsComponent();
     if ($SectionWiseFetchDetailsObject->loadSectionWiseFetchDetails($decoded_items)) {
         $SectionWiseFetchDetailsObject->SectionWiseFetchDetails($decoded_items);
+    } else {
+        echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
+    }
+}
+
+function SectionEmployees($decoded_items) {
+    $SectionWiseFetchDetailsObject = new SectionWiseFetchDetailsComponent();
+    if ($SectionWiseFetchDetailsObject->loadSectionEmployees($decoded_items)) {
+        $SectionWiseFetchDetailsObject->SectionEmployees();
     } else {
         echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
     }
