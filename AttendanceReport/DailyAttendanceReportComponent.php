@@ -155,6 +155,94 @@ class DailyAttendanceReport {
             ), JSON_FORCE_OBJECT);
         }
     }
+
+    public function generateSAMReport() {
+        include('config.inc');
+        header('Content-Type: application/json');
+        
+        try {
+            $query = "SELECT e.empID AS sam_staff_code, 
+                     DATE_FORMAT(CURDATE(), '%d-%m-%Y') AS sam_attendance_date,
+                     CASE 
+                         WHEN a.checkInTime IS NOT NULL THEN 'P'
+                         ELSE 'L'
+                     END AS sam_attendance_status,
+                     'Y' AS sam_auth_fl, 
+                     'ADMIN' AS sam_authorised_by, 
+                     NULL AS sam_authorised_on, 
+                     NULL AS sam_claim_no, 
+                     NULL AS sam_pay_fl, 
+                     NULL AS sam_pay_date, 
+                     NULL AS sam_revoke_date
+                     FROM tblEmployee e
+                     LEFT JOIN tblAttendance a 
+                     ON e.employeeID = a.employeeID AND a.attendanceDate = CURDATE()  
+                     ORDER BY sam_staff_code ASC";
+            
+            $result = mysqli_query($connect_var, $query);
+            
+            if (!$result) {
+                throw new Exception("Error executing query: " . mysqli_error($connect_var));
+            }
+
+            // Create filename 
+            $filename = 'sam_attendance_report_' . $this->currentDate . '_' . date('His') . '.csv';
+            $filepath = $this->reportDirectory . $filename;
+            
+            // Create CSV file
+            $output = fopen($filepath, 'w');
+            
+            // Add headers
+            fputcsv($output, array(
+                'sam_staff_code',
+                'sam_attendance_date',
+                'sam_attendance_status',
+                'sam_auth_fl',
+                'sam_authorised_by',
+                'sam_authorised_on',
+                'sam_claim_no',
+                'sam_pay_fl',
+                'sam_pay_date',
+                'sam_revoke_date'
+            ));
+            
+            while ($row = mysqli_fetch_assoc($result)) {
+                // Write row to CSV
+                fputcsv($output, array(
+                    $row['sam_staff_code'],
+                    $row['sam_attendance_date'],
+                    $row['sam_attendance_status'],
+                    $row['sam_auth_fl'],
+                    $row['sam_authorised_by'],
+                    $row['sam_authorised_on'],
+                    $row['sam_claim_no'],
+                    $row['sam_pay_fl'],
+                    $row['sam_pay_date'],
+                    $row['sam_revoke_date']
+                ));
+            }
+            
+            fclose($output);
+            mysqli_close($connect_var);
+            
+            echo json_encode(array(
+                "status" => "success",
+                "message_text" => "SAM Report generated successfully",
+                "data" => array(
+                    "filename" => $filename,
+                    "filepath" => $filepath,
+                    "download_url" => "downloadReport.php?file=" . urlencode($filename)
+                )
+            ), JSON_FORCE_OBJECT);
+            
+        } catch(Exception $e) {
+            error_log("Error in generateSAMReport: " . $e->getMessage());
+            echo json_encode(array(
+                "status" => "error",
+                "message_text" => "Error generating SAM report: " . $e->getMessage()
+            ), JSON_FORCE_OBJECT);
+        }
+    }
 }
 
 function generateDailyReport() {
@@ -165,6 +253,18 @@ function generateDailyReport() {
         echo json_encode(array(
             "status" => "error",
             "message_text" => "Failed to generate report: " . $e->getMessage()
+        ), JSON_FORCE_OBJECT);
+    }
+}
+
+function generateSAMReport() {
+    try {
+        $report = new DailyAttendanceReport();
+        $report->generateSAMReport();
+    } catch(Exception $e) {
+        echo json_encode(array(
+            "status" => "error",
+            "message_text" => "Failed to generate SAM report: " . $e->getMessage()
         ), JSON_FORCE_OBJECT);
     }
 }

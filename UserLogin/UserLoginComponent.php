@@ -9,6 +9,9 @@ class UserMaster{
     public $GeneralCompanyID;
     public $GeneralAdminID;
     public $deviceFingerprint;
+    public $UserToken;
+    public $isDefaultPassword;  
+    public $UserPassword;
     public function loadLoginUser(array $data){
         $this->UserName = $data['EmployeePhone'];
         $this->UserPassword = $data['EmployeePassword'];
@@ -27,6 +30,8 @@ class UserMaster{
         $differentDevice = false;
         try
         {
+            // Check if password is the default password....added for password mandatory update
+            $isDefaultPassword = ($this->UserPassword === 'Password#1');
         
             $queryUserLogin = "SELECT tblE.employeeID, tblE.empID, tblE.employeeName, tblE.managerID, tblE.employeePhoto, tblE.deviceFingerprint,
                 tblLB.CasualLeave, tblLB.MedicalLeave, PrivilegeLeave, tblLB.NoOfMaternityLeave, 
@@ -75,6 +80,8 @@ class UserMaster{
                     $resultArr['branchLongitude'] = $rs['branchLongitude'];
                     $resultArr['branchRadius'] = $rs['branchRadius'];
                     $resultArr['IsManager'] = $rs['isManager'];
+                    // Add flag for password change requirement
+                    $resultArr['requirePasswordChange'] = $isDefaultPassword;
                     
                     $fignerPrint = $rs['deviceFingerprint'];
                     // Update UserToken in database
