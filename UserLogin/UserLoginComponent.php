@@ -1,5 +1,4 @@
-<?php
- 
+<?php 
 class UserMaster{
     public $User_ID;
     public $UserName;

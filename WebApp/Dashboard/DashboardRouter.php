@@ -7,11 +7,21 @@ $f3->route('GET /DashboardAttendanceDetails',
 
     }
 );
-$f3->route('GET /DashboardAttendanceForHeadOffice',
+$f3->route('POST /DashboardAttendanceForHeadOffice',
 
-    function($f3){
-                DashboardDetailsForHO();
-
+    function($f3) {
+        header('Content-Type: application/json');
+        $decoded_items = json_decode($f3->get('BODY'), true);
+        if($decoded_items != NULL) {
+            $dashboardComponent = new DashboardComponent();
+            if ($dashboardComponent->loadDashboardAttendanceForHeadOffice($decoded_items)) {
+                $dashboardComponent->DashboardAttendanceForHeadOffice($decoded_items);
+            } else {
+                echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
+            }
+        } else {
+            echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
+        }
     }
 );
 
