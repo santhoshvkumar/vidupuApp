@@ -415,26 +415,46 @@ class SectionWiseFetchDetailsComponent{
 
             $result = mysqli_stmt_get_result($stmt);
             $sections = [];
-            
+            $sectionName  = [];
+            $totalEmployees = [];
+            $totalCheckIns = [];
+            $onLeave = [];
+            $lateCheckIn = [];
+            $earlyCheckOut = [];
+            $absentees = [];
+            $countSection = 0;
             while ($row = mysqli_fetch_assoc($result)) {
-                $sectionData = [
-                    'sectionID' => $row['sectionID'],
-                    'sectionName' => $row['section_name'],
-                    'currentDate' => $this->currentDate,
-                    'totalActiveEmployeesInSection' => isset($row['total_active_employees']) ? intval($row['total_active_employees']) : 0,
-                    'totalCheckIns' => isset($row['total_checkins']) ? intval($row['total_checkins']) : 0,
-                    'onLeave' => isset($row['on_leave']) ? intval($row['on_leave']) : 0,
-                    'lateCheckIn' => isset($row['late_checkin']) ? intval($row['late_checkin']) : 0,
-                    'earlyCheckOut' => isset($row['early_checkout']) ? intval($row['early_checkout']) : 0
-                ];
-                $sectionData['absenteesinHO'] = $sectionData['totalActiveEmployeesInSection'] - ($sectionData['totalCheckIns'] + $sectionData['onLeave']);
-                $sections[] = $sectionData;
+                // $sectionData = [
+                //     'sectionID' => $row['sectionID'],
+                //     'sectionName' => $row['section_name'],
+                //     'currentDate' => $this->currentDate,
+                //     'totalActiveEmployeesInSection' => isset($row['total_active_employees']) ? intval($row['total_active_employees']) : 0,
+                //     'totalCheckIns' => isset($row['total_checkins']) ? intval($row['total_checkins']) : 0,
+                //     'onLeave' => isset($row['on_leave']) ? intval($row['on_leave']) : 0,
+                //     'lateCheckIn' => isset($row['late_checkin']) ? intval($row['late_checkin']) : 0,
+                //     'earlyCheckOut' => isset($row['early_checkout']) ? intval($row['early_checkout']) : 0
+                // ];
+                // $sectionData['absenteesinHO'] = $sectionData['totalActiveEmployeesInSection'] - ($sectionData['totalCheckIns'] + $sectionData['onLeave']);
+                $sectionName[] = $row['section_name'];
+                $totalEmployees[] = $row['total_active_employees'];
+                $totalCheckIns[] = $row['total_checkins'];
+                $onLeave[] = $row['on_leave'];
+                $lateCheckIn[] = $row['late_checkin'];
+                $earlyCheckOut[] = $row['early_checkout'];
+                $absentees[] = $row['total_active_employees'] - ($row['total_checkins'] + $row['on_leave']);
+                $countSection++;
             }
             
-            if (!empty($sections)) {
+            if ($countSection > 0) {
                 echo json_encode([
                     "status" => "success",
-                    "data" => $sections
+                    "sectionName" => $sectionName,
+                    "totalEmployees" => $totalEmployees,
+                    "totalCheckIns" => $totalCheckIns,
+                    "onLeave" => $onLeave,
+                    "lateCheckIn" => $lateCheckIn,
+                    "earlyCheckOut" => $earlyCheckOut,
+                    "absentees" => $absentees
                 ]);
             } else {
                 echo json_encode([
