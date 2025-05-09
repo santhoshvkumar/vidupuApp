@@ -4,6 +4,7 @@ class SectionWiseFetchDetailsComponent{
     public $sectionName;
     public $currentMonth;
     public $currentYear;
+    public $currentDate;
     
     public function loadSectionWiseFetchDetails(array $data){
         if (isset($data['sectionID']) && isset($data['currentMonth']) && isset($data['currentYear'])) {
@@ -24,7 +25,14 @@ class SectionWiseFetchDetailsComponent{
             return false;
         }
     }
-
+    public function loadSectionWiseAttendanceForToday(array $data){ 
+        if (isset($data['currentDate'])) {  
+            $this->currentDate = $data['currentDate'];
+            return true;
+        } else {
+            return false;
+        }
+    }
     public function SectionWiseFetchDetails() {
         include('config.inc');
         header('Content-Type: application/json');
@@ -318,6 +326,131 @@ class SectionWiseFetchDetailsComponent{
             ], JSON_FORCE_OBJECT);
         }
     } 
+    public function SectionWiseAttendanceForToday() {
+        include('config.inc');
+        header('Content-Type: application/json');
+        try {       
+            $data = [];                       
+
+            // Debug input values
+            error_log("SectionWiseAttendanceForToday - Input values:");
+            error_log("currentDate: " . $this->currentDate);
+
+            // 1. Total active employees in Head Office for today
+            $queryHOEmployeeAttendanceSectionWiseForToday = "
+                SELECT 
+                    s.sectionID,
+                    s.sectionName AS section_name,
+                    (SELECT COUNT(e.employeeID)
+                     FROM tblEmployee e
+                     JOIN tblAssignedSection a ON e.employeeID = a.employeeID
+                     WHERE a.isActive = 1
+                     AND a.sectionID = s.sectionID) AS total_active_employees,
+                    (SELECT COUNT(att.employeeID) 
+                     FROM tblAttendance att
+                     JOIN tblEmployee e ON att.employeeID = e.employeeID
+                     JOIN tblAssignedSection a ON e.employeeID = a.employeeID
+                     WHERE a.isActive = 1
+                     AND a.sectionID = s.sectionID
+                     AND att.checkInTime IS NOT NULL
+                     AND att.attendanceDate = ?) AS total_checkins,
+                    (SELECT COUNT(att.employeeID) 
+                     FROM tblAttendance att
+                     JOIN tblEmployee e ON att.employeeID = e.employeeID
+                     JOIN tblAssignedSection a ON e.employeeID = a.employeeID
+                     WHERE a.isActive = 1
+                     AND a.sectionID = s.sectionID
+                     AND att.checkInTime IS NOT NULL
+                     AND att.checkInTime > '10:10:00'
+                     AND att.attendanceDate = ?) AS late_checkin,
+                    (SELECT COUNT(att.employeeID) 
+                     FROM tblAttendance att
+                     JOIN tblEmployee e ON att.employeeID = e.employeeID
+                     JOIN tblAssignedSection a ON e.employeeID = a.employeeID
+                     WHERE a.isActive = 1
+                     AND a.sectionID = s.sectionID
+                     AND att.checkOutTime IS NOT NULL
+                     AND att.checkOutTime < '17:00:00'
+                     AND att.attendanceDate = ?) AS early_checkout,
+                    (SELECT COUNT(e.employeeID)
+                     FROM tblApplyLeave l
+                     JOIN tblEmployee e ON l.employeeID = e.employeeID
+                     JOIN tblAssignedSection a ON e.employeeID = a.employeeID
+                     WHERE a.isActive = 1
+                     AND a.sectionID = s.sectionID
+                     AND l.fromDate = ?) AS on_leave
+                FROM tblSection s
+                ORDER BY s.sectionName ASC;";
+
+            // Debug the query with actual values
+            $debug_query = str_replace(
+                ['?', '?', '?', '?'],
+                [
+                    $this->currentDate,
+                    $this->currentDate,
+                    $this->currentDate,
+                    $this->currentDate,
+                ],
+                $queryHOEmployeeAttendanceSectionWiseForToday
+            );
+            error_log("Debug Query: " . $debug_query);
+
+            $stmt = mysqli_prepare($connect_var, $queryHOEmployeeAttendanceSectionWiseForToday);
+            if (!$stmt) {
+                error_log("Prepare failed: " . mysqli_error($connect_var));
+                throw new Exception("Database prepare failed");
+            }
+
+            mysqli_stmt_bind_param($stmt, "ssss", 
+                $this->currentDate,  // for total_checkins
+                $this->currentDate, // for late_checkin
+                $this->currentDate, // for early_checkout
+                $this->currentDate, // for on_leave
+            );
+            
+            if (!mysqli_stmt_execute($stmt)) {
+                error_log("Execute failed: " . mysqli_stmt_error($stmt));
+                throw new Exception("Database execute failed");
+            }
+
+            $result = mysqli_stmt_get_result($stmt);
+            $sections = [];
+            
+            while ($row = mysqli_fetch_assoc($result)) {
+                $sectionData = [
+                    'sectionID' => $row['sectionID'],
+                    'sectionName' => $row['section_name'],
+                    'currentDate' => $this->currentDate,
+                    'totalActiveEmployeesInSection' => isset($row['total_active_employees']) ? intval($row['total_active_employees']) : 0,
+                    'totalCheckIns' => isset($row['total_checkins']) ? intval($row['total_checkins']) : 0,
+                    'onLeave' => isset($row['on_leave']) ? intval($row['on_leave']) : 0,
+                    'lateCheckIn' => isset($row['late_checkin']) ? intval($row['late_checkin']) : 0,
+                    'earlyCheckOut' => isset($row['early_checkout']) ? intval($row['early_checkout']) : 0
+                ];
+                $sectionData['absenteesinHO'] = $sectionData['totalActiveEmployeesInSection'] - ($sectionData['totalCheckIns'] + $sectionData['onLeave']);
+                $sections[] = $sectionData;
+            }
+            
+            if (!empty($sections)) {
+                echo json_encode([
+                    "status" => "success",
+                    "data" => $sections
+                ]);
+            } else {
+                echo json_encode([
+                    "status" => "error",
+                    "message_text" => "No data found for any section"
+                ], JSON_FORCE_OBJECT);
+            }
+            
+        } catch (Exception $e) {
+            error_log("Error in DashboardAttendanceForHeadOffice: " . $e->getMessage());
+            echo json_encode([
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ], JSON_FORCE_OBJECT);
+        }
+    } 
 
     public function SectionEmployees() {
         include('config.inc');
@@ -428,12 +561,19 @@ function SectionEmployees($decoded_items) {
         echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
     }
 }
-
 function SectionWiseAttendanceDetails($decoded_items) {
     $SectionWiseFetchDetailsObject = new SectionWiseFetchDetailsComponent();
     if ($SectionWiseFetchDetailsObject->loadSectionWiseAttendanceDetails($decoded_items)) {
         $SectionWiseFetchDetailsObject->SectionWiseAttendanceDetails();
     } else {
+        echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
+    }
+}
+function SectionWiseAttendanceForToday($decoded_items) {
+    $SectionWiseFetchDetailsObject = new SectionWiseFetchDetailsComponent();
+    if ($SectionWiseFetchDetailsObject->loadSectionWiseAttendanceForToday($decoded_items)) {
+        $SectionWiseFetchDetailsObject->SectionWiseAttendanceForToday();
+    } else {        
         echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
     }
 }
