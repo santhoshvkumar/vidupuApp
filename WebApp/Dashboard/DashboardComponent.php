@@ -121,6 +121,12 @@ class DashboardComponent{
     
             // 6. Calculate absentees
             $data['absentees'] = intval($data['totalEmployees']) - (intval($data['checkedInToday']) + intval($data['onLeave']));
+
+            // 7. Calculate loginned devices
+            $queryLoginnedDevices = "SELECT COUNT(*) AS loginnedDevices FROM tblEmployee WHERE deviceFingerprint IS NOT NULL AND deviceFingerprint <> ''";
+            $result = mysqli_query($connect_var, $queryLoginnedDevices);            
+             $row = mysqli_fetch_assoc($result);
+            $data['loginnedDevices'] = intval($row['loginnedDevices']);
             
             echo json_encode([
                 "status" => "success",
