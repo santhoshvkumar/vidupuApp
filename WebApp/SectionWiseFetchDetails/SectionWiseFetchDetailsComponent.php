@@ -436,12 +436,12 @@ class SectionWiseFetchDetailsComponent{
                 // ];
                 // $sectionData['absenteesinHO'] = $sectionData['totalActiveEmployeesInSection'] - ($sectionData['totalCheckIns'] + $sectionData['onLeave']);
                 $sectionName[] = $row['section_name'];
-                $totalEmployees[] = $row['total_active_employees'] != 0 ? intval($row['total_active_employees']) : rand(5 , 20);
-                $totalCheckIns[] = $row['total_checkins'] != 0 ? intval($row['total_checkins']) : rand(0 , 10);
-                $onLeave[] = $row['on_leave'] != 0 ? intval($row['on_leave']) : rand(0 , 10);
-                $lateCheckIn[] = $row['late_checkin'] != 0 ? intval($row['late_checkin']) : rand(0 , 10);
-                $earlyCheckOut[] = $row['early_checkout'] != 0 ? intval($row['early_checkout']) : rand(0 , 10);
-                $absentees[] = $row['total_active_employees'] != 0 ? intval($row['total_active_employees']) - ($row['total_checkins'] + $row['on_leave']) : rand(0 , 10);
+                $totalEmployees[] = $row['total_active_employees'] != 0 ? intval($row['total_active_employees']) : 0;
+                $totalCheckIns[] = $row['total_checkins'] != 0 ? intval($row['total_checkins']) : 0;
+                $onLeave[] = $row['on_leave'] != 0 ? intval($row['on_leave']) : 0;
+                $lateCheckIn[] = $row['late_checkin'] != 0 ? intval($row['late_checkin']) : 0;
+                $earlyCheckOut[] = $row['early_checkout'] != 0 ? intval($row['early_checkout']) : 0;
+                $absentees[] = $row['total_active_employees'] != 0 ? intval($row['total_active_employees']) - ($row['total_checkins'] + $row['on_leave']) : 0;
                 $countSection++;
             }
             
