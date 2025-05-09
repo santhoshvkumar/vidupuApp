@@ -2,6 +2,8 @@
 
 class DailyQuoteMaster {
     private $currentDate;
+    private $currentVersion = '1.0.10';
+    private $playStoreLink = 'https://play.google.com/store/apps/details?id=com.tnscbank.dailyApp';
     
     public function __construct() {
         $this->currentDate = date('Y-m-d');
@@ -49,11 +51,33 @@ class DailyQuoteMaster {
             ), JSON_FORCE_OBJECT);
         }
     }
+
+    public function checkVersion() {
+        try {
+            return [
+                'status' => 'success',
+                'message' => 'Version check successful',
+                'currentVersion' => $this->currentVersion,
+                'playStoreLink' => $this->playStoreLink
+            ];
+        } catch (Exception $e) {
+            return [
+                'status' => 'error',
+                'message' => $e->getMessage()
+            ];
+        }
+    }
 }
 
 function getDailyQuote() {
     $quoteObject = new DailyQuoteMaster();
     $quoteObject->getDailyQuoteInfo();
+}
+
+function checkVersion() {
+    $quoteObject = new DailyQuoteMaster();
+    $result = $quoteObject->checkVersion();
+    echo json_encode($result);
 }
 
 ?>

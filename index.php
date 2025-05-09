@@ -51,7 +51,10 @@ require 'WebApp/SectionWiseFetchDetails/SectionWiseFetchDetailsRouter.php';
 // require 'LeaveHistory/LeaveHistoryComponent.php';
 // require 'Attendance/AttendanceRouter.php';
 // require 'Attendance/AttendanceComponent.php';
- 
+
+require 'AttendanceReport/DailyAttendanceReportRouter.php';
+require 'AttendanceReport/DailyAttendanceReportComponent.php';
+
 
 $f3->route('GET /',
 	function($f3) {

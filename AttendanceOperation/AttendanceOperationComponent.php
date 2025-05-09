@@ -313,66 +313,116 @@ class AttendanceOperationMaster{
         header('Content-Type: application/json');
         
         try {
-            // Get attendance and leave records and counts for early check out and late check in absence and leave
             $query = "SELECT 
-                        a.attendanceID, 
-                        a.employeeID, 
-                        a.attendanceDate, 
-                        a.checkInTime, 
-                        a.checkOutTime, 
-                        a.TotalWorkingHour, 
-                        a.isAutoCheckout,
-                        l.fromDate as leaveFromDate,
-                        l.toDate as leaveToDate,
-                        l.status as leaveStatus,
-                        CASE 
-                            WHEN a.checkInTime > '10:00:00' THEN 1 
-                            ELSE 0 
-                        END as isLateCheckIn,
-                        CASE 
-                            WHEN a.checkOutTime < '17:00:00' THEN 1 
-                            ELSE 0 
-                        END as isEarlyCheckOut
-                    FROM tblAttendance a
-                    LEFT JOIN tblApplyLeave l ON 
-                        a.employeeID = l.employeeID 
-                        AND a.attendanceDate = l.fromDate
-                        AND l.status = 'Approved'
-                    WHERE a.employeeID = ? 
-                    AND YEAR(a.attendanceDate) = ?
-                    AND MONTH(a.attendanceDate) = ?
-                    
-                    UNION
-                    
-                    SELECT 
-                        NULL as attendanceID,
-                        l.employeeID,
-                        l.fromDate as attendanceDate,
-                        NULL as checkInTime,
-                        NULL as checkOutTime,
-                        NULL as TotalWorkingHour,
-                        0 as isAutoCheckout,
-                        l.fromDate,
-                        l.toDate,
-                        l.status,
-                        0 as isLateCheckIn,
-                        0 as isEarlyCheckOut
-                    FROM tblApplyLeave l
-                    WHERE l.employeeID = ?
-                    AND YEAR(l.fromDate) = ?
-                    AND MONTH(l.fromDate) = ?
-                    AND l.status = 'Approved'
-                    AND NOT EXISTS (
-                        SELECT 1 
-                        FROM tblAttendance a 
-                        WHERE a.employeeID = l.employeeID 
-                        AND a.attendanceDate = l.fromDate
-                    )
-                    
-                    ORDER BY attendanceDate DESC";
+                attendanceDate,
+                attendanceID,
+                employeeID,
+                checkInTime,
+                checkOutTime,
+                TotalWorkingHour,
+                isAutoCheckout,
+                isLateCheckIn,
+                isEarlyCheckOut,
+                isHoliday,
+                holidayDescription,
+                isLeave,
+                isAbsent
+            FROM (
+                -- Attendance records
+                SELECT 
+                    a.attendanceDate,
+                    a.attendanceID,
+                    a.employeeID,
+                    a.checkInTime,
+                    a.checkOutTime,
+                    a.TotalWorkingHour,
+                    a.isAutoCheckout,
+                    CASE WHEN a.checkInTime > '10:10:00' THEN 1 ELSE 0 END as isLateCheckIn,
+                    CASE WHEN a.checkOutTime < '17:00:00' THEN 1 ELSE 0 END as isEarlyCheckOut,
+                    0 as isHoliday,
+                    NULL as holidayDescription,
+                    0 as isLeave,
+                    0 as isAbsent
+                FROM tblAttendance a
+                WHERE a.employeeID = ?
+                AND YEAR(a.attendanceDate) = ?
+                AND MONTH(a.attendanceDate) = ?
+                AND (YEAR(a.attendanceDate) < YEAR(CURRENT_DATE) 
+                     OR (YEAR(a.attendanceDate) = YEAR(CURRENT_DATE) 
+                         AND MONTH(a.attendanceDate) < MONTH(CURRENT_DATE))
+                     OR (YEAR(a.attendanceDate) = YEAR(CURRENT_DATE) 
+                         AND MONTH(a.attendanceDate) = MONTH(CURRENT_DATE) 
+                         AND a.attendanceDate <= CURRENT_DATE))
+
+                UNION ALL
+
+                -- Leave records
+                SELECT 
+                    l.fromDate as attendanceDate,
+                    NULL as attendanceID,
+                    l.employeeID,
+                    NULL as checkInTime,
+                    NULL as checkOutTime,
+                    NULL as TotalWorkingHour,
+                    NULL as isAutoCheckout,
+                    0 as isLateCheckIn,
+                    0 as isEarlyCheckOut,
+                    0 as isHoliday,
+                    NULL as holidayDescription,
+                    1 as isLeave,
+                    0 as isAbsent
+                FROM tblApplyLeave l
+                WHERE l.employeeID = ?
+                AND l.status = 'Approved'
+                AND YEAR(l.fromDate) = ?
+                AND MONTH(l.fromDate) = ?
+                AND (YEAR(l.fromDate) < YEAR(CURRENT_DATE) 
+                     OR (YEAR(l.fromDate) = YEAR(CURRENT_DATE) 
+                         AND MONTH(l.fromDate) < MONTH(CURRENT_DATE))
+                     OR (YEAR(l.fromDate) = YEAR(CURRENT_DATE) 
+                         AND MONTH(l.fromDate) = MONTH(CURRENT_DATE) 
+                         AND l.fromDate <= CURRENT_DATE))
+
+                UNION ALL
+
+                -- Holiday records
+                SELECT 
+                    h.date as attendanceDate,
+                    NULL as attendanceID,
+                    NULL as employeeID,
+                    NULL as checkInTime,
+                    NULL as checkOutTime,
+                    NULL as TotalWorkingHour,
+                    NULL as isAutoCheckout,
+                    0 as isLateCheckIn,
+                    0 as isEarlyCheckOut,
+                    1 as isHoliday,
+                    h.holiday as holidayDescription,
+                    0 as isLeave,
+                    0 as isAbsent
+                FROM tblHoliday h
+                WHERE YEAR(h.date) = ?
+                AND MONTH(h.date) = ?
+                AND (YEAR(h.date) < YEAR(CURRENT_DATE) 
+                     OR (YEAR(h.date) = YEAR(CURRENT_DATE) 
+                         AND MONTH(h.date) < MONTH(CURRENT_DATE))
+                     OR (YEAR(h.date) = YEAR(CURRENT_DATE) 
+                         AND MONTH(h.date) = MONTH(CURRENT_DATE) 
+                         AND h.date <= CURRENT_DATE))
+            ) combined
+            ORDER BY attendanceDate DESC";
             
             $stmt = mysqli_prepare($connect_var, $query);
-            mysqli_stmt_bind_param($stmt, "siisii", $employeeID, $getYear, $getMonth, $employeeID, $getYear, $getMonth);
+            mysqli_stmt_bind_param($stmt, "siiisiii", 
+                $employeeID,  // for attendance
+                $getYear,     // for attendance
+                $getMonth,    // for attendance
+                $employeeID,  // for leave
+                $getYear,     // for leave
+                $getMonth,    // for leave
+                $getYear,     // for holiday
+                $getMonth     // for holiday
+            );
             mysqli_stmt_execute($stmt);
             $result = mysqli_stmt_get_result($stmt);
             
@@ -383,30 +433,19 @@ class AttendanceOperationMaster{
             $absentCount = 0;
             
             while ($row = mysqli_fetch_assoc($result)) {
-                // Check for leave
-                if($row['checkInTime'] == NULL){
-                    if($row['leaveFromDate'] != NULL) {
-                        $row['isLeave'] = 1;
-                        $row['isAbsent'] = 0;
-                        $leaveCount++;
-                        $row['leaveDetails'] = array(
-                            'fromDate' => $row['leaveFromDate'],
-                            'toDate' => $row['leaveToDate'],
-                            'status' => $row['leaveStatus']
-                        );
-                    } else {
-                        $row['isLeave'] = 0;
-                        $row['isAbsent'] = 1;
-                        $absentCount++;
-                    }
-                } else {
-                    $row['isAbsent'] = 0;
-                    $row['isLeave'] = 0;
+                // Only count if it's a working day (not a holiday)
+                if($row['isHoliday'] != 1) {
                     if($row['isLateCheckIn'] == 1) {
                         $lateCheckInCount++;
                     }
                     if($row['isEarlyCheckOut'] == 1) {
                         $earlyCheckOutCount++;
+                    }
+                    if($row['isLeave'] == 1) {
+                        $leaveCount++;
+                    }
+                    if($row['isAbsent'] == 1) {
+                        $absentCount++;
                     }
                 }
                 
@@ -415,14 +454,31 @@ class AttendanceOperationMaster{
             
             mysqli_close($connect_var);
             
+            // Double check counts against actual records
+            $actualAbsentCount = count(array_filter($attendanceRecords, function($record) {
+                return $record['isAbsent'] == 1 && $record['isHoliday'] != 1;
+            }));
+            
+            $actualLeaveCount = count(array_filter($attendanceRecords, function($record) {
+                return $record['isLeave'] == 1 && $record['isHoliday'] != 1;
+            }));
+            
+            $actualLateCheckInCount = count(array_filter($attendanceRecords, function($record) {
+                return $record['isLateCheckIn'] == 1 && $record['isHoliday'] != 1;
+            }));
+            
+            $actualEarlyCheckOutCount = count(array_filter($attendanceRecords, function($record) {
+                return $record['isEarlyCheckOut'] == 1 && $record['isHoliday'] != 1;
+            }));
+            
             $response = array(
                 "status" => "success",
                 "data" => $attendanceRecords,
                 "counts" => array(
-                    "lateCheckIn" => $lateCheckInCount,
-                    "earlyCheckOut" => $earlyCheckOutCount,
-                    "leave" => $leaveCount,
-                    "absent" => $absentCount
+                    "lateCheckIn" => $actualLateCheckInCount,
+                    "earlyCheckOut" => $actualEarlyCheckOutCount,
+                    "leave" => $actualLeaveCount,
+                    "absent" => $actualAbsentCount
                 )
             );
             

@@ -18,6 +18,24 @@ class ApproveLeaveMaster {
      */
 
     public function loadLeaveforApproval($decoded_items) {
+        include('config.inc');
+        
+        // Check if user is a manager
+        $query = "SELECT isManager FROM tblEmployee WHERE employeeID = ?";
+        $stmt = mysqli_prepare($connect_var, $query);
+        mysqli_stmt_bind_param($stmt, "s", $decoded_items['employeeID']);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
+        $row = mysqli_fetch_assoc($result);
+        
+        if (!$row || $row['isManager'] != 1) {
+            echo json_encode(array(
+                "status" => "error",
+                "message_text" => "Only managers can access approval screen"
+            ), JSON_FORCE_OBJECT);
+            return false;
+        }
+
         $this->employeeID = $decoded_items['employeeID']; 
         
         // Set date range if provided

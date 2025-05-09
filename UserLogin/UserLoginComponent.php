@@ -7,14 +7,17 @@ class UserMaster{
     public $DatabaseName;
     public $GeneralCompanyID;
     public $GeneralAdminID;
+    public $deviceFingerprint;
     public $UserToken;
+    public $isDefaultPassword;  
     public $UserPassword;
-    
-
     public function loadLoginUser(array $data){
         $this->UserName = $data['EmployeePhone'];
         $this->UserPassword = $data['EmployeePassword'];
         $this->UserToken = $data['userToken'];
+        if(isset($data['deviceFingerprint'])){
+            $this->deviceFingerprint = $data['deviceFingerprint'];
+        }
         return true;
     }
 
@@ -23,10 +26,13 @@ class UserMaster{
         header('Content-Type: application/json');
         error_reporting( E_ALL );
         ini_set('display_errors', 1);
+        $differentDevice = false;
         try
         {
+            // Check if password is the default password....added for password mandatory update
+            $isDefaultPassword = ($this->UserPassword === 'Password#1');
         
-            $queryUserLogin = "SELECT tblE.employeeID, tblE.empID, tblE.employeeName, tblE.managerID, tblE.employeePhoto, 
+            $queryUserLogin = "SELECT tblE.employeeID, tblE.empID, tblE.employeeName, tblE.managerID, tblE.employeePhoto, tblE.deviceFingerprint,
                 tblLB.CasualLeave, tblLB.MedicalLeave, PrivilegeLeave, tblLB.NoOfMaternityLeave, 
                 tblLB.SpecialCasualLeave, tblLB.CompensatoryOff, tblLB.SpecialLeaveBloodDonation, 
                 tblLB.LeaveOnPrivateAffairs, tblB.branchUniqueID, tblB.branchName, 
@@ -73,13 +79,22 @@ class UserMaster{
                     $resultArr['branchLongitude'] = $rs['branchLongitude'];
                     $resultArr['branchRadius'] = $rs['branchRadius'];
                     $resultArr['IsManager'] = $rs['isManager'];
+                    // Add flag for password change requirement
+                    $resultArr['requirePasswordChange'] = $isDefaultPassword;
                     
+                    $fignerPrint = $rs['deviceFingerprint'];
                     // Update UserToken in database
-                    $updateToken = "UPDATE tblEmployee SET userToken = '$this->UserToken' 
+                    if($fignerPrint == null && isset($this->deviceFingerprint)){
+                        $updateToken = "UPDATE tblEmployee SET deviceFingerprint = '$this->deviceFingerprint', userToken = '$this->UserToken' 
                                   WHERE employeeID = '" . $rs['employeeID'] . "'";
-                    mysqli_query($connect_var, $updateToken);
-                    
+                        mysqli_query($connect_var, $updateToken);
+                    }
                     $count++;
+                    if($fignerPrint != null && $fignerPrint !== $this->deviceFingerprint){
+                        $differentDevice = true;
+                        $count=0;
+                    }
+                   
                }  
             }
  
@@ -89,7 +104,12 @@ class UserMaster{
         if($count>0)
             echo json_encode(array("status"=>"success","record_count"=>$count,"result"=>$resultArr));
         else
-            echo json_encode(array("status"=>"failure","record_count"=>$count,"message_text"=>"No user with userPhoneNumber='$this->UserName'"),JSON_FORCE_OBJECT);
+            if($differentDevice){
+                echo json_encode(array("status"=>"failure","record_count"=>$count,"message_text"=>"This is not your registered device, Kindly contact HRD Section for more information"),JSON_FORCE_OBJECT);
+            }
+            else{
+                echo json_encode(array("status"=>"failure","record_count"=>$count,"message_text"=>"Kindly Check your Credentials"),JSON_FORCE_OBJECT);
+            }
         }   
         catch(PDOException $e) {
             echo json_encode(array("status"=>"error","message_text"=>$e->getMessage()),JSON_FORCE_OBJECT);
