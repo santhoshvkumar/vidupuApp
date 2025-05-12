@@ -48,7 +48,10 @@ require 'WebApp/Login/LoginComponent.php';
 require 'WebApp/Login/LoginRouter.php';
 
 require 'WebApp/BranchWiseFetchDetails/BranchWiseFetchDetailsComponent.php';
-require 'WebApp/BranchWiseFetchDetails/BranchWiseFetchDetailsRouter.php';
+require 'WebApp/BranchWiseFetchDetails/BranchWiseFetchDetailsRouter.php';	
+
+require 'WebApp/ResetPassword/ResetPasswordComponent.php';
+require 'WebApp/ResetPassword/ResetPasswordRouter.php';
 
 // require 'AddEmployee/AddEmployeeComponent.php';
 // require 'AddEmployee/AddEmployeeRouter.php';
