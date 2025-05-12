@@ -44,6 +44,12 @@ require 'WebApp/Employee/EmployeeRouter.php';
 require 'WebApp/SectionWiseFetchDetails/SectionWiseFetchDetailsComponent.php';
 require 'WebApp/SectionWiseFetchDetails/SectionWiseFetchDetailsRouter.php';
 
+require 'WebApp/Login/LoginComponent.php';
+require 'WebApp/Login/LoginRouter.php';
+
+require 'WebApp/BranchWiseFetchDetails/BranchWiseFetchDetailsComponent.php';
+require 'WebApp/BranchWiseFetchDetails/BranchWiseFetchDetailsRouter.php';
+
 // require 'AddEmployee/AddEmployeeComponent.php';
 // require 'AddEmployee/AddEmployeeRouter.php';
 
