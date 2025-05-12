@@ -29,7 +29,7 @@ class LoginComponent{
 
             $queryLoginDetails = "
                 SELECT userID, userName, sectionName 
-                FROM tbluser 
+                FROM tblUser 
                 WHERE userPhone = ? AND userPassword = ?;";
 
             // Debug the query with actual values
