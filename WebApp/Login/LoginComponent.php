@@ -28,9 +28,13 @@ class LoginComponent{
             error_log("userPassword: " . $this->userPassword);
 
             $queryLoginDetails = "
-                SELECT userID, userName, sectionName 
+                SELECT 
+                    userID, 
+                    userName, 
+                    sectionID 
                 FROM tblUser 
-                WHERE userPhone = ? AND userPassword = ?;";
+                WHERE userPhone = ? 
+                AND userPassword = MD5(?);";
 
             // Debug the query with actual values
             $debug_query = str_replace(
@@ -68,7 +72,7 @@ class LoginComponent{
             if ($row) {
                 $data['userID'] = $row['userID'];
                 $data['userName'] = $row['userName'];
-                $data['sectionName'] = $row['sectionName'];
+                $data['sectionID'] = $row['sectionID'];
                 
                 // Debug final data
                 error_log("Final Data: " . print_r($data, true));

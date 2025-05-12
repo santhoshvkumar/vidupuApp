@@ -20,9 +20,10 @@ class ResetPasswordComponent{
             $data = [];                       
 
             $ResetPasswordQuery = "
-                UPDATE tblEmployee 
-                SET employeePassword = 'Password#1' 
-                WHERE empID = ?;";
+               UPDATE tblEmployee 
+               SET employeePassword = MD5('Password#1') 
+               WHERE empID = ?;";
+
 
             $stmt = mysqli_prepare($connect_var, $ResetPasswordQuery);
             if (!$stmt) {
