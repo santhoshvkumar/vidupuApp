@@ -5,8 +5,8 @@ class ProfileMaster{
     public $NewPassword;
     public function loadChangePassword($decoded_items){
         $this->EmployeeID = $decoded_items['EmployeeID'];
-        $this->EmployeePassword = $decoded_items['EmployeePassword'];
-        $this->NewPassword = $decoded_items['NewPassword'];
+        $this->EmployeePassword = md5($decoded_items['EmployeePassword']);
+        $this->NewPassword = md5($decoded_items['NewPassword']);
         return true;
     }
     public function changePassword() {

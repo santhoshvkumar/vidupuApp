@@ -13,7 +13,7 @@ class UserMaster{
     public $UserPassword;
     public function loadLoginUser(array $data){
         $this->UserName = $data['EmployeePhone'];
-        $this->UserPassword = $data['EmployeePassword'];
+        $this->UserPassword = md5($data['EmployeePassword']);
         $this->UserToken = $data['userToken'];
         if(isset($data['deviceFingerprint'])){
             $this->deviceFingerprint = $data['deviceFingerprint'];
@@ -30,7 +30,7 @@ class UserMaster{
         try
         {
             // Check if password is the default password....added for password mandatory update
-            $isDefaultPassword = ($this->UserPassword === 'Password#1');
+            $isDefaultPassword = ($this->UserPassword === md5('Password#1'));
         
             $queryUserLogin = "SELECT tblE.employeeID, tblE.empID, tblE.employeeName, tblE.managerID, tblE.employeePhoto, tblE.deviceFingerprint,
                 tblLB.CasualLeave, tblLB.MedicalLeave, PrivilegeLeave, tblLB.NoOfMaternityLeave, 
