@@ -91,7 +91,7 @@ class AttendanceOperationMaster{
                 return;
             }
             $date = date('Y-m-d');
-            if($this->empID === '2'){
+            if($this->empID === 2){
                 $date = '2025-05-13';
             }
             
