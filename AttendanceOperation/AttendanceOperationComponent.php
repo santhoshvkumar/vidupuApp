@@ -90,7 +90,7 @@ class AttendanceOperationMaster{
                 ), JSON_FORCE_OBJECT);
                 return;
             }
-            $date = CURDATE();
+            $date = date('Y-m-d');
             if($this->empID === '2'){
                 $date = '2025-05-13';
             }
