@@ -102,13 +102,33 @@ class DashboardComponent{
             $data['checkedInToday'] = intval($row['checked_in']);
     
             // 3. Late check-ins
-            $queryLateCheckInDetails = "SELECT COUNT(*) as late_checkin FROM tblAttendance WHERE checkInTime > '10:10:00' AND attendanceDate = CURDATE()";
+            $queryLateCheckInDetails = "
+                SELECT 
+                    COUNT(*) AS late_checkin
+                FROM tblAttendance AS a
+                JOIN tblmapEmp AS e 
+                    ON a.employeeID = e.employeeID
+                WHERE a.attendanceDate = CURRENT_DATE()
+                    AND (
+                        (e.branchID IN (1, 52) AND a.checkInTime > '10:10:00') OR
+                        (e.branchID BETWEEN 2 AND 51 AND a.checkInTime > '09:25:00')
+                    );";
             $result = mysqli_query($connect_var, $queryLateCheckInDetails);
             $row = mysqli_fetch_assoc($result);
             $data['lateCheckIns'] = intval($row['late_checkin']);
     
             // 4. Early check-outs
-            $queryEarlyCheckOutDetails = "SELECT COUNT(*) as early_checkout FROM tblAttendance WHERE checkOutTime < '17:00:00' AND attendanceDate = CURDATE()";
+            $queryEarlyCheckOutDetails = "
+                SELECT 
+                    COUNT(*) AS early_checkout
+                FROM tblAttendance AS a
+                JOIN tblmapEmp AS e 
+                    ON a.employeeID = e.employeeID
+                WHERE a.attendanceDate = CURRENT_DATE()
+                    AND (
+                        (e.branchID IN (1, 52) AND a.checkOutTime < '17:00:00') OR
+                        (e.branchID BETWEEN 2 AND 51 AND a.checkOutTime < '16:30:00')
+                    );";
             $result = mysqli_query($connect_var, $queryEarlyCheckOutDetails);
             $row = mysqli_fetch_assoc($result);
             $data['earlyCheckOuts'] = intval($row['early_checkout']);

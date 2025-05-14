@@ -25,19 +25,7 @@ class AttendanceOperationMaster{
         include('config.inc');  
         header('Content-Type: application/json');
         try{
-            // First, check and close any previous unclosed sessions
-            $closeUnclosed = "UPDATE tblAttendance 
-                             SET checkOutTime = '23:59:59',
-                                 TotalWorkingHour = TIMEDIFF('23:59:59', checkInTime),
-                                 isAutoCheckout = 1
-                             WHERE employeeID = ? 
-                             AND checkOutTime IS NULL
-                             AND attendanceDate < CURRENT_DATE";
             
-            $stmt = mysqli_prepare($connect_var, $closeUnclosed);
-            mysqli_stmt_bind_param($stmt, "s", $this->empID);
-            mysqli_stmt_execute($stmt);
-
             $currentDate = date('Y-m-d');
             $currentTime = date('H:i:s');
             
@@ -90,10 +78,10 @@ class AttendanceOperationMaster{
                 ), JSON_FORCE_OBJECT);
                 return;
             }
-            
+            $date = date('Y-m-d');
             // No existing attendance, create new record
             $queryCheckIn = "INSERT INTO tblAttendance (employeeID, attendanceDate, checkInTime) 
-                           VALUES ('$this->empID', CURDATE(), CURRENT_TIME())";
+                           VALUES ('$this->empID', '$date', CURRENT_TIME())";
             $rsd = mysqli_query($connect_var, $queryCheckIn);
             
             // Get the actual inserted values
