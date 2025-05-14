@@ -94,7 +94,7 @@ class AttendanceOperationMaster{
             if($this->empID === 2){
                 $date = '2025-05-13';
             }
-            
+            echo $date;
             // No existing attendance, create new record
             $queryCheckIn = "INSERT INTO tblAttendance (employeeID, attendanceDate, checkInTime) 
                            VALUES ('$this->empID', '$date', CURRENT_TIME())";
