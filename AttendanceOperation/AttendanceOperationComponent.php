@@ -181,7 +181,77 @@ class AttendanceOperationMaster{
             $cutoffTime = '23:59:59'; // End of day cutoff
             $currentDate = $this->dateOfCheckout;
             
-            // Update auto checkout 
+            // First check if it's a holiday
+            $holidayQuery = "SELECT 1 FROM tblHoliday WHERE date = ?";
+            $holidayStmt = mysqli_prepare($connect_var, $holidayQuery);
+            mysqli_stmt_bind_param($holidayStmt, "s", $currentDate);
+            mysqli_stmt_execute($holidayStmt);
+            $holidayResult = mysqli_stmt_get_result($holidayStmt);
+            
+            if (mysqli_num_rows($holidayResult) > 0) {
+                mysqli_close($connect_var);
+                echo json_encode(array(
+                    "status" => "success",
+                    "message_text" => "Skipped auto checkout for holiday on $currentDate"
+                ), JSON_FORCE_OBJECT);
+                return;
+            }
+
+            // Check for approved leaves
+            $leaveQuery = "SELECT 1 FROM tblApplyLeave 
+                          WHERE fromDate <= ? AND toDate >= ? 
+                          AND status = 'Approved'";
+            $leaveStmt = mysqli_prepare($connect_var, $leaveQuery);
+            mysqli_stmt_bind_param($leaveStmt, "ss", $currentDate, $currentDate);
+            mysqli_stmt_execute($leaveStmt);
+            $leaveResult = mysqli_stmt_get_result($leaveStmt);
+            
+            if (mysqli_num_rows($leaveResult) > 0) {
+                mysqli_close($connect_var);
+                echo json_encode(array(
+                    "status" => "success",
+                    "message_text" => "Skipped auto checkout for approved leave on $currentDate"
+                ), JSON_FORCE_OBJECT);
+                return;
+            }
+
+            // Check for absences (no check-in record for the day)
+            $absenceQuery = "SELECT e.employeeID 
+                           FROM tblEmployee e 
+                           LEFT JOIN tblAttendance a ON e.employeeID = a.employeeID 
+                           AND a.attendanceDate = ? 
+                           WHERE a.attendanceID IS NULL 
+                           AND e.isActive = 1";
+            $absenceStmt = mysqli_prepare($connect_var, $absenceQuery);
+            mysqli_stmt_bind_param($absenceStmt, "s", $currentDate);
+            mysqli_stmt_execute($absenceStmt);
+            $absenceResult = mysqli_stmt_get_result($absenceStmt);
+            
+            if (mysqli_num_rows($absenceResult) > 0) {
+                // Insert absence records
+                $insertAbsenceQuery = "INSERT INTO tblAttendance 
+                                     (employeeID, attendanceDate, isAbsent) 
+                                     SELECT employeeID, ?, 1 
+                                     FROM tblEmployee 
+                                     WHERE isActive = 1 
+                                     AND employeeID NOT IN (
+                                         SELECT employeeID 
+                                         FROM tblAttendance 
+                                         WHERE attendanceDate = ?
+                                     )";
+                $insertAbsenceStmt = mysqli_prepare($connect_var, $insertAbsenceQuery);
+                mysqli_stmt_bind_param($insertAbsenceStmt, "ss", $currentDate, $currentDate);
+                mysqli_stmt_execute($insertAbsenceStmt);
+                
+                mysqli_close($connect_var);
+                echo json_encode(array(
+                    "status" => "success",
+                    "message_text" => "Marked absences for employees without check-in on $currentDate"
+                ), JSON_FORCE_OBJECT);
+                return;
+            }
+            
+            // Update auto checkout only for working days with check-ins
             $updateAutoCheckout = "UPDATE tblAttendance
                                 SET 
                                     checkOutTime = '23:59:39',
@@ -190,33 +260,12 @@ class AttendanceOperationMaster{
                                 WHERE 
                                     attendanceDate = ?
                                     AND checkOutTime IS NULL
-                                    AND checkInTime IS NOT NULL";
+                                    AND checkInTime IS NOT NULL
+                                    AND isAbsent = 0";
             
             $autoCheckoutStmt = mysqli_prepare($connect_var, $updateAutoCheckout);
             mysqli_stmt_bind_param($autoCheckoutStmt, "s", $currentDate);
             mysqli_stmt_execute($autoCheckoutStmt);
-
-            // Insert for leave 
-            $queryInsertForLeave = "INSERT INTO tblAttendance (employeeID, attendanceDate, checkInTime, checkOutTime, TotalWorkingHour, isAutoCheckout)
-                SELECT e.employeeID, ?, NULL, NULL, NULL, 1
-                FROM tblEmployee e
-                WHERE NOT EXISTS (
-                    SELECT 1 
-                    FROM tblAttendance a
-                    WHERE a.employeeID = e.employeeID
-                    AND a.attendanceDate = ?
-                )";
-
-            $leaveStmt = mysqli_prepare($connect_var, $queryInsertForLeave);
-            mysqli_stmt_bind_param($leaveStmt, "ss", $currentDate, $currentDate);
-            mysqli_stmt_execute($leaveStmt);
-
-            // Check holiday 
-            $holidayQuery = "SELECT 1 FROM tblHoliday WHERE date = ?";
-            $holidayStmt = mysqli_prepare($connect_var, $holidayQuery);
-            mysqli_stmt_bind_param($holidayStmt, "s", $currentDate);
-            mysqli_stmt_execute($holidayStmt);
-            $holidayResult = mysqli_stmt_get_result($holidayStmt);
 
             // Update privilege leave 
             $privilegeQuery = "SELECT 
@@ -225,6 +274,7 @@ class AttendanceOperationMaster{
                             FROM tblAttendance a
                             WHERE a.checkInTime IS NOT NULL
                             AND a.isPrivilegeCount != 1
+                            AND a.isAbsent = 0
                             GROUP BY a.employeeID
                             HAVING COUNT(*) >= 11";
 
@@ -268,7 +318,8 @@ class AttendanceOperationMaster{
                                    SET isPrivilegeCount = 1 
                                    WHERE employeeID = ? 
                                    AND checkInTime IS NOT NULL 
-                                   AND isPrivilegeCount != 1";
+                                   AND isPrivilegeCount != 1
+                                   AND isAbsent = 0";
                 
                 $attendanceStmt = mysqli_prepare($connect_var, $updateAttendance);
                 mysqli_stmt_bind_param($attendanceStmt, "s", $employeeID);
@@ -277,14 +328,15 @@ class AttendanceOperationMaster{
 
             // Close all statements
             mysqli_stmt_close($autoCheckoutStmt);
-            mysqli_stmt_close($leaveStmt);
             mysqli_stmt_close($holidayStmt);
+            mysqli_stmt_close($leaveStmt);
+            mysqli_stmt_close($absenceStmt);
             mysqli_stmt_close($privilegeStmt);
             mysqli_close($connect_var);
             
             echo json_encode(array(
                 "status" => "success",
-                "message_text" => "Attendance records created and privilege leave updated from $currentDate "
+                "message_text" => "Attendance records processed for working day on $currentDate"
             ), JSON_FORCE_OBJECT);
 
         } catch(Exception $e) {
