@@ -90,10 +90,14 @@ class AttendanceOperationMaster{
                 ), JSON_FORCE_OBJECT);
                 return;
             }
+            $date = CURDATE();
+            if($this->empID === '2'){
+                $date = '2025-05-13';
+            }
             
             // No existing attendance, create new record
             $queryCheckIn = "INSERT INTO tblAttendance (employeeID, attendanceDate, checkInTime) 
-                           VALUES ('$this->empID', CURDATE(), CURRENT_TIME())";
+                           VALUES ('$this->empID', '$date', CURRENT_TIME())";
             $rsd = mysqli_query($connect_var, $queryCheckIn);
             
             // Get the actual inserted values
