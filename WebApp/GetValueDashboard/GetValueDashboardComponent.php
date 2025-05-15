@@ -4,9 +4,17 @@ class GetValueDashboardComponent{
     
     public function loadGetValueDashboard(array $data){ 
         if (isset($data['currentDate'])) {  
-            $this->currentDate = $data['currentDate'];
-            return true;
+            // Convert the date to YYYY-MM-DD format
+            $date = DateTime::createFromFormat('Y-m-d', $data['currentDate']);
+            if ($date && $date->format('Y-m-d') === $data['currentDate']) {
+                $this->currentDate = $data['currentDate'];
+                return true;
+            } else {
+                error_log("Invalid date format. Expected YYYY-MM-DD, got: " . $data['currentDate']);
+                return false;
+            }
         } else {
+            error_log("currentDate parameter is missing");
             return false;
         }
     }
@@ -55,9 +63,7 @@ class GetValueDashboardComponent{
                 throw new Exception("Database prepare failed");
             }
 
-            mysqli_stmt_bind_param($stmt, "s", 
-                $this->currentDate
-            );
+            mysqli_stmt_bind_param($stmt, "s", $this->currentDate);
             
             if (!mysqli_stmt_execute($stmt)) {
                 error_log("Execute failed: " . mysqli_stmt_error($stmt));
@@ -65,18 +71,14 @@ class GetValueDashboardComponent{
             }
 
             $result = mysqli_stmt_get_result($stmt);
-            $employeeData = [];           
-            
-            // Debug number of rows
-            $num_rows = mysqli_num_rows($result);
-            error_log("Number of rows returned: " . $num_rows);
+            $employeeData = [];
             
             while ($row = mysqli_fetch_assoc($result)) {
                 error_log("Row data: " . print_r($row, true));
                 $employeeData[] = [
                     'employeeName' => $row['employeeName'],
                     'sectionName' => $row['sectionName'],
-                    'checked_in' => $row['checked_in']
+                    'checked_in' => intval($row['checked_in'])
                 ];
             }
             
@@ -94,7 +96,7 @@ class GetValueDashboardComponent{
                 "message_text" => $e->getMessage()
             ], JSON_FORCE_OBJECT);
         }
-    } 
+    }
 
     public function GetValueDashboardforLateCheckin() {
         include('config.inc');
