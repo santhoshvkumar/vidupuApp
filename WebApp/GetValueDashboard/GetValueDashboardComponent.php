@@ -72,25 +72,43 @@ class GetValueDashboardComponent{
 
             $result = mysqli_stmt_get_result($stmt);
             $employeeData = [];
-            
+            $employeeName = [];
+            $sectionName = [];
+            $employeePhone = [];
+            $checkInTime = [];
+//$checked_in = [];
+            $countEmployee = 0;
             while ($row = mysqli_fetch_assoc($result)) {
-                error_log("Row data: " . print_r($row, true));
-                $employeeData[] = [
-                    'employeeName' => $row['employeeName'],
-                    'sectionName' => $row['sectionName'],
-                    'checked_in' => intval($row['checked_in']),
-                    'employeePhone' => $row['employeePhone'],
-                    'checkInTime' => $row['checkInTime']
-                ];
+                // error_log("Row data: " . print_r($row, true));
+                // $employeeData[] = [
+                //     'employeeName' => $row['employeeName'],
+                //     'sectionName' => $row['sectionName'],
+                //     'checked_in' => intval($row['checked_in']),
+                //     'employeePhone' => $row['employeePhone'],
+                //     'checkInTime' => $row['checkInTime']
+                // ];
+                $employeeName[] = $row['employeeName'];
+                $sectionName[] = $row['sectionName'];
+                $employeePhone[] = $row['employeePhone'];
+                $checkInTime[] = $row['checkInTime'];
+                // $checked_in[] = intval($row['checked_in']);
+                $countEmployee++;
             }
-            
-            error_log("Final employeeData: " . print_r($employeeData, true));
-            
-            echo json_encode([
-                "status" => "success",
-                "data" => $employeeData
-            ]);
-            
+            if ($countEmployee > 0) {
+                echo json_encode([
+                    "status" => "success",
+                    "employeeName" => $employeeName,
+                    "sectionName" => $sectionName,
+                    "employeePhone" => $employeePhone,
+                    "checkInTime" => $checkInTime,
+                    //"checked_in" => $checked_in
+                ]);
+            } else {
+                echo json_encode([
+                    "status" => "error",
+                    "message_text" => "No data found for any employee"
+                ], JSON_FORCE_OBJECT);
+            }
         } catch (Exception $e) {
             error_log("Error in GetValueDashboardforCheckin: " . $e->getMessage());
             echo json_encode([
