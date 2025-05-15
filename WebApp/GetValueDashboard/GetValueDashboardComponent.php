@@ -112,21 +112,9 @@ class GetValueDashboardComponent{
 
             // 1. No of Late Checkins in Head Office
             $queryIndividualNoOfLateCheckinsInHeadOffice = "
-                SELECT 
-                    emp.employeeName,
-                    sec.sectionName,
-                    COUNT(CASE WHEN att.checkInTime > '10:10:00' THEN 1 END) AS late_checkin
-                FROM tblEmployee AS emp
-                JOIN tblAssignedSection AS assign 
-                    ON emp.employeeID = assign.employeeID
-                JOIN tblSection AS sec 
-                    ON assign.sectionID = sec.sectionID
-                INNER JOIN tblAttendance AS att 
-                    ON emp.employeeID = att.employeeID 
-                    AND DATE(att.attendanceDate) = ?
-                GROUP BY 
-                    emp.employeeName,
-                    sec.sectionName;";
+                SELECT emp.employeeName,sec.sectionName,emp.employeePhone,att.checkInTime,
+                COUNT(CASE WHEN att.checkInTime > '10:10:00' THEN 1 END) AS late_checkin
+                FROM tblEmployee AS emp JOIN tblAssignedSection AS assign ON emp.employeeID = assign.employeeID JOIN tblSection AS sec ON assign.sectionID = sec.sectionID INNER JOIN tblAttendance AS att ON emp.employeeID = att.employeeID AND DATE(att.attendanceDate) = ? GROUP BY emp.employeeName,sec.sectionName,emp.employeePhone,att.checkInTime HAVING late_checkin > 0;";                                                                   
 
             // Debug the query with actual values
             $debug_query = str_replace(
@@ -165,7 +153,9 @@ class GetValueDashboardComponent{
                 $employeeData[] = [
                     'employeeName' => $row['employeeName'],
                     'sectionName' => $row['sectionName'],
-                    'late_checkin' => $row['late_checkin']
+                    'late_checkin' => $row['late_checkin'],
+                    'employeePhone' => $row['employeePhone'],
+                    'checkInTime' => $row['checkInTime']
                 ];
             }
             
@@ -196,21 +186,8 @@ class GetValueDashboardComponent{
 
             // 1. No of Early Checkouts in Head Office
             $queryIndividualNoOfEarlyCheckoutInHeadOffice = "
-                SELECT 
-                    emp.employeeName,
-                    sec.sectionName,
-                    COUNT(CASE WHEN att.checkOutTime < '17:00:00' THEN 1 END) AS early_checkout
-                FROM tblEmployee AS emp
-                JOIN tblAssignedSection AS assign 
-                    ON emp.employeeID = assign.employeeID
-                JOIN tblSection AS sec 
-                    ON assign.sectionID = sec.sectionID
-                INNER JOIN tblAttendance AS att 
-                    ON emp.employeeID = att.employeeID 
-                    AND DATE(att.attendanceDate) = ?
-                GROUP BY 
-                    emp.employeeName,
-                    sec.sectionName;";
+                SELECT emp.employeeName,sec.sectionName,emp.employeePhone,att.checkOutTime,COUNT(CASE WHEN att.checkOutTime < '17:00:00' THEN 1 END) AS early_checkout
+                FROM tblEmployee AS emp JOIN tblAssignedSection AS assign ON emp.employeeID = assign.employeeID JOIN tblSection AS sec ON assign.sectionID = sec.sectionID INNER JOIN tblAttendance AS att ON emp.employeeID = att.employeeID AND DATE(att.attendanceDate) = ? GROUP BY emp.employeeName,sec.sectionName,emp.employeePhone,att.checkOutTime HAVING early_checkout > 0;";               
 
             // Debug the query with actual values
             $debug_query = str_replace(
@@ -249,7 +226,9 @@ class GetValueDashboardComponent{
                 $employeeData[] = [
                     'employeeName' => $row['employeeName'],
                     'sectionName' => $row['sectionName'],
-                    'early_checkout' => $row['early_checkout']
+                    'early_checkout' => $row['early_checkout'],
+                    'employeePhone' => $row['employeePhone'],
+                    'checkOutTime' => $row['checkOutTime']
                 ];
             }
             
@@ -281,22 +260,10 @@ class GetValueDashboardComponent{
 
             // 1. No of On Leave in Head Office
             $queryIndividualNoOfOnLeaveInHeadOffice = "
-                SELECT 
-                    emp.employeeName,
-                    sec.sectionName,
-                    COUNT(CASE WHEN ? BETWEEN lv.fromDate AND lv.toDate THEN 1 END) AS on_leave
-                FROM tblEmployee AS emp
-                JOIN tblAssignedSection AS assign 
-                    ON emp.employeeID = assign.employeeID
-                JOIN tblSection AS sec 
-                    ON assign.sectionID = sec.sectionID
-                INNER JOIN tblApplyLeave AS lv 
-                    ON emp.employeeID = lv.employeeID 
-                WHERE ? BETWEEN lv.fromDate AND lv.toDate
-                GROUP BY 
-                    emp.employeeName,
-                    sec.sectionName;";
-
+                SELECT emp.employeeName,sec.sectionName, emp.employeePhone, COUNT(CASE WHEN ? BETWEEN lv.fromDate AND lv.toDate THEN 1 END) AS on_leave
+                FROM tblEmployee AS emp JOIN tblAssignedSection AS assign ON emp.employeeID = assign.employeeID JOIN tblSection AS sec ON assign.sectionID = sec.sectionID
+                INNER JOIN tblApplyLeave AS lv ON emp.employeeID = lv.employeeID 
+                GROUP BY emp.employeeName,sec.sectionName HAVING on_leave > 0;";                                          
             // Debug the query with actual values
             $debug_query = str_replace(
                 ['?'],
@@ -306,22 +273,18 @@ class GetValueDashboardComponent{
                 $queryIndividualNoOfOnLeaveInHeadOffice
             );
             error_log("Debug Query: " . $debug_query);
-
             $stmt = mysqli_prepare($connect_var, $queryIndividualNoOfOnLeaveInHeadOffice);
             if (!$stmt) {
                 error_log("Prepare failed: " . mysqli_error($connect_var));
                 throw new Exception("Database prepare failed");
             }
-
             mysqli_stmt_bind_param($stmt, "s", 
                 $this->currentDate
-            );
-            
+            );            
             if (!mysqli_stmt_execute($stmt)) {
                 error_log("Execute failed: " . mysqli_stmt_error($stmt));
                 throw new Exception("Database execute failed");
             }
-
             $result = mysqli_stmt_get_result($stmt);
             $employeeData = [];           
             
@@ -334,7 +297,8 @@ class GetValueDashboardComponent{
                 $employeeData[] = [
                     'employeeName' => $row['employeeName'],
                     'sectionName' => $row['sectionName'],
-                    'on_leave' => $row['on_leave']
+                    'on_leave' => $row['on_leave'],
+                    'employeePhone' => $row['employeePhone']
                 ];
             }
             
