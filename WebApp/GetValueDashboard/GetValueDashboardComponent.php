@@ -33,7 +33,7 @@ class GetValueDashboardComponent{
             $queryIndividualNoOfCheckinsInHeadOffice = "
                 SELECT 
                     emp.employeeName,
-                    sec.sectionName,
+                    sec.sectionName, emp.employeePhone,att.checkInTime,
                     COUNT(att.employeeID) AS checked_in
                 FROM tblEmployee AS emp
                 JOIN tblAssignedSection AS assign 
@@ -45,7 +45,7 @@ class GetValueDashboardComponent{
                     AND DATE(att.attendanceDate) = ?
                 GROUP BY 
                     emp.employeeName,
-                    sec.sectionName;";
+                    sec.sectionName, emp.employeePhone,att.checkInTime;";
 
             // Debug the query with actual values
             $debug_query = str_replace(
@@ -78,7 +78,9 @@ class GetValueDashboardComponent{
                 $employeeData[] = [
                     'employeeName' => $row['employeeName'],
                     'sectionName' => $row['sectionName'],
-                    'checked_in' => intval($row['checked_in'])
+                    'checked_in' => intval($row['checked_in']),
+                    'employeePhone' => $row['employeePhone'],
+                    'checkInTime' => $row['checkInTime']
                 ];
             }
             

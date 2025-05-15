@@ -53,8 +53,8 @@ require 'WebApp/BranchWiseFetchDetails/BranchWiseFetchDetailsRouter.php';
 require 'WebApp/ResetPassword/ResetPasswordComponent.php';
 require 'WebApp/ResetPassword/ResetPasswordRouter.php';
 
-require 'WebApp/GetValueDashBoard/GetValueDashboardComponent.php';
-require 'WebApp/GetValueDashBoard/GetValueDashboardRouter.php';
+require 'WebApp/GetValueDashboard/GetValueDashboardComponent.php';
+require 'WebApp/GetValueDashboard/GetValueDashboardRouter.php';
 
 
 // require 'AddEmployee/AddEmployeeComponent.php';
