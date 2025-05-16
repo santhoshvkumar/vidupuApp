@@ -36,9 +36,7 @@ class AttendanceOperationMaster{
                              AND attendanceDate = CURDATE()
                              AND checkOutTime IS NOT NULL
                              LIMIT 1";
-            echo $checkCompleted;
             $completedResult = mysqli_query($connect_var, $checkCompleted);
-            echo "Total Number of Rows: " . mysqli_num_rows($completedResult);
             if(mysqli_num_rows($completedResult) > 0) {
                 // Already has completed attendance for today
                 $row = mysqli_fetch_assoc($completedResult);
@@ -60,8 +58,10 @@ class AttendanceOperationMaster{
             $checkExisting = "SELECT attendanceDate, checkInTime FROM tblAttendance 
                             WHERE employeeID = '$this->empID' 
                             AND checkOutTime IS NULL
+                            AND attendanceDate=CURRENT_DATE()
                             ORDER BY attendanceDate DESC, checkInTime DESC
                             LIMIT 1";
+                        
             $result = mysqli_query($connect_var, $checkExisting);
             
             if(mysqli_num_rows($result) > 0) {
