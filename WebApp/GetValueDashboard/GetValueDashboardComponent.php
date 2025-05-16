@@ -47,16 +47,6 @@ class GetValueDashboardComponent{
                     emp.employeeName,
                     sec.sectionName, emp.employeePhone,att.checkInTime;";
 
-            // Debug the query with actual values
-            $debug_query = str_replace(
-                ['?'],
-                [
-                    "'" . $this->currentDate . "'",                    
-                ],
-                $queryIndividualNoOfCheckinsInHeadOffice
-            );
-            error_log("Debug Query: " . $debug_query);
-
             $stmt = mysqli_prepare($connect_var, $queryIndividualNoOfCheckinsInHeadOffice);
             if (!$stmt) {
                 error_log("Prepare failed: " . mysqli_error($connect_var));
@@ -71,44 +61,76 @@ class GetValueDashboardComponent{
             }
 
             $result = mysqli_stmt_get_result($stmt);
-            $employeeData = [];
-            $employeeName = [];
-            $sectionName = [];
-            $employeePhone = [];
-            $checkInTime = [];
-//$checked_in = [];
-            $countEmployee = 0;
+            $individualEmployeeData = [];
             while ($row = mysqli_fetch_assoc($result)) {
-                // error_log("Row data: " . print_r($row, true));
-                // $employeeData[] = [
-                //     'employeeName' => $row['employeeName'],
-                //     'sectionName' => $row['sectionName'],
-                //     'checked_in' => intval($row['checked_in']),
-                //     'employeePhone' => $row['employeePhone'],
-                //     'checkInTime' => $row['checkInTime']
-                // ];
-                $employeeName[] = $row['employeeName'];
-                $sectionName[] = $row['sectionName'];
-                $employeePhone[] = $row['employeePhone'];
-                $checkInTime[] = $row['checkInTime'];
-                // $checked_in[] = intval($row['checked_in']);
-                $countEmployee++;
+                $individualEmployeeData[] = $row;
             }
-            if ($countEmployee > 0) {
-                echo json_encode([
-                    "status" => "success",
-                    "employeeName" => $employeeName,
-                    "sectionName" => $sectionName,
-                    "employeePhone" => $employeePhone,
-                    "checkInTime" => $checkInTime,
-                    //"checked_in" => $checked_in
-                ]);
-            } else {
-                echo json_encode([
-                    "status" => "error",
-                    "message_text" => "No data found for any employee"
-                ], JSON_FORCE_OBJECT);
-            }
+            echo json_encode([
+                "status" => "success",
+                "data" => $individualEmployeeData
+            ]);
+            // Debug the query with actual values
+//             $debug_query = str_replace(
+//                 ['?'],
+//                 [
+//                     "'" . $this->currentDate . "'",                    
+//                 ],
+//                 $queryIndividualNoOfCheckinsInHeadOffice
+//             );
+//             error_log("Debug Query: " . $debug_query);
+
+//             $stmt = mysqli_prepare($connect_var, $queryIndividualNoOfCheckinsInHeadOffice);
+//             if (!$stmt) {
+//                 error_log("Prepare failed: " . mysqli_error($connect_var));
+//                 throw new Exception("Database prepare failed");
+//             }
+
+//             mysqli_stmt_bind_param($stmt, "s", $this->currentDate);
+            
+//             if (!mysqli_stmt_execute($stmt)) {
+//                 error_log("Execute failed: " . mysqli_stmt_error($stmt));
+//                 throw new Exception("Database execute failed");
+//             }
+
+//             $result = mysqli_stmt_get_result($stmt);
+//             $employeeData = [];
+//             $employeeName = [];
+//             $sectionName = [];
+//             $employeePhone = [];
+//             $checkInTime = [];
+// //$checked_in = [];
+//             $countEmployee = 0;
+//             while ($row = mysqli_fetch_assoc($result)) {
+//                 // error_log("Row data: " . print_r($row, true));
+//                 // $employeeData[] = [
+//                 //     'employeeName' => $row['employeeName'],
+//                 //     'sectionName' => $row['sectionName'],
+//                 //     'checked_in' => intval($row['checked_in']),
+//                 //     'employeePhone' => $row['employeePhone'],
+//                 //     'checkInTime' => $row['checkInTime']
+//                 // ];
+//                 $employeeName[] = $row['employeeName'];
+//                 $sectionName[] = $row['sectionName'];
+//                 $employeePhone[] = $row['employeePhone'];
+//                 $checkInTime[] = $row['checkInTime'];
+//                 // $checked_in[] = intval($row['checked_in']);
+//                 $countEmployee++;
+//             }
+//             if ($countEmployee > 0) {
+//                 echo json_encode([
+//                     "status" => "success",
+//                     "employeeName" => $employeeName,
+//                     "sectionName" => $sectionName,
+//                     "employeePhone" => $employeePhone,
+//                     "checkInTime" => $checkInTime,
+//                     //"checked_in" => $checked_in
+//                 ]);
+//             } else {
+//                 echo json_encode([
+//                     "status" => "error",
+//                     "message_text" => "No data found for any employee"
+//                 ], JSON_FORCE_OBJECT);
+//             }
         } catch (Exception $e) {
             error_log("Error in GetValueDashboardforCheckin: " . $e->getMessage());
             echo json_encode([
