@@ -47,9 +47,15 @@ class GetValueDashboardComponent{
             }
             else if($this->getMethodForCalling == "OnLeave") {
                 $queryIndividualNoOfCheckinsInHeadOffice = "
-                SELECT emp.employeeName,sec.sectionName, emp.employeePhone, COUNT(CASE WHEN ? BETWEEN lv.fromDate AND lv.toDate THEN 1 END) AS on_leave
-                FROM tblEmployee AS emp JOIN tblAssignedSection AS assign ON emp.employeeID = assign.employeeID JOIN tblSection AS sec ON assign.sectionID = sec.sectionID
-                INNER JOIN tblApplyLeave AS lv ON emp.employeeID = lv.employeeID WHERE lv.status = 'Approved' GROUP BY emp.employeeName,sec.sectionName HAVING on_leave > 0;";     
+                SELECT emp.employeeName, sec.sectionName, emp.employeePhone,    
+                COUNT(CASE WHEN ? BETWEEN lv.fromDate AND lv.toDate THEN 1 END) AS on_leave
+                FROM tblEmployee AS emp
+                JOIN tblAssignedSection AS assign ON emp.employeeID = assign.employeeID
+                JOIN tblSection AS sec ON assign.sectionID = sec.sectionID          
+                INNER JOIN tblApplyLeave AS lv ON emp.employeeID = lv.employeeID 
+                WHERE lv.status = 'Approved'
+                GROUP BY emp.employeeName, sec.sectionName, emp.employeePhone
+                HAVING on_leave > 0;";     
             }
             // Debug the query with actual values
             $debug_query = str_replace(
