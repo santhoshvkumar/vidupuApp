@@ -134,7 +134,7 @@ class DashboardComponent{
             $data['earlyCheckOuts'] = intval($row['early_checkout']);
     
             // 5. Employees on leave
-            $queryLeaveDetails = "SELECT COUNT(*) as on_leave FROM tblApplyLeave WHERE CURDATE() BETWEEN fromDate AND toDate";
+            $queryLeaveDetails = "SELECT COUNT(*) as on_leave FROM tblApplyLeave WHERE CURDATE() BETWEEN fromDate AND toDate AND status = 'Approved';";
             $result = mysqli_query($connect_var, $queryLeaveDetails);
             $row = mysqli_fetch_assoc($result);
             $data['onLeave'] = intval($row['on_leave']);
