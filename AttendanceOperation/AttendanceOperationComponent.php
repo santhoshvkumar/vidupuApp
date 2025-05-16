@@ -28,18 +28,6 @@ class AttendanceOperationMaster{
             
             $currentDate = date('Y-m-d');
             $currentTime = date('H:i:s');
-               // First, check and close any previous unclosed sessions
-               $closeUnclosed = "UPDATE tblAttendance 
-               SET checkOutTime = '23:59:59',
-                   TotalWorkingHour = TIMEDIFF('23:59:59', checkInTime),
-                   isAutoCheckout = 1
-               WHERE employeeID = ? 
-               AND checkOutTime IS NULL
-               AND attendanceDate < CURRENT_DATE";
-
-            $stmt = mysqli_prepare($connect_var, $closeUnclosed);
-            mysqli_stmt_bind_param($stmt, "s", $this->empID);
-            mysqli_stmt_execute($stmt);
             
             // First check if there's a completed attendance record for today
             $checkCompleted = "SELECT attendanceDate, checkInTime, checkOutTime 
