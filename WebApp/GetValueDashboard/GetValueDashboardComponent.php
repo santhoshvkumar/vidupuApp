@@ -3,32 +3,15 @@ class GetValueDashboardComponent{
     public $currentDate;    
     
     public function loadGetValueDashboard(array $data){ 
-        if (isset($data['currentDate'])) {  
-            // Convert the date to YYYY-MM-DD format
-            $date = DateTime::createFromFormat('Y-m-d', $data['currentDate']);
-            if ($date && $date->format('Y-m-d') === $data['currentDate']) {
-                $this->currentDate = $data['currentDate'];
-                return true;
-            } else {
-                error_log("Invalid date format. Expected YYYY-MM-DD, got: " . $data['currentDate']);
-                return false;
-            }
-        } else {
-            error_log("currentDate parameter is missing");
-            return false;
-        }
+        $this->currentDate = $data['currentDate'];
+        return true;
     }
 
-    public function GetValueDashboardforCheckin() {
+    public function GetAllCheckInMembersDetails() {
         include('config.inc');
         header('Content-Type: application/json');
         try {       
             $data = [];                       
-
-            // Debug input values
-            error_log("GetValueDashboardforCheckin - Input values:");
-            error_log("currentDate: " . $this->currentDate);
-
             // 1. No of Checkins in Head Office
             $queryIndividualNoOfCheckinsInHeadOffice = "
                 SELECT 
@@ -71,36 +54,15 @@ class GetValueDashboardComponent{
             }
 
             $result = mysqli_stmt_get_result($stmt);
-            $employeeData = [];
-            $employeeName = [];
-            $sectionName = [];
-            $employeePhone = [];
-            $checkInTime = [];
-//$checked_in = [];
-            $countEmployee = 0;
+            
             while ($row = mysqli_fetch_assoc($result)) {
-                // error_log("Row data: " . print_r($row, true));
-                // $employeeData[] = [
-                //     'employeeName' => $row['employeeName'],
-                //     'sectionName' => $row['sectionName'],
-                //     'checked_in' => intval($row['checked_in']),
-                //     'employeePhone' => $row['employeePhone'],
-                //     'checkInTime' => $row['checkInTime']
-                // ];
-                $employeeName[] = $row['employeeName'];
-                $sectionName[] = $row['sectionName'];
-                $employeePhone[] = $row['employeePhone'];
-                $checkInTime[] = $row['checkInTime'];
-                // $checked_in[] = intval($row['checked_in']);
                 $countEmployee++;
+                $data[] = $row;
             }
             if ($countEmployee > 0) {
                 echo json_encode([
                     "status" => "success",
-                    "employeeName" => $employeeName,
-                    "sectionName" => $sectionName,
-                    "employeePhone" => $employeePhone,
-                    "checkInTime" => $checkInTime,
+                    "data" => $data,
                     //"checked_in" => $checked_in
                 ]);
             } else {
@@ -337,10 +299,10 @@ class GetValueDashboardComponent{
     } 
 }
 
-function GetValueDashboardforCheckin($decoded_items) {
+function GetAllCheckInMembers($decoded_items) {
     $GetValueDashboardObject = new GetValueDashboardComponent();
     if ($GetValueDashboardObject->loadGetValueDashboard($decoded_items)) {
-        $GetValueDashboardObject->GetValueDashboardforCheckin();
+        $GetValueDashboardObject->GetAllCheckInMembersDetails();
     } else {        
         echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
     }
