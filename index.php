@@ -56,6 +56,10 @@ require 'WebApp/ResetPassword/ResetPasswordRouter.php';
 require 'WebApp/GetValueDashboard/GetValueDashboardComponent.php';
 require 'WebApp/GetValueDashboard/GetValueDashboardRouter.php';
 
+require 'WebApp/TransferEmployee/TransferEmployeeComponent.php';
+require 'WebApp/TransferEmployee/TransferEmployeeRouter.php';
+
+
 
 // require 'AddEmployee/AddEmployeeComponent.php';
 // require 'AddEmployee/AddEmployeeRouter.php';
