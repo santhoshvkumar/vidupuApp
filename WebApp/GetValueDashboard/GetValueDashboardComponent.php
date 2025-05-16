@@ -3,33 +3,18 @@ class GetValueDashboardComponent{
     public $currentDate;    
     
     public function loadGetValueDashboard(array $data){ 
-        if (isset($data['currentDate'])) {  
-            // Convert the date to YYYY-MM-DD format
-            $date = DateTime::createFromFormat('Y-m-d', $data['currentDate']);
-            if ($date && $date->format('Y-m-d') === $data['currentDate']) {
-                $this->currentDate = $data['currentDate'];
-                return true;
-            } else {
-                error_log("Invalid date format. Expected YYYY-MM-DD, got: " . $data['currentDate']);
-                return false;
-            }
-        } else {
-            error_log("currentDate parameter is missing");
-            return false;
-        }
+        $this->currentDate = $data['currentDate'];
+        $this->getMethod = $data['getMethod'];
+        return true;
     }
 
-    public function GetValueDashboardforCheckin() {
+    public function GetAllCheckInMembersDetails() {
         include('config.inc');
         header('Content-Type: application/json');
         try {       
             $data = [];                       
-
-            // Debug input values
-            error_log("GetValueDashboardforCheckin - Input values:");
-            error_log("currentDate: " . $this->currentDate);
-
             // 1. No of Checkins in Head Office
+            if($this->getMethod == "CheckIn")  {
             $queryIndividualNoOfCheckinsInHeadOffice = "
                 SELECT 
                     emp.employeeName,
@@ -46,6 +31,25 @@ class GetValueDashboardComponent{
                 GROUP BY 
                     emp.employeeName,
                     sec.sectionName, emp.employeePhone,att.checkInTime;";
+<<<<<<< HEAD
+=======
+            }
+            else if($this->getMethod == "LateCheckin") {
+            }
+            else if($this->getMethod == "EarlyCheckout") {
+            }
+            else if($this->getMethod == "OnLeave") {
+            }
+            // Debug the query with actual values
+            $debug_query = str_replace(
+                ['?'],
+                [
+                    "'" . $this->currentDate . "'",                    
+                ],
+                $queryIndividualNoOfCheckinsInHeadOffice
+            );
+            error_log("Debug Query: " . $debug_query);
+>>>>>>> 852eb49d0f03230fff5b05219b63344c67c2d8b3
 
             $stmt = mysqli_prepare($connect_var, $queryIndividualNoOfCheckinsInHeadOffice);
             if (!$stmt) {
@@ -61,9 +65,28 @@ class GetValueDashboardComponent{
             }
 
             $result = mysqli_stmt_get_result($stmt);
+<<<<<<< HEAD
             $individualEmployeeData = [];
             while ($row = mysqli_fetch_assoc($result)) {
                 $individualEmployeeData[] = $row;
+=======
+            $countEmployee = 0;
+            while ($row = mysqli_fetch_assoc($result)) {
+                $countEmployee++;
+                $data[] = $row;
+            }
+            if ($countEmployee > 0) {
+                echo json_encode([
+                    "status" => "success",
+                    "data" => $data,
+                    //"checked_in" => $checked_in
+                ]);
+            } else {
+                echo json_encode([
+                    "status" => "error",
+                    "message_text" => "No data found for any employee"
+                ], JSON_FORCE_OBJECT);
+>>>>>>> 852eb49d0f03230fff5b05219b63344c67c2d8b3
             }
             echo json_encode([
                 "status" => "success",
@@ -359,10 +382,10 @@ class GetValueDashboardComponent{
     } 
 }
 
-function GetValueDashboardforCheckin($decoded_items) {
+function GetAllCheckInMembers($decoded_items) {
     $GetValueDashboardObject = new GetValueDashboardComponent();
     if ($GetValueDashboardObject->loadGetValueDashboard($decoded_items)) {
-        $GetValueDashboardObject->GetValueDashboardforCheckin();
+        $GetValueDashboardObject->GetAllCheckInMembersDetails();
     } else {        
         echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
     }
