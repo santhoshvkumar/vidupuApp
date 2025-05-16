@@ -36,6 +36,7 @@ class AttendanceOperationMaster{
                              AND attendanceDate = CURDATE()
                              AND checkOutTime IS NOT NULL
                              LIMIT 1";
+            echo $checkCompleted;
             $completedResult = mysqli_query($connect_var, $checkCompleted);
             
             if(mysqli_num_rows($completedResult) > 0) {
