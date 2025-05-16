@@ -377,13 +377,22 @@ class AttendanceOperationMaster{
                     a.checkOutTime,
                     a.TotalWorkingHour,
                     a.isAutoCheckout,
-                    CASE WHEN a.checkInTime > '10:10:00' THEN 1 ELSE 0 END as isLateCheckIn,
-                    CASE WHEN a.checkOutTime < '17:00:00' THEN 1 ELSE 0 END as isEarlyCheckOut,
+                    CASE 
+                        WHEN m.branchID IN (1, 52) AND a.checkInTime > '10:10:00' THEN 1
+                        WHEN m.branchID BETWEEN 2 AND 51 AND a.checkInTime > '09:25:00' THEN 1
+                        ELSE 0 
+                    END as isLateCheckIn,
+                    CASE 
+                        WHEN m.branchID IN (1, 52) AND a.checkOutTime < '17:00:00' THEN 1
+                        WHEN m.branchID BETWEEN 2 AND 51 AND a.checkOutTime < '16:30:00' THEN 1
+                        ELSE 0 
+                    END as isEarlyCheckOut,
                     0 as isHoliday,
                     NULL as holidayDescription,
                     0 as isLeave,
                     0 as isAbsent
                 FROM tblAttendance a
+                JOIN tblmapEmp m ON a.employeeID = m.employeeID
                 WHERE a.employeeID = ?
                 AND YEAR(a.attendanceDate) = ?
                 AND MONTH(a.attendanceDate) = ?
