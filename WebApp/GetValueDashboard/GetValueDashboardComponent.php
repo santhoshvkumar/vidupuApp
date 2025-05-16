@@ -4,6 +4,7 @@ class GetValueDashboardComponent{
     
     public function loadGetValueDashboard(array $data){ 
         $this->currentDate = $data['currentDate'];
+        $this->getMethod = $data['getMethod'];
         return true;
     }
 
@@ -13,6 +14,7 @@ class GetValueDashboardComponent{
         try {       
             $data = [];                       
             // 1. No of Checkins in Head Office
+            if($this->getMethod == "CheckIn")  {
             $queryIndividualNoOfCheckinsInHeadOffice = "
                 SELECT 
                     emp.employeeName,
@@ -29,7 +31,13 @@ class GetValueDashboardComponent{
                 GROUP BY 
                     emp.employeeName,
                     sec.sectionName, emp.employeePhone,att.checkInTime;";
-
+            }
+            else if($this->getMethod == "LateCheckin") {
+            }
+            else if($this->getMethod == "EarlyCheckout") {
+            }
+            else if($this->getMethod == "OnLeave") {
+            }
             // Debug the query with actual values
             $debug_query = str_replace(
                 ['?'],
