@@ -181,6 +181,21 @@ class AttendanceOperationMaster{
             $cutoffTime = '23:59:59'; // End of day cutoff
             $currentDate = $this->dateOfCheckout;
             
+            // Update auto checkout 
+            $updateAutoCheckout = "UPDATE tblAttendance
+                                SET 
+                                    checkOutTime = '23:59:39',
+                                    TotalWorkingHour = TIMEDIFF('23:59:39', checkInTime),
+                                    isAutoCheckout = 1
+                                WHERE 
+                                    attendanceDate = ?
+                                    AND checkOutTime IS NULL
+                                    AND checkInTime IS NOT NULL";
+            
+            $autoCheckoutStmt = mysqli_prepare($connect_var, $updateAutoCheckout);
+            mysqli_stmt_bind_param($autoCheckoutStmt, "s", $currentDate);
+            mysqli_stmt_execute($autoCheckoutStmt);
+
             // First check if it's a holiday
             $holidayQuery = "SELECT 1 FROM tblHoliday WHERE date = ?";
             $holidayStmt = mysqli_prepare($connect_var, $holidayQuery);
