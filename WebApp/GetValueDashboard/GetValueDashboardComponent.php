@@ -54,7 +54,7 @@ class GetValueDashboardComponent{
             }
 
             $result = mysqli_stmt_get_result($stmt);
-            
+            $countEmployee = 0;
             while ($row = mysqli_fetch_assoc($result)) {
                 $countEmployee++;
                 $data[] = $row;
