@@ -8,5 +8,5 @@ $f3->route('POST /GetAllCheckInMembers',
         else
             echo json_encode(array("status"=>"error This value","message_text"=>"Invalid input parameters"),JSON_FORCE_OBJECT);
     }
-);
+); 
 ?>
