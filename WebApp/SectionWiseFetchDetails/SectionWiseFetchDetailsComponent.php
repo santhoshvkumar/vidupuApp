@@ -5,7 +5,9 @@ class SectionWiseFetchDetailsComponent{
     public $currentMonth;
     public $currentYear;
     public $currentDate;
-    
+    public $branchID;
+    public $branchName;
+
     public function loadSectionWiseFetchDetails(array $data){
         if (isset($data['sectionID']) && isset($data['currentMonth']) && isset($data['currentYear'])) {
             $this->sectionID = $data['sectionID'];
@@ -26,6 +28,14 @@ class SectionWiseFetchDetailsComponent{
         }
     }
     public function loadSectionWiseAttendanceForToday(array $data){ 
+        if (isset($data['currentDate'])) {  
+            $this->currentDate = $data['currentDate'];
+            return true;
+        } else {
+            return false;
+        }
+    }
+    public function loadBranchWiseAttendanceForToday(array $data){ 
         if (isset($data['currentDate'])) {  
             $this->currentDate = $data['currentDate'];
             return true;
@@ -336,9 +346,8 @@ class SectionWiseFetchDetailsComponent{
             error_log("SectionWiseAttendanceForToday - Input values:");
             error_log("currentDate: " . $this->currentDate);
 
-            // 1. Total active employees in Head Office for today
-            $queryHOEmployeeAttendanceSectionWiseForToday = "
-                SELECT 
+            // 1. Total active employees in Head Office for today            
+                $queryHOEmployeeAttendanceSectionWiseForToday = "SELECT 
                     s.sectionID,
                     s.sectionName AS section_name,
                     (SELECT COUNT(e.employeeID)
@@ -378,9 +387,10 @@ class SectionWiseFetchDetailsComponent{
                      JOIN tblAssignedSection a ON e.employeeID = a.employeeID
                      WHERE a.isActive = 1
                      AND a.sectionID = s.sectionID
-                     AND l.fromDate = ?) AS on_leave
+                     AND l.fromDate = ? AND l.status = 'Approved') AS on_leave
                 FROM tblSection s
                 ORDER BY s.sectionName ASC;";
+
 
             // Debug the query with actual values
             $debug_query = str_replace(
@@ -424,17 +434,6 @@ class SectionWiseFetchDetailsComponent{
             $absentees = [];
             $countSection = 0;
             while ($row = mysqli_fetch_assoc($result)) {
-                // $sectionData = [
-                //     'sectionID' => $row['sectionID'],
-                //     'sectionName' => $row['section_name'],
-                //     'currentDate' => $this->currentDate,
-                //     'totalActiveEmployeesInSection' => isset($row['total_active_employees']) ? intval($row['total_active_employees']) : 0,
-                //     'totalCheckIns' => isset($row['total_checkins']) ? intval($row['total_checkins']) : 0,
-                //     'onLeave' => isset($row['on_leave']) ? intval($row['on_leave']) : 0,
-                //     'lateCheckIn' => isset($row['late_checkin']) ? intval($row['late_checkin']) : 0,
-                //     'earlyCheckOut' => isset($row['early_checkout']) ? intval($row['early_checkout']) : 0
-                // ];
-                // $sectionData['absenteesinHO'] = $sectionData['totalActiveEmployeesInSection'] - ($sectionData['totalCheckIns'] + $sectionData['onLeave']);
                 $sectionName[] = $row['section_name'];
                 $totalEmployees[] = $row['total_active_employees'] != 0 ? intval($row['total_active_employees']) : 0;
                 $totalCheckIns[] = $row['total_checkins'] != 0 ? intval($row['total_checkins']) : 0;
@@ -442,36 +441,182 @@ class SectionWiseFetchDetailsComponent{
                 $lateCheckIn[] = $row['late_checkin'] != 0 ? intval($row['late_checkin']) : 0;
                 $earlyCheckOut[] = $row['early_checkout'] != 0 ? intval($row['early_checkout']) : 0;
                 $absentees[] = $row['total_active_employees'] != 0 ? intval($row['total_active_employees']) - ($row['total_checkins'] + $row['on_leave']) : 0;
+                
                 $countSection++;
             }
             
             if ($countSection > 0) {
                 echo json_encode([
                     "status" => "success",
-                    "sectionName" => $sectionName,
-                    "totalEmployees" => $totalEmployees,
-                    "totalCheckIns" => $totalCheckIns,
-                    "onLeave" => $onLeave,
-                    "lateCheckIn" => $lateCheckIn,
-                    "earlyCheckOut" => $earlyCheckOut,
-                    "absentees" => $absentees
-                ]);
+                    "sectionName" => $sectionName ?? [],
+                    "totalEmployees" => $totalEmployees ?? [],
+                    "totalCheckIns" => $totalCheckIns ?? [],
+                    "onLeave" => $onLeave ?? [],
+                    "lateCheckIn" => $lateCheckIn ?? [],
+                    "earlyCheckOut" => $earlyCheckOut ?? [],
+                    "absentees" => $absentees ?? []
+                ]);         
             } else {
                 echo json_encode([
-                    "status" => "error",
-                    "message_text" => "No data found for any section"
-                ], JSON_FORCE_OBJECT);
+                    "status" => "success",
+                    "sectionName" => [],
+                    "totalEmployees" => [],
+                    "totalCheckIns" => [],
+                    "onLeave" => [],
+                    "lateCheckIn" => [],
+                    "earlyCheckOut" => [],
+                    "absentees" => []
+                ]);
             }
             
         } catch (Exception $e) {
-            error_log("Error in DashboardAttendanceForHeadOffice: " . $e->getMessage());
+            error_log("Error in SectionWiseAttendanceForToday: " . $e->getMessage());
             echo json_encode([
                 "status" => "error",
                 "message_text" => $e->getMessage()
             ], JSON_FORCE_OBJECT);
         }
     } 
+    public function BranchWiseAttendanceForToday() {
+        include('config.inc');
+        header('Content-Type: application/json');
+        try {       
+            $data = [];                       
 
+            // Debug input values
+            error_log("SectionWiseAttendanceForToday - Input values:");
+            error_log("currentDate: " . $this->currentDate);
+
+            // 1. Total active employees in Head Office for today
+            $queryBranchWiseAttendanceForToday = "SELECT 
+                    b.branchID, 
+                    b.branchName AS branch_name,
+                    (SELECT COUNT(e.employeeID) 
+                     FROM tblEmployee e 
+                     JOIN tblmapEmp m ON e.employeeID = m.employeeID 
+                     WHERE e.isActive = 1 
+                     AND m.branchID = b.branchID) AS total_active_employees,
+                    (SELECT COUNT(e.employeeID) 
+                     FROM tblAttendance att
+                     JOIN tblEmployee e ON att.employeeID = e.employeeID
+                     JOIN tblmapEmp m ON e.employeeID = m.employeeID
+                     WHERE e.isActive = 1
+                     AND m.branchID = b.branchID
+                     AND att.checkInTime IS NOT NULL
+                     AND att.attendanceDate = ?) AS total_checkins,
+                    (SELECT COUNT(att.employeeID) 
+                     FROM tblAttendance att
+                     JOIN tblEmployee e ON att.employeeID = e.employeeID
+                     JOIN tblmapEmp m ON e.employeeID = m.employeeID
+                     WHERE e.isActive = 1
+                     AND m.branchID = b.branchID
+                     AND att.checkInTime IS NOT NULL
+                     AND att.checkInTime > '09:25:00'
+                     AND att.attendanceDate = ?) AS late_checkin,
+                    (SELECT COUNT(att.employeeID) 
+                     FROM tblAttendance att
+                     JOIN tblEmployee e ON att.employeeID = e.employeeID
+                     JOIN tblmapEmp m ON e.employeeID = m.employeeID
+                     WHERE e.isActive = 1
+                     AND m.branchID = b.branchID
+                     AND att.checkOutTime IS NOT NULL
+                     AND att.checkOutTime < '16:30:00'
+                     AND att.attendanceDate = ?) AS early_checkout,
+                    (SELECT COUNT(e.employeeID)
+                     FROM tblApplyLeave l
+                     JOIN tblEmployee e ON l.employeeID = e.employeeID
+                     JOIN tblmapEmp m ON e.employeeID = m.employeeID
+                     WHERE e.isActive = 1 AND l.status = 'Approved'
+                     AND m.branchID = b.branchID
+                     AND l.fromDate = ?) AS on_leave
+                FROM tblBranch b
+                ORDER BY b.branchName ASC;";
+    
+            // Debug the query with actual values
+            $debug_query = str_replace(
+                ['?', '?', '?', '?'],
+                [
+                    $this->currentDate,
+                    $this->currentDate,
+                    $this->currentDate,
+                    $this->currentDate,
+                ],
+                $queryBranchWiseAttendanceForToday
+            );
+            error_log("Debug Query: " . $debug_query);
+
+            $stmt = mysqli_prepare($connect_var, $queryBranchWiseAttendanceForToday);
+            if (!$stmt) {
+                error_log("Prepare failed: " . mysqli_error($connect_var));
+                throw new Exception("Database prepare failed");
+            }
+
+            mysqli_stmt_bind_param($stmt, "ssss", 
+                $this->currentDate,  // for total_checkins
+                $this->currentDate, // for late_checkin
+                $this->currentDate, // for early_checkout
+                $this->currentDate, // for on_leave
+            );
+            
+            if (!mysqli_stmt_execute($stmt)) {
+                error_log("Execute failed: " . mysqli_stmt_error($stmt));
+                throw new Exception("Database execute failed");
+            }
+
+            $result = mysqli_stmt_get_result($stmt);
+            $branches = [];
+            $branchName = [];
+            $totalEmployees = [];
+            $totalCheckIns = [];
+            $onLeave = [];
+            $lateCheckIn = [];
+            $earlyCheckOut = [];
+            $absentees = [];
+            $countBranch = 0;
+            while ($row = mysqli_fetch_assoc($result)) {
+                $branchName[] = $row['branch_name'];                
+                $totalEmployees[] = $row['total_active_employees'] != 0 ? intval($row['total_active_employees']) : 0;
+                $totalCheckIns[] = $row['total_checkins'] != 0 ? intval($row['total_checkins']) : 0;
+                $onLeave[] = $row['on_leave'] != 0 ? intval($row['on_leave']) : 0;
+                $lateCheckIn[] = $row['late_checkin'] != 0 ? intval($row['late_checkin']) : 0;
+                $earlyCheckOut[] = $row['early_checkout'] != 0 ? intval($row['early_checkout']) : 0;
+                $absentees[] = $row['total_active_employees'] != 0 ? intval($row['total_active_employees']) - ($row['total_checkins'] + $row['on_leave']) : 0;
+
+                $countBranch++;
+            }
+
+            if ($countBranch > 0) {
+                echo json_encode([
+                    "status" => "success",
+                    "branchName" => $branchName ?? [],
+                    "totalEmployees" => $totalEmployees ?? [],
+                    "totalCheckIns" => $totalCheckIns ?? [],
+                    "onLeave" => $onLeave ?? [],
+                    "lateCheckIn" => $lateCheckIn ?? [],
+                    "earlyCheckOut" => $earlyCheckOut ?? [],
+                    "absentees" => $absentees ?? []
+                ]);         
+            } else {
+                echo json_encode([
+                    "status" => "success",
+                    "branchName" => [],
+                    "totalEmployees" => [],
+                    "totalCheckIns" => [],
+                    "onLeave" => [],
+                    "lateCheckIn" => [],
+                    "earlyCheckOut" => [],
+                    "absentees" => []
+                ]);
+            }
+            
+        } catch (Exception $e) {
+            error_log("Error in BranchWiseAttendanceForToday: " . $e->getMessage());
+            echo json_encode([
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ], JSON_FORCE_OBJECT);
+        }
+    }
     public function SectionEmployees() {
         include('config.inc');
         header('Content-Type: application/json');    
