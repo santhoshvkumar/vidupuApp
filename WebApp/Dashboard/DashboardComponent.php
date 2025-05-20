@@ -12,6 +12,9 @@ class DashboardComponent{
 	public $on_leave;
 	public $late_checkin;
 	public $early_checkout;
+    public $branchID;
+    public $branchName;
+    public $currentDate;
 
     public function loadDashboardAttendanceForHeadOffice(array $data) {
         error_log("Loading dashboard data with input: " . print_r($data, true));
@@ -42,6 +45,11 @@ class DashboardComponent{
             return false;
         }
         
+        return true;
+    }
+    public function loadDashboardAttendanceDetails(array $data) {
+        $this->branchID = $data['branchID'];
+        $this->currentDate = $data['currentDate'];
         return true;
     }
 
@@ -90,76 +98,138 @@ class DashboardComponent{
             $data = [];
     
             // 1. Total active employees
-            $queryActiveEmployeeDetails = "SELECT COUNT(*) as total FROM tblEmployee";
-            $result = mysqli_query($connect_var, $queryActiveEmployeeDetails);
-            $row = mysqli_fetch_assoc($result);
-            $data['totalEmployees'] = intval($row['total']);
-    
-            // 2. Today's check-ins
-            $queryCheckInDetails = "SELECT COUNT(*) as checked_in FROM tblAttendance WHERE attendanceDate = CURDATE()";
-            $result = mysqli_query($connect_var, $queryCheckInDetails);
-            $row = mysqli_fetch_assoc($result);
-            $data['checkedInToday'] = intval($row['checked_in']);
-    
-            // 3. Late check-ins
-            $queryLateCheckInDetails = "
-                SELECT 
-                    COUNT(*) AS late_checkin
-                FROM tblAttendance AS a
-                JOIN tblmapEmp AS e 
-                    ON a.employeeID = e.employeeID
-                WHERE a.attendanceDate = CURRENT_DATE()
-                    AND (
-                        (e.branchID IN (1, 52) AND a.checkInTime > '10:10:00') OR
-                        (e.branchID BETWEEN 2 AND 51 AND a.checkInTime > '09:25:00')
-                    );";
-            $result = mysqli_query($connect_var, $queryLateCheckInDetails);
-            $row = mysqli_fetch_assoc($result);
-            $data['lateCheckIns'] = intval($row['late_checkin']);
-    
-            // 4. Early check-outs
-            $queryEarlyCheckOutDetails = "
-                SELECT 
-                    COUNT(*) AS early_checkout
-                FROM tblAttendance AS a
-                JOIN tblmapEmp AS e 
-                    ON a.employeeID = e.employeeID
-                WHERE a.attendanceDate = CURRENT_DATE()
-                    AND (
-                        (e.branchID IN (1, 52) AND a.checkOutTime < '17:00:00') OR
-                        (e.branchID BETWEEN 2 AND 51 AND a.checkOutTime < '16:30:00')
-                    );";
-            $result = mysqli_query($connect_var, $queryEarlyCheckOutDetails);
-            $row = mysqli_fetch_assoc($result);
-            $data['earlyCheckOuts'] = intval($row['early_checkout']);
-    
-            // 5. Employees on leave
-            $queryLeaveDetails = "SELECT COUNT(*) as on_leave FROM tblApplyLeave WHERE CURDATE() BETWEEN fromDate AND toDate AND status = 'Approved';";
-            $result = mysqli_query($connect_var, $queryLeaveDetails);
-            $row = mysqli_fetch_assoc($result);
-            $data['onLeave'] = intval($row['on_leave']);
-    
-            // 6. Calculate absentees
-            $data['absentees'] = intval($data['totalEmployees']) - (intval($data['checkedInToday']) + intval($data['onLeave']));
+            $queryActiveEmployeeDetails =   "SELECT
+    -- Total employees
+    (SELECT COUNT(*) 
+     FROM tblEmployee AS emp
+     JOIN tblmapEmp AS map ON emp.employeeID = map.employeeID
+     WHERE map.branchID IN (?) ) AS totalEmployees,
 
-            // 7. Calculate loginned devices
-            $queryLoginnedDevices = "SELECT COUNT(*) AS loginnedDevices FROM tblEmployee WHERE deviceFingerprint IS NOT NULL AND deviceFingerprint <> ''";
-            $result = mysqli_query($connect_var, $queryLoginnedDevices);            
-             $row = mysqli_fetch_assoc($result);
-            $data['loginnedDevices'] = intval($row['loginnedDevices']);
+    -- Checked-in today
+    (SELECT COUNT(*) 
+     FROM tblAttendance AS a
+     JOIN tblmapEmp AS map ON a.employeeID = map.employeeID
+     WHERE a.attendanceDate = ?
+       AND map.branchID IN (?)) AS checkedInToday,
+
+    -- Late check-in
+    (SELECT COUNT(*)
+     FROM tblAttendance AS a
+     JOIN tblmapEmp AS map ON a.employeeID = map.employeeID
+     WHERE a.attendanceDate = ?
+       AND map.branchID = ?
+       AND (
+         (map.branchID IN (1, 52) AND a.checkInTime > '10:10:00') OR
+         (map.branchID BETWEEN 2 AND 51 AND a.checkInTime > '09:25:00')
+       )) AS lateCheckin,
+
+    -- Early check-out
+    (SELECT COUNT(*)
+     FROM tblAttendance AS a
+     JOIN tblmapEmp AS map ON a.employeeID = map.employeeID
+     WHERE a.attendanceDate = ?
+       AND map.branchID IN (?)
+       AND (
+         (map.branchID IN (1, 52) AND a.checkOutTime < '17:00:00') OR
+         (map.branchID BETWEEN 2 AND 51 AND a.checkOutTime < '16:30:00')
+       )) AS earlyCheckout,
+
+    -- On leave
+    (SELECT COUNT(*) 
+     FROM tblApplyLeave AS l
+     JOIN tblmapEmp AS map ON l.employeeID = map.employeeID
+     WHERE ? BETWEEN l.fromDate AND l.toDate
+       AND l.status = 'Approved'
+       AND map.branchID IN (?)) AS onLeave,
+
+    -- Logged-in devices
+    (SELECT COUNT(*) 
+     FROM tblEmployee AS emp
+     JOIN tblmapEmp AS map ON emp.employeeID = map.employeeID
+     WHERE emp.deviceFingerprint IS NOT NULL 
+       AND emp.deviceFingerprint <> ''
+       AND map.branchID IN (?)) AS loginnedDevices
+
+FROM (SELECT 1) AS dummy;
+";
+            $debug_query = str_replace(
+                ['?', '?', '?', '?', '?', '?', '?', '?', '?', '?'],
+                [   
+                    "'" . $this->branchID . "'",
+                    "'" . $this->currentDate . "'",
+                    "'" . $this->branchID . "'",
+                    "'" . $this->currentDate . "'",
+                    "'" . $this->branchID . "'",
+                    "'" . $this->currentDate . "'",
+                    "'" . $this->branchID . "'",
+                    "'" . $this->currentDate . "'",
+                    "'" . $this->branchID . "'",                    
+                    "'" . $this->branchID . "'",
+                ],
+                $queryActiveEmployeeDetails
+            );
+            error_log("Debug Query: " . $debug_query);
+
+            $stmt = mysqli_prepare($connect_var, $queryActiveEmployeeDetails);
+            if (!$stmt) {
+                error_log("Prepare failed: " . mysqli_error($connect_var));
+                throw new Exception("Database prepare failed");
+            }
+
+            mysqli_stmt_bind_param($stmt, "ssssssssss", 
+                $this->branchID,  // for totalEmployees
+                $this->currentDate,  // for checkedInToday
+                $this->branchID, // for checkedInToday
+                $this->currentDate,  // for lateCheckin
+                $this->branchID, // for lateCheckin
+                $this->currentDate, // for earlyCheckout
+                $this->branchID, // for earlyCheckout
+                $this->currentDate, // for onLeave
+                $this->branchID, // for onLeave
+                $this->branchID, // for loginnedDevices
+            );            
+            if (!mysqli_stmt_execute($stmt)) {
+                error_log("Execute failed: " . mysqli_stmt_error($stmt));
+                throw new Exception("Database execute failed");
+            }
+
+            $result = mysqli_stmt_get_result($stmt);
+            $row = mysqli_fetch_assoc($result);
             
-            echo json_encode([
-                "status" => "success",
-                "data" => $data
-            ]);
-
+            // Debug the result
+            error_log("Query Result: " . print_r($row, true));
+            
+            if ($row) {                
+                $data['totalEmployees'] = isset($row['totalEmployees']) ? intval($row['totalEmployees']) : 0;
+                $data['checkedInToday'] = isset($row['checkedInToday']) ? intval($row['checkedInToday']) : 0;
+                $data['lateCheckin'] = isset($row['lateCheckin']) ? intval($row['lateCheckin']) : 0;
+                $data['earlyCheckout'] = isset($row['earlyCheckout']) ? intval($row['earlyCheckout']) : 0;
+                $data['onLeave'] = isset($row['onLeave']) ? intval($row['onLeave']) : 0;
+                $data['loginnedDevices'] = isset($row['loginnedDevices']) ? intval($row['loginnedDevices']) : 0;
+                $data['absenteesinHO'] = $data['totalEmployees'] - ($data['checkedInToday'] + $data['lateCheckin'] + $data['earlyCheckout'] + $data['onLeave']);
+                // Debug final data
+                error_log("Final Data: " . print_r($data, true));
+                
+                echo json_encode([
+                    "status" => "success",
+                    "data" => $data
+                ]);
+            } else {
+                error_log("No data found for section: " . $this->sectionName);
+                echo json_encode([
+                    "status" => "error",
+                    "message_text" => "No data found for the specified section"
+                ], JSON_FORCE_OBJECT);
+            }
+            
         } catch (Exception $e) {
+            error_log("Error in DashboardAttendanceForHeadOffice: " . $e->getMessage());
             echo json_encode([
                 "status" => "error",
                 "message_text" => $e->getMessage()
             ], JSON_FORCE_OBJECT);
         }
-    }
+    }  
     public function DashboardAttendanceForHeadOffice(array $data) {
         include('config.inc');
         header('Content-Type: application/json');    
@@ -340,9 +410,17 @@ class DashboardComponent{
     }
 } // Close the DashboardComponent class
 
-function DashboardDetails() {
+// function DashboardDetails() {
+//     $dashboardComponent = new DashboardComponent();
+//     $dashboardComponent->DashboardAttendanceDetails();
+// }
+function DashboardAttendanceDetails($decoded_items) {
     $dashboardComponent = new DashboardComponent();
-    $dashboardComponent->DashboardAttendanceDetails();
+    if ($dashboardComponent->loadDashboardAttendanceDetails($decoded_items)) {
+        $dashboardComponent->DashboardAttendanceDetails();  
+    } else {
+        echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
+    }
 }
 
 function DashboardGetAllSection() {
