@@ -2,10 +2,15 @@
 class GetValueDashboardComponent {    
     public $currentDate;    
     public $branchID;
-
+    public $employeeID;
     public function loadGetValueDashboard(array $data) { 
         $this->currentDate = $data['currentDate'];
         $this->branchID = $data['branchID'];
+        return true;
+    }
+    public function loadResetMiskenlyEarlyCheckout(array $data) {    
+        $this->currentDate = $data['currentDate'];
+        $this->employeeID = $data['employeeID'];
         return true;
     }
     public function loadGetAllActiveEmployees(array $data) {    
@@ -223,27 +228,38 @@ WHERE emp.isActive = 1
         try {       
             $data = [];                       
             $queryIndividualNoOfCheckinsInHeadOffice = "SELECT 
-    emp.employeeName,
-    COALESCE(sec.sectionName, b.branchName) AS locationName,
-    emp.employeePhone,
-    CAST(MIN(att.checkOutTime) AS CHAR) AS checkOutTime,
-    COUNT(
-        CASE
-            WHEN m.branchID IN (1, 52) AND att.checkOutTime < '17:00:00' THEN 1
-            WHEN m.branchID BETWEEN 2 AND 51 AND att.checkOutTime < '16:30:00' THEN 1
-            ELSE NULL
-        END
-    ) AS early_checkout
-FROM tblEmployee AS emp
-JOIN tblmapEmp AS m ON emp.employeeID = m.employeeID
-LEFT JOIN tblAssignedSection AS assign ON emp.employeeID = assign.employeeID
-LEFT JOIN tblSection AS sec ON assign.sectionID = sec.sectionID AND m.branchID = 1
-LEFT JOIN tblBranch AS b ON m.branchID = b.branchID AND m.branchID <> 1
-JOIN tblAttendance AS att ON emp.employeeID = att.employeeID
-WHERE DATE(att.attendanceDate) = ?
-  AND m.branchID IN (?) 
-GROUP BY emp.employeeName, locationName, emp.employeePhone
-HAVING early_checkout > 0;";
+            emp.employeeName, emp.employeeID,
+            COALESCE(sec.sectionName, b.branchName) AS locationName,
+            emp.employeePhone,
+            CAST(MIN(att.checkOutTime) AS CHAR) AS checkOutTime,
+            COUNT(
+                CASE
+                    -- Early checkout rule for employeeIDs 72, 73, 75
+                    WHEN emp.employeeID IN (72, 73, 75) AND att.checkOutTime < '15:00:00' THEN 1
+        
+                    -- Early checkout rule for employeeIDs 24, 27
+                    WHEN emp.employeeID IN (24, 27) AND att.checkOutTime < '18:00:00' THEN 1
+        
+                    -- Early checkout rule for branches 1 and 52
+                    WHEN m.branchID IN (1, 52) AND att.checkOutTime < '17:00:00' THEN 1
+        
+                    -- Early checkout rule for branches 2 to 51
+                    WHEN m.branchID BETWEEN 2 AND 51 AND att.checkOutTime < '16:30:00' THEN 1
+        
+                    ELSE NULL
+                END
+            ) AS early_checkout
+        FROM tblEmployee AS emp
+        JOIN tblmapEmp AS m ON emp.employeeID = m.employeeID
+        LEFT JOIN tblAssignedSection AS assign ON emp.employeeID = assign.employeeID
+        LEFT JOIN tblSection AS sec ON assign.sectionID = sec.sectionID AND m.branchID = 1
+        LEFT JOIN tblBranch AS b ON m.branchID = b.branchID AND m.branchID <> 1
+        JOIN tblAttendance AS att ON emp.employeeID = att.employeeID
+        WHERE DATE(att.attendanceDate) = ?
+          AND m.branchID IN (?) 
+        GROUP BY emp.employeeName, locationName, emp.employeePhone, emp.employeeID
+        HAVING early_checkout > 0;";
+        
     
             $debug_query = str_replace(
                 ['?'],  
@@ -380,28 +396,38 @@ HAVING on_leave > 0;
         try {       
             $data = [];                       
             $queryIndividualNoOfCheckinsInHeadOffice = "SELECT 
-    emp.employeeName,
-    COALESCE(sec.sectionName, b.branchName) AS locationName,
-    emp.employeePhone,
-    CAST(MIN(att.checkInTime) AS CHAR) AS checkInTime,
-    COUNT(
-        CASE
-            WHEN m.branchID IN (1, 52) AND att.checkInTime > '10:10:00' THEN 1
-            WHEN m.branchID BETWEEN 2 AND 51 AND att.checkInTime > '09:25:00' THEN 1
-            ELSE NULL
-        END
-    ) AS late_checkin
-FROM tblEmployee AS emp
-JOIN tblmapEmp AS m ON emp.employeeID = m.employeeID
-LEFT JOIN tblAssignedSection AS assign ON emp.employeeID = assign.employeeID
-LEFT JOIN tblSection AS sec ON assign.sectionID = sec.sectionID AND m.branchID = 1
-LEFT JOIN tblBranch AS b ON m.branchID = b.branchID AND m.branchID <> 1
-JOIN tblAttendance AS att ON emp.employeeID = att.employeeID
-WHERE DATE(att.attendanceDate) = ?
-  AND m.branchID IN (?)  
-GROUP BY emp.employeeName, locationName, emp.employeePhone
-HAVING late_checkin > 0;
-";
+            emp.employeeName,
+            COALESCE(sec.sectionName, b.branchName) AS locationName,
+            emp.employeePhone,
+            CAST(MIN(att.checkInTime) AS CHAR) AS checkInTime,
+            COUNT(
+                CASE
+                    -- Custom late rule for employeeIDs 72, 73, 75
+                    WHEN emp.employeeID IN (72, 73, 75) AND att.checkInTime > '08:10:00' THEN 1
+
+                    -- Custom late rule for employeeIDs 24, 27
+                    WHEN emp.employeeID IN (24, 27) AND att.checkInTime > '11:10:00' THEN 1
+        
+                    -- Late rule for branches 1 and 52
+                    WHEN m.branchID IN (1, 52) AND att.checkInTime > '10:10:00' THEN 1
+        
+                    -- Late rule for branches 2 to 51
+                    WHEN m.branchID BETWEEN 2 AND 51 AND att.checkInTime > '09:25:00' THEN 1
+        
+                    ELSE NULL
+                END
+            ) AS late_checkin
+        FROM tblEmployee AS emp
+        JOIN tblmapEmp AS m ON emp.employeeID = m.employeeID
+        LEFT JOIN tblAssignedSection AS assign ON emp.employeeID = assign.employeeID
+        LEFT JOIN tblSection AS sec ON assign.sectionID = sec.sectionID AND m.branchID = 1
+        LEFT JOIN tblBranch AS b ON m.branchID = b.branchID AND m.branchID <> 1
+        JOIN tblAttendance AS att ON emp.employeeID = att.employeeID
+        WHERE DATE(att.attendanceDate) = ?
+          AND m.branchID IN (?)  
+        GROUP BY emp.employeeName, locationName, emp.employeePhone
+        HAVING late_checkin > 0;";
+        
 
             $debug_query = str_replace(
                 ['?'],
@@ -450,6 +476,44 @@ HAVING late_checkin > 0;
             error_log("Error in GetValueDashboardforCheckin: " . $e->getMessage());
             echo json_encode([
                 "status" => "error",
+                "message_text" => $e->getMessage()
+            ], JSON_FORCE_OBJECT);
+        }
+    }
+    public function ResetMiskenlyEarlyCheckout() {
+        include('config.inc');
+        header('Content-Type: application/json');
+    
+        try {
+            $data = [];
+            $queryResetMiskenlyEarlyCheckout = "UPDATE tblAttendance
+                SET checkOutTime = NULL,
+                    TotalWorkingHour = NULL
+                WHERE attendanceDate = ?
+                AND employeeID = ?;";
+            
+            $stmt = mysqli_prepare($connect_var, $queryResetMiskenlyEarlyCheckout);
+            mysqli_stmt_bind_param($stmt, "ss",
+                $this->currentDate,
+                $this->employeeID
+            );  
+
+            if (mysqli_stmt_execute($stmt)) {
+                echo json_encode(array(
+                    "status" => "success",
+                    "message" => "Employee Checkout Time Reset successfully"
+                ));
+            } else {    
+                echo json_encode(array(
+                    "status" => "error",
+                    "message" => "Error Resetting employee Checkout Time"
+                ));
+            }
+            mysqli_stmt_close($stmt);
+            mysqli_close($connect_var);
+        } catch (Exception $e) {
+            echo json_encode([
+                "status" => "error", 
                 "message_text" => $e->getMessage()
             ], JSON_FORCE_OBJECT);
         }
@@ -505,4 +569,12 @@ function GetAllAbesentEmployees($decoded_items) {
         echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
     }
 }   
+function ResetMiskenlyEarlyCheckout($decoded_items) {
+    $GetValueDashboardObject = new GetValueDashboardComponent();
+    if ($GetValueDashboardObject->loadResetMiskenlyEarlyCheckout($decoded_items)) {
+        $GetValueDashboardObject->ResetMiskenlyEarlyCheckout();
+    } else {
+        echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
+    }       
+}
 ?>

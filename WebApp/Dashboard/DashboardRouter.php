@@ -1,12 +1,4 @@
 <?php
-
-// $f3->route('GET /DashboardAttendanceDetails',
-
-//     function($f3){
-//                 DashboardDetails();
-
-//     }
-// );
 $f3->route('POST /DashboardAttendanceDetails',
     function($f3) {
         header('Content-Type: application/json');
