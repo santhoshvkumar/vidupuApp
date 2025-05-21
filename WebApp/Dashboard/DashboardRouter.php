@@ -26,7 +26,6 @@ $f3->route('POST /DashboardAttendanceForHeadOffice',
         }
     }
 );
-
 $f3->route('GET /DashboardGetAllSection',
 
     function($f3){
@@ -34,5 +33,4 @@ $f3->route('GET /DashboardGetAllSection',
 
     }
 );
-/*****************  End Login User Temp *****************/
 ?>
