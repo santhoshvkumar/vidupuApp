@@ -22,7 +22,7 @@ class GetValueDashboardComponent {
         header('Content-Type: application/json');
         try {
             $data = [];
-            $queryIndividualNoOfCheckinsInHeadOffice = "SELECT 
+            $queryIndividualNoOfCheckinsInHeadOffice = "SELECT DISTINCT
     emp.employeeName, 
     COALESCE(b.branchName, sec.sectionName) AS locationName, 
     emp.employeePhone 
@@ -32,7 +32,8 @@ LEFT JOIN tblBranch AS b ON m.branchID = b.branchID AND b.branchID <> 1
 LEFT JOIN tblAssignedSection AS assign ON emp.employeeID = assign.employeeID
 LEFT JOIN tblSection AS sec ON assign.sectionID = sec.sectionID 
 WHERE emp.isActive = 1
-  AND m.branchID = ?;";
+  AND m.branchID = ?
+;";
 
             $debug_query = str_replace(
                 ['?'],
