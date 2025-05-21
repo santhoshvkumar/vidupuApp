@@ -394,11 +394,15 @@ class AttendanceOperationMaster{
                     a.TotalWorkingHour,
                     a.isAutoCheckout,
                     CASE 
+                        WHEN a.employeeID IN (72, 73, 75) AND a.checkInTime > '08:10:00' THEN 1
+                        WHEN a.employeeID IN (24, 27) AND a.checkInTime > '11:10:00' THEN 1
                         WHEN m.branchID IN (1, 52) AND a.checkInTime > '10:10:00' THEN 1
                         WHEN m.branchID BETWEEN 2 AND 51 AND a.checkInTime > '09:25:00' THEN 1
                         ELSE 0 
                     END as isLateCheckIn,
                     CASE 
+                        WHEN a.employeeID IN (72, 73, 75) AND a.checkOutTime < '15:00:00' THEN 1
+                        WHEN a.employeeID IN (24, 27) AND a.checkOutTime < '18:00:00' THEN 1
                         WHEN m.branchID IN (1, 52) AND a.checkOutTime < '17:00:00' THEN 1
                         WHEN m.branchID BETWEEN 2 AND 51 AND a.checkOutTime < '16:30:00' THEN 1
                         ELSE 0 
