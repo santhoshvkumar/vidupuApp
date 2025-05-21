@@ -100,13 +100,13 @@ class DashboardComponent{
             // 1. Total active employees
             $queryActiveEmployeeDetails =   "SELECT
     -- Total employees
-    (SELECT COUNT(*) 
+    (SELECT COUNT(DISTINCT emp.employeeID)
      FROM tblEmployee AS emp
      JOIN tblmapEmp AS map ON emp.employeeID = map.employeeID
-     WHERE map.branchID IN (?) ) AS totalEmployees,
+     WHERE map.branchID IN (?)) AS totalEmployees,
 
     -- Checked-in today
-    (SELECT COUNT(*) 
+    (SELECT COUNT(*)
      FROM tblAttendance AS a
      JOIN tblmapEmp AS map ON a.employeeID = map.employeeID
      WHERE a.attendanceDate = ?
@@ -114,16 +114,16 @@ class DashboardComponent{
 
     -- Late check-in
     (SELECT COUNT(*)
- FROM tblAttendance AS a
- JOIN tblmapEmp AS map ON a.employeeID = map.employeeID
- WHERE a.attendanceDate = ?
-   AND map.branchID IN (?)
-   AND (
-     (a.employeeID IN (72, 73, 75) AND a.checkInTime > '08:10:00') OR
-     (a.employeeID IN (24, 27) AND a.checkInTime > '11:10:00') OR
-     (map.branchID IN (1, 52) AND a.checkInTime > '10:10:00') OR
-     (map.branchID BETWEEN 2 AND 51 AND a.checkInTime > '09:25:00')
-   )) AS lateCheckin,
+     FROM tblAttendance AS a
+     JOIN tblmapEmp AS map ON a.employeeID = map.employeeID
+     WHERE a.attendanceDate = ?
+       AND map.branchID IN (?)
+       AND (
+         (a.employeeID IN (72, 73, 75) AND a.checkInTime > '08:10:00') OR
+         (a.employeeID IN (24, 27) AND a.checkInTime > '11:10:00') OR
+         (map.branchID IN (1, 52) AND a.checkInTime > '10:10:00') OR
+         (map.branchID BETWEEN 2 AND 51 AND a.checkInTime > '09:25:00')
+       )) AS lateCheckin,
 
     -- Early check-out
     (SELECT COUNT(*)
@@ -139,7 +139,7 @@ class DashboardComponent{
        )) AS earlyCheckout,
 
     -- On leave
-    (SELECT COUNT(*) 
+    (SELECT COUNT(*)
      FROM tblApplyLeave AS l
      JOIN tblmapEmp AS map ON l.employeeID = map.employeeID
      WHERE ? BETWEEN l.fromDate AND l.toDate
@@ -147,7 +147,7 @@ class DashboardComponent{
        AND map.branchID IN (?)) AS onLeave,
 
     -- Logged-in devices
-    (SELECT COUNT(*) 
+    (SELECT COUNT(*)
      FROM tblEmployee AS emp
      JOIN tblmapEmp AS map ON emp.employeeID = map.employeeID
      WHERE emp.deviceFingerprint IS NOT NULL 
@@ -155,6 +155,7 @@ class DashboardComponent{
        AND map.branchID IN (?)) AS loginnedDevices
 
 FROM (SELECT 1) AS dummy;
+
 ";
             $debug_query = str_replace(
                 ['?', '?', '?', '?', '?', '?', '?', '?', '?', '?'],
