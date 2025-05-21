@@ -211,7 +211,7 @@ FROM (SELECT 1) AS dummy;
                 $data['earlyCheckout'] = isset($row['earlyCheckout']) ? intval($row['earlyCheckout']) : 0;
                 $data['onLeave'] = isset($row['onLeave']) ? intval($row['onLeave']) : 0;
                 $data['loginnedDevices'] = isset($row['loginnedDevices']) ? intval($row['loginnedDevices']) : 0;
-                $data['absenteesinHO'] = $data['totalEmployees'] - ($data['checkedInToday'] + $data['lateCheckin'] + $data['earlyCheckout'] + $data['onLeave']);
+                $data['absenteesinHO'] = $data['totalEmployees'] - ($data['checkedInToday'] + $data['onLeave']);
                 // Debug final data
                 error_log("Final Data: " . print_r($data, true));
                 
