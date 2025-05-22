@@ -8,6 +8,11 @@ class ReportsComponent {
         $this->endDate = $data['endDate'];
         return true;
     }
+    public function loadReportsforGivenDateforAll(array $data) { 
+        $this->startDate = $data['startDate'];
+        $this->endDate = $data['endDate'];
+        return true;
+    }
    
     public function GetAttendanceReport() {    
         include('config.inc');
@@ -120,7 +125,80 @@ ORDER BY
                 "message_text" => $e->getMessage()
             ], JSON_FORCE_OBJECT);
         }
-    }    
+    }
+    public function GetLeaveReport() {    
+        include('config.inc');
+        header('Content-Type: application/json');
+        try {
+            $data = [];
+            $queryforGetLeaveReport = "SELECT 
+    e.empID, 
+    e.employeeName, 
+    e.Designation, 
+    e.employeePhone, 
+    l.typeOfLeave, 
+    l.leaveDuration,
+    l.createdOn, 
+    l.status, 
+    l.fromDate, 
+    l.toDate
+FROM tblEmployee AS e
+JOIN tblApplyLeave AS l ON e.employeeID = l.employeeID
+WHERE l.createdOn BETWEEN ? AND ?;";
+
+            $debug_query = str_replace(
+                array_fill(0, 8, '?'),
+                [
+                    "'" . $this->startDate . "'",
+                    "'" . $this->endDate . "'"
+                ],
+                $queryforGetLeaveReport
+            );
+            error_log("Debug Query: " . $debug_query);
+
+            $stmt = mysqli_prepare($connect_var, $queryforGetLeaveReport);
+            if (!$stmt) {
+                throw new Exception("Database prepare failed");
+            }
+
+            mysqli_stmt_bind_param($stmt, "ss", 
+                $this->startDate,  // For attendanceDate
+                $this->endDate     // For DATEDIFF
+            );
+
+            if (!mysqli_stmt_execute($stmt)) {
+                throw new Exception("Database execute failed");
+            }
+
+            $result = mysqli_stmt_get_result($stmt);
+            $countEmployee = 0;
+            while ($row = mysqli_fetch_assoc($result)) {
+                $countEmployee++;
+                $data[] = $row;
+            }
+
+            if ($countEmployee > 0) {
+                echo json_encode([
+                    "status" => "success",  
+                    "data" => $data
+                ]);
+            } else {
+                echo json_encode([
+                    "status" => "error",
+                    "message_text" => "No data found for any employee"
+                ], JSON_FORCE_OBJECT);
+            }
+
+            mysqli_stmt_close($stmt);
+            mysqli_close($connect_var);
+        } catch (Exception $e) {
+            error_log("Error in GetValueDashboardforCheckin: " . $e->getMessage());     
+            echo json_encode([
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ], JSON_FORCE_OBJECT);
+        }
+    }
 }
 function GetAttendanceReport($decoded_items) {
     $ReportsComponentObject = new ReportsComponent();
@@ -130,4 +208,13 @@ function GetAttendanceReport($decoded_items) {
         echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
     }   
 }
+function GetLeaveReport($decoded_items) {
+    $ReportsComponentObject = new ReportsComponent();
+    if ($ReportsComponentObject->loadReportsforGivenDate($decoded_items)) {
+        $ReportsComponentObject->GetLeaveReport();
+    } else {    
+        echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
+    }
+}
+
 ?>
