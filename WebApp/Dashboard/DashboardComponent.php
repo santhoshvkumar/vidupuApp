@@ -1,5 +1,4 @@
 <?php
-
 class DashboardComponent{
     public $employeeID;
     public $employeeRole;
@@ -17,8 +16,7 @@ class DashboardComponent{
     public $currentDate;
 
     public function loadDashboardAttendanceForHeadOffice(array $data) {
-        error_log("Loading dashboard data with input: " . print_r($data, true));
-        
+        error_log("Loading dashboard data with input: " . print_r($data, true));        
         // Ensure we're getting numeric values for month and year
         $this->currentmonth = isset($data['currentmonth']) ? intval($data['currentmonth']) : intval(date('m'));
         $this->sectionName = isset($data['sectionName']) ? trim($data['sectionName']) : '';
@@ -52,17 +50,14 @@ class DashboardComponent{
         $this->currentDate = $data['currentDate'];
         return true;
     }
-
     public function loadDashboardDetails(array $data){                  
         $this->employeeID = $data['employeeID'];
         $this->employeeRole = $data['employeeRole'];
         return true;
     }
-
     public function DashboardDetails() {
         include('config.inc');
-        header('Content-Type: application/json');
-    
+        header('Content-Type: application/json');    
         try {
             // Initialize an array to hold the results
             $data = [];
@@ -74,14 +69,12 @@ class DashboardComponent{
             while ($row = mysqli_fetch_assoc($rsd)) {
                 $dashboardDetails[] = $row;
             }
-            $data['dashboardDetails'] = $dashboardDetails;    
-            
+            $data['dashboardDetails'] = $dashboardDetails;            
     
             echo json_encode([
                 "status" => "success",
                 "data" => $data
-            ]);
-    
+            ]);    
         } catch (Exception $e) {
             echo json_encode([
                 "status" => "error",
@@ -153,9 +146,7 @@ class DashboardComponent{
      WHERE emp.deviceFingerprint IS NOT NULL 
        AND emp.deviceFingerprint <> ''
        AND map.branchID IN (?)) AS loginnedDevices
-
 FROM (SELECT 1) AS dummy;
-
 ";
             $debug_query = str_replace(
                 ['?', '?', '?', '?', '?', '?', '?', '?', '?', '?'],
@@ -213,8 +204,7 @@ FROM (SELECT 1) AS dummy;
                 $data['loginnedDevices'] = isset($row['loginnedDevices']) ? intval($row['loginnedDevices']) : 0;
                 $data['absenteesinHO'] = $data['totalEmployees'] - ($data['checkedInToday'] + $data['onLeave']);
                 // Debug final data
-                error_log("Final Data: " . print_r($data, true));
-                
+                error_log("Final Data: " . print_r($data, true));                
                 echo json_encode([
                     "status" => "success",
                     "data" => $data
@@ -413,12 +403,7 @@ FROM (SELECT 1) AS dummy;
             ], JSON_FORCE_OBJECT);
         }
     }
-} // Close the DashboardComponent class
-
-// function DashboardDetails() {
-//     $dashboardComponent = new DashboardComponent();
-//     $dashboardComponent->DashboardAttendanceDetails();
-// }
+} 
 function DashboardAttendanceDetails($decoded_items) {
     $dashboardComponent = new DashboardComponent();
     if ($dashboardComponent->loadDashboardAttendanceDetails($decoded_items)) {
@@ -427,7 +412,6 @@ function DashboardAttendanceDetails($decoded_items) {
         echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
     }
 }
-
 function DashboardGetAllSection() {
     $dashboardfordepartmentComponent = new DashboardComponent();
     $dashboardfordepartmentComponent->DashboardGetAllSectionForGraph();
