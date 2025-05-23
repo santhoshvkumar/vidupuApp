@@ -20,13 +20,13 @@ class ReportsComponent {
         try {
             $data = [];
             $queryforGetAttendanceReport = "SELECT DISTINCT
-    e.empID,
-    e.employeeName,
-    e.employeePhone,
+    e.empID as EmployeeID   ,
+    e.employeeName as EmployeeName,
+    e.employeePhone as EmployeePhone,
     e.Designation,
     DATE_ADD(?, INTERVAL n.num DAY) AS attendanceDate,
-    a.checkInTime,
-    a.checkOutTime,
+    a.checkInTime as CheckInTime,
+    a.checkOutTime as CheckOutTime,
     CASE
         WHEN a.checkInTime IS NOT NULL THEN 'Present'
         WHEN EXISTS (
@@ -39,7 +39,7 @@ class ReportsComponent {
     END AS STATUS,
     b.branchName
 FROM 
-    (SELECT DISTINCT empID, employeeName, employeePhone, Designation, employeeID 
+    (SELECT DISTINCT empID as EmployeeID, employeeName as EmployeeName, employeePhone as EmployeePhone, Designation, employeeID as EmployeeID 
      FROM tblEmployee 
      WHERE isTemporary = 0 AND isActive = 1) e
 CROSS JOIN (
@@ -132,16 +132,16 @@ ORDER BY
         try {
             $data = [];
             $queryforGetLeaveReport = "SELECT 
-    e.empID, 
-    e.employeeName, 
+    e.empID as EmployeeID, 
+    e.employeeName as EmployeeName, 
     e.Designation, 
-    e.employeePhone, 
-    l.typeOfLeave, 
-    l.leaveDuration,
-    l.createdOn, 
-    l.status, 
-    l.fromDate, 
-    l.toDate
+    e.employeePhone as EmployeePhone, 
+    l.typeOfLeave as TypeOfLeave, 
+    l.leaveDuration as LeaveDuration,
+    l.createdOn as AppliedOn, 
+    l.status as Status, 
+    l.fromDate as FromDate, 
+    l.toDate as ToDate
 FROM tblEmployee AS e
 JOIN tblApplyLeave AS l ON e.employeeID = l.employeeID
 WHERE l.createdOn BETWEEN ? AND ?;";
