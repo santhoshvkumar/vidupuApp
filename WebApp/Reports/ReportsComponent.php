@@ -279,7 +279,7 @@ JOIN tblBranch b ON m.BranchID = b.BranchID
 LEFT JOIN tblAttendance a ON e.EmployeeID = a.EmployeeID
 LEFT JOIN tblApplyLeave l ON e.EmployeeID = l.EmployeeID
 
-WHERE e.isActive = 1
+WHERE e.isActive = 1 AND e.isTemporary = 0
   AND a.AttendanceDate BETWEEN ? AND ?
 
 GROUP BY e.Designation, a.AttendanceDate
@@ -311,21 +311,58 @@ ORDER BY a.AttendanceDate, e.Designation;
             }
 
             $result = mysqli_stmt_get_result($stmt);
+            $designation = [];  
+            $attendanceDate = [];
+            $headOfficePresent = [];
+            $branchPresent = [];
+            $headOfficeLeave = [];
+            $branchLeave = [];
+            $headOfficeTotal = [];
+            $branchTotal = [];
+            $headOfficeAbsent = [];
+            $branchAbsent = [];
             $countEmployee = 0;
             while ($row = mysqli_fetch_assoc($result)) {
                 $countEmployee++;
-                $data[] = $row;
+                $designation[] = $row['Designation'];
+                $attendanceDate[] = $row['AttendanceDate'];
+                $headOfficePresent[] = $row['HeadOffice_Present'];
+                $branchPresent[] = $row['Branch_Present'];
+                $headOfficeLeave[] = $row['HeadOffice_Leave'];
+                $branchLeave[] = $row['Branch_Leave'];
+                $headOfficeTotal[] = $row['HeadOffice_Total'];
+                $branchTotal[] = $row['Branch_Total'];
+                $headOfficeAbsent[] = $row['HeadOffice_Absent'];
+                $branchAbsent[] = $row['Branch_Absent'];
             }
 
             if ($countEmployee > 0) {
                 echo json_encode([
                     "status" => "success",  
-                    "data" => $data
+                    "designation" => $designation ?? [],
+                    "attendanceDate" => $attendanceDate ?? [],
+                    "headOfficePresent" => $headOfficePresent ?? [],
+                    "branchPresent" => $branchPresent ?? [],
+                    "headOfficeLeave" => $headOfficeLeave ?? [],
+                    "branchLeave" => $branchLeave ?? [],
+                    "headOfficeTotal" => $headOfficeTotal ?? [],
+                    "branchTotal" => $branchTotal ?? [],
+                    "headOfficeAbsent" => $headOfficeAbsent ?? [],
+                    "branchAbsent" => $branchAbsent ?? []
                 ]);
             } else {
                 echo json_encode([
-                    "status" => "error",
-                    "message_text" => "No data found for any employee"
+                    "status" => "success",
+                    "designation" => [],
+                    "attendanceDate" => [],
+                    "headOfficePresent" => [],
+                    "branchPresent" => [],
+                    "headOfficeLeave" => [],
+                    "branchLeave" => [],
+                    "headOfficeTotal" => [],
+                    "branchTotal" => [],
+                    "headOfficeAbsent" => [],
+                    "branchAbsent" => []
                 ], JSON_FORCE_OBJECT);
             }
 
