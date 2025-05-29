@@ -69,4 +69,64 @@ $f3->route('POST /ResetMiskenlyEarlyCheckout',
             echo json_encode(array("status"=>"error This value","message_text"=>"Invalid input parameters"),JSON_FORCE_OBJECT);
     }   
 );
+$f3->route('POST /GetAllActiveEmployeesforAll',
+    function($f3) {
+        header('Content-Type: application/json');
+        $decoded_items =  json_decode($f3->get('BODY'),true);
+        if(!$decoded_items == NULL)
+            GetAllActiveEmployeesforAll($decoded_items);
+        else
+            echo json_encode(array("status"=>"error This value","message_text"=>"Invalid input parameters"),JSON_FORCE_OBJECT);
+    }       
+);
+$f3->route('POST /GetAllCheckInMembersforAll',
+    function($f3) {
+        header('Content-Type: application/json');
+        $decoded_items =  json_decode($f3->get('BODY'),true);
+        if(!$decoded_items == NULL)
+            GetAllCheckInMembersforAll($decoded_items); 
+        else
+            echo json_encode(array("status"=>"error This value","message_text"=>"Invalid input parameters"),JSON_FORCE_OBJECT);
+    }
+);
+$f3->route('POST /GetAllEarlyCheckOutMembersforAll',
+    function($f3) {
+        header('Content-Type: application/json');
+        $decoded_items =  json_decode($f3->get('BODY'),true);
+        if(!$decoded_items == NULL)
+            GetAllEarlyCheckOutMembersforAll($decoded_items);
+        else
+            echo json_encode(array("status"=>"error This value","message_text"=>"Invalid input parameters"),JSON_FORCE_OBJECT);
+    }
+);
+$f3->route('POST /GetAllOnLeaveMembersforAll',
+    function($f3) {
+        header('Content-Type: application/json');
+        $decoded_items =  json_decode($f3->get('BODY'),true);
+        if(!$decoded_items == NULL)
+            GetAllOnLeaveMembersforAll($decoded_items); 
+        else
+            echo json_encode(array("status"=>"error This value","message_text"=>"Invalid input parameters"),JSON_FORCE_OBJECT);
+    }
+);
+$f3->route('POST /GetAllLateCheckInMembersforAll',
+    function($f3) {
+        header('Content-Type: application/json');
+        $decoded_items =  json_decode($f3->get('BODY'),true);
+        if(!$decoded_items == NULL)
+            GetAllLateCheckInMembersforAll($decoded_items); 
+        else
+            echo json_encode(array("status"=>"error This value","message_text"=>"Invalid input parameters"),JSON_FORCE_OBJECT);
+    }
+);
+$f3->route('POST /GetAllAbesentEmployeesforAll',
+    function($f3) {
+        header('Content-Type: application/json');
+        $decoded_items =  json_decode($f3->get('BODY'),true);
+        if(!$decoded_items == NULL)
+            GetAllAbesentEmployeesforAll($decoded_items);       
+        else
+            echo json_encode(array("status"=>"error This value","message_text"=>"Invalid input parameters"),JSON_FORCE_OBJECT);
+    }
+);
 ?>

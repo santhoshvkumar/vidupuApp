@@ -26,7 +26,6 @@ $f3->route('POST /DashboardAttendanceForHeadOffice',
         }
     }
 );
-
 $f3->route('GET /DashboardGetAllSection',
 
     function($f3){
@@ -34,5 +33,20 @@ $f3->route('GET /DashboardGetAllSection',
 
     }
 );
-/*****************  End Login User Temp *****************/
+$f3->route('POST /DashboardAttendanceDetailsforAll',
+    function($f3){
+        header('Content-Type: application/json');
+        $decoded_items = json_decode($f3->get('BODY'), true);
+        if($decoded_items != NULL) {
+            $dashboardComponent = new DashboardComponent();
+            if ($dashboardComponent->loadDashboardAttendanceDetailsforAll($decoded_items)) {
+                $dashboardComponent->DashboardAttendanceDetailsforAll();
+            } else {
+                echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
+            }
+        } else {
+            echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
+        }
+    }
+);
 ?>

@@ -59,6 +59,8 @@ require 'WebApp/GetValueDashboard/GetValueDashboardRouter.php';
 require 'WebApp/TransferEmployee/TransferEmployeeComponent.php';
 require 'WebApp/TransferEmployee/TransferEmployeeRouter.php';
 
+require 'WebApp/Reports/ReportsComponent.php';
+require 'WebApp/Reports/ReportsRouter.php';
 
 
 // require 'AddEmployee/AddEmployeeComponent.php';
