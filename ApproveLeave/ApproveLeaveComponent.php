@@ -322,6 +322,64 @@ class ApproveLeaveMaster {
                         if ($stmt) {
                             mysqli_stmt_close($stmt);
                         }
+
+                        // If approved, update the leave balance conditionally
+                        if ($this->status === 'Approved') {
+                            $deductBalance = true; // Assume deduction by default for approved leaves
+
+                            // Check if it's Medical Leave or PL (Medical Grounds)
+                            if ($leaveType === 'Medical Leave' || $leaveType === 'Privilege Leave (Medical grounds)') {
+                                // For these types, only deduct if Fitness Certificate is present
+                                if (empty($FitnessCertificatePath) || $FitnessCertificatePath === 'null') {
+                                    $deductBalance = false; // Do not deduct if fitness cert is missing
+                                    error_log("Skipping balance deduction for $leaveType (ID: $this->applyLeaveID) - Fitness Certificate missing.");
+                                } else {
+                                    error_log("Proceeding with balance deduction for $leaveType (ID: $this->applyLeaveID) - Fitness Certificate found.");
+                                }
+                            } else {
+                                error_log("Proceeding with balance deduction for non-medical leave type: $leaveType (ID: $this->applyLeaveID).");
+                            }
+
+                            // Only update balance if deduction is allowed
+                            if ($deductBalance) {
+                                $leaveBalanceParams = [
+                                    'applyLeaveID' => $this->applyLeaveID,
+                                    'typeOfLeave' => $leaveType,
+                                    'numberOfDays' => $leaveDuration,
+                                    'status' => $this->status,
+                                    'employeeID' => $employeeID
+                                ];
+                                
+                                $balanceResult = $this->updatedLeaveBalance($leaveBalanceParams);
+                                if ($balanceResult['status'] === 'failure') {
+                                    throw new Exception("Failed to update leave balance: " . $balanceResult['message']);
+                                }
+                                
+                                // Execute the balance update query
+                                if (!mysqli_query($connect_var, $balanceResult['query'])) {
+                                    throw new Exception("Failed to execute leave balance update: " . mysqli_error($connect_var));
+                                }
+                            }
+                        } else {
+                            // For rejected/cancelled leaves, always update balance
+                            $leaveBalanceParams = [
+                                'applyLeaveID' => $this->applyLeaveID,
+                                'typeOfLeave' => $leaveType,
+                                'numberOfDays' => $leaveDuration,
+                                'status' => $this->status,
+                                'employeeID' => $employeeID
+                            ];
+                            
+                            $balanceResult = $this->updatedLeaveBalance($leaveBalanceParams);
+                            if ($balanceResult['status'] === 'failure') {
+                                throw new Exception("Failed to update leave balance: " . $balanceResult['message']);
+                            }
+                            
+                            // Execute the balance update query
+                            if (!mysqli_query($connect_var, $balanceResult['query'])) {
+                                throw new Exception("Failed to execute leave balance update: " . mysqli_error($connect_var));
+                            }
+                        }
                     }
 
                     mysqli_commit($connect_var);
@@ -359,6 +417,7 @@ class ApproveLeaveMaster {
         $this->status = $decoded_items['status'];
         $this->employeeID = $decoded_items['employeeID'];
         
+        // Map leave types to database column names
         switch ($this->typeOfLeave) {
             case "Privilege Leave":
                 $this->typeOfLeave = "PrivilegeLeave";
@@ -382,19 +441,32 @@ class ApproveLeaveMaster {
                 $this->typeOfLeave = "PrivilegeLeave";
                 break;
             default:
-                throw new Exception("Invalid leave type: " . $this->typeOfLeave);
+                return array(
+                    'status' => 'failure',
+                    'message' => "Invalid leave type: " . $this->typeOfLeave
+                );
         }
-        if ($this->status == "Approved") {
-                    $updateQuery = "UPDATE tblLeaveBalance
-                        SET $this->typeOfLeave = $this->typeOfLeave - $this->numberOfDays
-                        WHERE employeeID = $this->employeeID";        
+
+        // Prepare the update query based on status
+        if ($this->status === "Approved") {
+            $updateQuery = "UPDATE tblLeaveBalance 
+                SET `{$this->typeOfLeave}` = `{$this->typeOfLeave}` - {$this->numberOfDays} 
+                WHERE employeeID = '{$this->employeeID}'";
+        } else if ($this->status === "Cancelled" || $this->status === "Rejected") {
+            $updateQuery = "UPDATE tblLeaveBalance 
+                SET `{$this->typeOfLeave}` = `{$this->typeOfLeave}` + {$this->numberOfDays} 
+                WHERE employeeID = '{$this->employeeID}'";
+        } else {
+            return array(
+                'status' => 'failure',
+                'message' => "Invalid status: " . $this->status
+            );
         }
-        elseif($this->status == ("Cancelled" || "Rejected")) {
-            $updateQuery = "UPDATE tblLeaveBalance
-            SET $this->typeOfLeave = $this->typeOfLeave + $this->numberOfDays
-            WHERE employeeID = $this->employeeID";        
-        }
-        return $updateQuery;
+
+        return array(
+            'status' => 'success',
+            'query' => $updateQuery
+        );
     }
 
 
