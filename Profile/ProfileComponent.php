@@ -50,6 +50,65 @@ class ProfileMaster{
     }
 }
 
+class ForgotPasswordMaster {
+    public $EmployeePhone;
+    public $NewPassword;
+    
+    public function loadForgotPassword($decoded_items) {
+        if (isset($decoded_items['EmployeePhone']) && isset($decoded_items['NewPassword'])) {
+            $this->EmployeePhone = $decoded_items['EmployeePhone'];
+            $this->NewPassword = md5($decoded_items['NewPassword']);
+            return true;
+        }
+        return false;
+    }
+    
+    public function forgotPassword() {
+        include('config.inc');
+        header('Content-Type: application/json');
+        try {
+            // First verify if the phone number exists
+            $queryCheckPhone = "SELECT employeeID FROM tblEmployee WHERE employeePhone = ?";
+            $stmt = mysqli_prepare($connect_var, $queryCheckPhone);
+            mysqli_stmt_bind_param($stmt, "s", $this->EmployeePhone);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+            
+            if ($rs = mysqli_fetch_assoc($result)) {
+                // Phone number exists, update the password
+                $queryUpdatePassword = "UPDATE tblEmployee SET employeePassword = ? WHERE employeePhone = ?";
+                $updateStmt = mysqli_prepare($connect_var, $queryUpdatePassword);
+                mysqli_stmt_bind_param($updateStmt, "ss", $this->NewPassword, $this->EmployeePhone);
+                
+                if (mysqli_stmt_execute($updateStmt)) {
+                    echo json_encode(array(
+                        "status" => "success",
+                        "message_text" => "Password has been reset successfully"
+                    ), JSON_FORCE_OBJECT);
+                } else {
+                    throw new Exception("Failed to update password");
+                }
+                
+                mysqli_stmt_close($updateStmt);
+            } else {
+                echo json_encode(array(
+                    "status" => "error",
+                    "message_text" => "Phone number not found"
+                ), JSON_FORCE_OBJECT);
+            }
+            
+            mysqli_stmt_close($stmt);
+            mysqli_close($connect_var);
+            
+        } catch(Exception $e) {
+            echo json_encode(array(
+                "status" => "error",
+                "message_text" => "Error in resetting password: " . $e->getMessage()
+            ), JSON_FORCE_OBJECT);
+        }
+    }
+}
+
 function changePassword($decoded_items){
     $profileObject = new ProfileMaster;
     if($profileObject->loadChangePassword($decoded_items)){
@@ -58,7 +117,18 @@ function changePassword($decoded_items){
     else{
         echo json_encode(array("status"=>"error","message_text"=>"Invalid Input Parameters"),JSON_FORCE_OBJECT);
     }
+}
 
+function forgotPassword($decoded_items){
+    $forgotPasswordObject = new ForgotPasswordMaster();
+    if($forgotPasswordObject->loadForgotPassword($decoded_items)){
+        $forgotPasswordObject->forgotPassword();
+    } else {
+        echo json_encode(array(
+            "status" => "error",
+            "message_text" => "Invalid input parameters"
+        ), JSON_FORCE_OBJECT);
+    }
 }
 
 ?>
