@@ -9,6 +9,17 @@ $f3->route('POST /GetAttendanceReport',
             echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
         }
     }
+);  
+$f3->route('POST /GetSectionWiseAttendanceReport',
+    function($f3) {
+        header('Content-Type: application/json');
+        $decoded_items = json_decode($f3->get('BODY'), true);
+        if($decoded_items != NULL) {
+            GetSectionWiseAttendanceReport($decoded_items);
+        } else {
+            echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
+        }
+    }
 );
 $f3->route('POST /GetLeaveReport',
     function($f3) {
