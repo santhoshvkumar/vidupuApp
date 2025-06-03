@@ -389,6 +389,7 @@ class SectionWiseFetchDetailsComponent{
                      AND a.sectionID = s.sectionID
                      AND l.fromDate = ? AND l.status = 'Approved') AS on_leave
                 FROM tblSection s
+                WHERE s.sectionID <> 35
                 ORDER BY s.sectionName ASC;";
 
 
