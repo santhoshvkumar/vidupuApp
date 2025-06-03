@@ -3,7 +3,10 @@ class GetValueDashboardComponent {
     public $currentDate;    
     public $branchID;
     public $employeeID;
-    public function loadGetValueDashboard(array $data) { 
+    public function loadGetValueDashboard(array $data) {        
+        if (!isset($data['currentDate']) || !isset($data['branchID'])) {
+            return false;
+        }
         $this->currentDate = $data['currentDate'];
         $this->branchID = $data['branchID'];
         return true;
@@ -21,8 +24,12 @@ class GetValueDashboardComponent {
         $this->currentDate = $data['currentDate'];
         return true;
     }
-    public function loadGetAllAbesentEmployees(array $data) {    
+    public function loadGetAllAbesentEmployees(array $data) {          
+        if (!isset($data['currentDate']) || !isset($data['branchID'])) {
+            return false;
+        }
         $this->currentDate = $data['currentDate'];
+        $this->branchID = $data['branchID'];
         return true;
     }
     public function loadGetAllCheckInMembersforAll(array $data) {    
@@ -199,12 +206,22 @@ LEFT JOIN tblAttendance AS att
     AND DATE(att.attendanceDate) = ?
 WHERE emp.isActive = 1
   AND m.branchID = ?
-  AND att.checkInTime IS NULL;";
+  AND att.checkInTime IS NULL
+  AND emp.employeeID NOT IN (
+      SELECT employeeID
+      FROM tblApplyLeave
+      WHERE status = 'Approved'
+        AND ? BETWEEN fromDate AND toDate
+  );
+
+";
 
             $debug_query = str_replace(
-                ['?'],
+                ['?', '?', '?'],
                 [
+                    "'" . $this->currentDate . "'",
                     "'" . $this->branchID . "'",
+                    "'" . $this->currentDate . "'",
                 ],
                 $queryIndividualNoOfCheckinsInHeadOffice
             );
@@ -215,7 +232,7 @@ WHERE emp.isActive = 1
                 throw new Exception("Database prepare failed");
             }
 
-            mysqli_stmt_bind_param($stmt, "ss", $this->currentDate, $this->branchID);
+            mysqli_stmt_bind_param($stmt, "sss", $this->currentDate, $this->branchID, $this->currentDate);
 
             if (!mysqli_stmt_execute($stmt)) {  
                 throw new Exception("Database execute failed");
@@ -1062,7 +1079,7 @@ function GetAllActiveEmployeesforAll($decoded_items) {
 }
 function GetAllAbesentEmployees($decoded_items) {
     $GetValueDashboardObject = new GetValueDashboardComponent();
-    if ($GetValueDashboardObject->loadGetValueDashboard($decoded_items)) {
+    if ($GetValueDashboardObject->loadGetAllAbesentEmployees($decoded_items)) {
         $GetValueDashboardObject->GetAllAbesentEmployeesDetails();
     } else {
         echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
