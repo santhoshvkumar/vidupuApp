@@ -285,11 +285,19 @@ LEFT JOIN tblAttendance AS att
     ON emp.employeeID = att.employeeID 
     AND DATE(att.attendanceDate) = ?
 WHERE emp.isActive = 1
-  AND att.checkInTime IS NULL;";
+  AND att.checkInTime IS NULL
+  AND emp.employeeID NOT IN (
+      SELECT employeeID
+      FROM tblApplyLeave
+      WHERE status = 'Approved'
+        AND ? BETWEEN fromDate AND toDate
+  );
+";
 
             $debug_query = str_replace(
-                ['?'],
+                ['?', '?'],
                 [
+                    "'" . $this->currentDate . "'",
                     "'" . $this->currentDate . "'",
                 ],
                 $queryIndividualNoOfCheckinsInHeadOffice
@@ -301,7 +309,7 @@ WHERE emp.isActive = 1
                 throw new Exception("Database prepare failed");
             }
 
-            mysqli_stmt_bind_param($stmt, "s", $this->currentDate);
+            mysqli_stmt_bind_param($stmt, "ss", $this->currentDate, $this->currentDate);
 
             if (!mysqli_stmt_execute($stmt)) {  
                 throw new Exception("Database execute failed");
