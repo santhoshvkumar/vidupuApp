@@ -137,7 +137,8 @@ LEFT JOIN tblSection AS sec ON assign.sectionID = sec.sectionID
 LEFT JOIN tblAttendance AS att 
     ON emp.employeeID = att.employeeID 
     AND DATE(att.attendanceDate) = ?
-WHERE emp.isActive = 1 AND employeeID <> 888
+WHERE emp.isActive = 1 
+  AND emp.employeeID <> 888
   AND att.checkInTime IS NULL;";
 
             $debug_query = str_replace(
