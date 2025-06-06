@@ -50,6 +50,120 @@ class ProfileMaster{
     }
 }
 
+class EmployeeProfileMaster {
+    public $EmployeeID;
+    
+    public function loadProfileDetails($decoded_items) {
+        if (isset($decoded_items['EmployeeID'])) {
+            $this->EmployeeID = $decoded_items['EmployeeID'];
+            return true;
+        }
+        return false;
+    }
+    
+    public function getProfileDetails() {
+        include('config.inc');
+        header('Content-Type: application/json');
+        try {
+            // First check if employee exists
+            $checkQuery = "SELECT employeeID FROM tblEmployee WHERE employeeID = ?";
+            $checkStmt = mysqli_prepare($connect_var, $checkQuery);
+            mysqli_stmt_bind_param($checkStmt, "s", $this->EmployeeID);
+            mysqli_stmt_execute($checkStmt);
+            $checkResult = mysqli_stmt_get_result($checkStmt);
+            
+            if (!$rs = mysqli_fetch_assoc($checkResult)) {
+                echo json_encode(array(
+                    "status" => "error",
+                    "message_text" => "Employee ID does not exist in the system"
+                ), JSON_FORCE_OBJECT);
+                mysqli_stmt_close($checkStmt);
+                return;
+            }
+            
+            mysqli_stmt_close($checkStmt);
+
+            // Now get the full profile details
+            $query = "SELECT
+                tblE.empID,
+                tblE.employeeID,
+                tblE.employeeName,
+                tblE.employeePhone,
+                tblE.Designation,
+                tblE.employeeDOB AS DateOfBirth,
+                tblE.joiningDate,
+                tblE.retirementDate,
+                tblE.employeePhoto,
+                tblB.branchID,
+                tblB.branchName,  
+                tblA.SectionName,
+                tblManager.employeeName as managerName,
+                tblE.managerID
+            FROM
+                tblEmployee tblE
+            LEFT JOIN
+                tblmapEmp tblM ON tblE.employeeID = tblM.employeeID
+            LEFT JOIN
+                tblBranch tblB ON tblM.branchID = tblB.branchID
+            LEFT JOIN
+                (
+                    SELECT 
+                        tblA.employeeID,
+                        tblS.SectionName
+                    FROM 
+                        tblAssignedSection tblA
+                    JOIN 
+                        tblSection tblS ON tblA.sectionID = tblS.sectionID
+                    WHERE 
+                        tblA.isActive = 1
+                ) tblA ON tblE.employeeID = tblA.employeeID
+            LEFT JOIN
+                tblEmployee tblManager ON tblE.managerID = tblManager.employeeID
+            WHERE
+                tblE.employeeID = ?";
+                
+            $stmt = mysqli_prepare($connect_var, $query);
+            mysqli_stmt_bind_param($stmt, "s", $this->EmployeeID);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+            
+            if ($rs = mysqli_fetch_assoc($result)) {
+                $profileData = array(
+                    "employeeID" => $rs['empID'],
+                    "employeeName" => $rs['employeeName'],
+                    "employeePhoto" => $rs['employeePhoto'],
+                    "branch" => $rs['branchName'] ?? 'Not Assigned',
+                    "section" => $rs['SectionName'] ?? 'Not Assigned',
+                    "designation" => $rs['Designation'],
+                    "dateOfBirth" => $rs['DateOfBirth'],
+                    "dateOfJoining" => $rs['joiningDate'],
+                    "dateOfRetirement" => $rs['retirementDate'],
+                    "managerName" => $rs['managerName'] ?? 'Not Assigned'
+                );
+                
+                echo json_encode(array(
+                    "status" => "success",
+                    "data" => $profileData
+                ), JSON_FORCE_OBJECT);
+            } else {
+                echo json_encode(array(
+                    "status" => "error",
+                    "message_text" => "Error fetching employee details"
+                ), JSON_FORCE_OBJECT);
+            }
+            
+            mysqli_stmt_close($stmt);
+            mysqli_close($connect_var);
+            
+        } catch(Exception $e) {
+            echo json_encode(array(
+                "status" => "error",
+                "message_text" => "Error fetching profile details: " . $e->getMessage()
+            ), JSON_FORCE_OBJECT);
+        }
+    }
+}
+
 class ForgotPasswordMaster {
     public $EmployeePhone;
     public $NewPassword;
@@ -123,6 +237,18 @@ function forgotPassword($decoded_items){
     $forgotPasswordObject = new ForgotPasswordMaster();
     if($forgotPasswordObject->loadForgotPassword($decoded_items)){
         $forgotPasswordObject->forgotPassword();
+    } else {
+        echo json_encode(array(
+            "status" => "error",
+            "message_text" => "Invalid input parameters"
+        ), JSON_FORCE_OBJECT);
+    }
+}
+
+function getProfileDetails($decoded_items) {
+    $profileObject = new EmployeeProfileMaster();
+    if($profileObject->loadProfileDetails($decoded_items)) {
+        $profileObject->getProfileDetails();
     } else {
         echo json_encode(array(
             "status" => "error",
