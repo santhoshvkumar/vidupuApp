@@ -62,6 +62,8 @@ require 'WebApp/TransferEmployee/TransferEmployeeRouter.php';
 require 'WebApp/Reports/ReportsComponent.php';
 require 'WebApp/Reports/ReportsRouter.php';
 
+require 'Refreshment/refreshmentRouter.php';
+require 'Refreshment/refreshmentComponent.php';
 
 // require 'AddEmployee/AddEmployeeComponent.php';
 // require 'AddEmployee/AddEmployeeRouter.php';
