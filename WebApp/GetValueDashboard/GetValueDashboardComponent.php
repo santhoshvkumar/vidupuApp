@@ -3,7 +3,7 @@ class GetValueDashboardComponent {
     public $currentDate;    
     public $branchID;
     public $employeeID;
-    public function loadGetValueDashboard(array $data) {        
+    public function loadGetValueDashboard(array $data) { 
         if (!isset($data['currentDate']) || !isset($data['branchID'])) {
             return false;
         }
@@ -24,7 +24,7 @@ class GetValueDashboardComponent {
         $this->currentDate = $data['currentDate'];
         return true;
     }
-    public function loadGetAllAbesentEmployees(array $data) {          
+    public function loadGetAllAbesentEmployees(array $data) {    
         if (!isset($data['currentDate']) || !isset($data['branchID'])) {
             return false;
         }
@@ -137,9 +137,12 @@ LEFT JOIN tblSection AS sec ON assign.sectionID = sec.sectionID
 LEFT JOIN tblAttendance AS att 
     ON emp.employeeID = att.employeeID 
     AND DATE(att.attendanceDate) = ?
-WHERE emp.isActive = 1 
+WHERE emp.isActive = 1
   AND emp.employeeID <> 888
-  AND att.checkInTime IS NULL;";
+  AND att.checkInTime IS NULL  GROUP BY 
+                emp.employeeName, 
+                locationName, 
+                emp.employeePhone;";
 
             $debug_query = str_replace(
                 ['?'],
