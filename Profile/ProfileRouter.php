@@ -29,4 +29,17 @@ $f3->route('POST /ForgotPassword',
 );
 /*****************  End Forgot Password *****************/
 
+/*****************   Get Profile Details  *******************/
+$f3->route('POST /GetProfileDetails',
+    function($f3){
+        header('Content-Type: application/json');
+        $decoded_items = json_decode($f3->get('BODY'),true);
+        if(!$decoded_items == NULL)
+            getProfileDetails($decoded_items);
+        else
+            echo json_encode(array("status"=>"error","message_text"=>"Invalid input parameters"),JSON_FORCE_OBJECT);
+    }
+);
+/*****************  End Get Profile Details *****************/
+
 ?>
