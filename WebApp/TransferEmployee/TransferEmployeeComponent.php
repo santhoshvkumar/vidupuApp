@@ -76,7 +76,7 @@ class TransferEmployeeComponent{
             $data = [];
             if($this->transferMethod == "Temporary Transfer"){  
                 // 1. Get all active employees Name, ID and BranchID
-                $queryTransferEmployeeDetails = "UPDATE tblMapEmp SET branchID = (
+                $queryTransferEmployeeDetails = "UPDATE tblmapEmp SET branchID = (
                     SELECT branchID 
                     FROM tblBranch 
                     WHERE branchName = ?

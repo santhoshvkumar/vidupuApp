@@ -3,7 +3,10 @@ class GetValueDashboardComponent {
     public $currentDate;    
     public $branchID;
     public $employeeID;
-    public function loadGetValueDashboard(array $data) { 
+    public function loadGetValueDashboard(array $data) {        
+        if (!isset($data['currentDate']) || !isset($data['branchID'])) {
+            return false;
+        }
         $this->currentDate = $data['currentDate'];
         $this->branchID = $data['branchID'];
         return true;
@@ -21,8 +24,12 @@ class GetValueDashboardComponent {
         $this->currentDate = $data['currentDate'];
         return true;
     }
-    public function loadGetAllAbesentEmployees(array $data) {    
+    public function loadGetAllAbesentEmployees(array $data) {          
+        if (!isset($data['currentDate']) || !isset($data['branchID'])) {
+            return false;
+        }
         $this->currentDate = $data['currentDate'];
+        $this->branchID = $data['branchID'];
         return true;
     }
     public function loadGetAllCheckInMembersforAll(array $data) {    
@@ -61,6 +68,7 @@ LEFT JOIN tblAssignedSection AS assign ON emp.employeeID = assign.employeeID
 LEFT JOIN tblSection AS sec ON assign.sectionID = sec.sectionID 
 WHERE emp.isActive = 1
   AND m.branchID = ?
+  AND emp.employeeID <> 888
 ;";
 
             $debug_query = str_replace(
@@ -129,7 +137,8 @@ LEFT JOIN tblSection AS sec ON assign.sectionID = sec.sectionID
 LEFT JOIN tblAttendance AS att 
     ON emp.employeeID = att.employeeID 
     AND DATE(att.attendanceDate) = ?
-WHERE emp.isActive = 1
+WHERE emp.isActive = 1 
+  AND emp.employeeID <> 888
   AND att.checkInTime IS NULL;";
 
             $debug_query = str_replace(
@@ -199,12 +208,22 @@ LEFT JOIN tblAttendance AS att
     AND DATE(att.attendanceDate) = ?
 WHERE emp.isActive = 1
   AND m.branchID = ?
-  AND att.checkInTime IS NULL;";
+  AND att.checkInTime IS NULL
+  AND emp.employeeID NOT IN (
+      SELECT employeeID
+      FROM tblApplyLeave
+      WHERE status = 'Approved' AND employeeID <> 888
+        AND ? BETWEEN fromDate AND toDate
+  );
+
+";
 
             $debug_query = str_replace(
-                ['?'],
+                ['?', '?', '?'],
                 [
+                    "'" . $this->currentDate . "'",
                     "'" . $this->branchID . "'",
+                    "'" . $this->currentDate . "'",
                 ],
                 $queryIndividualNoOfCheckinsInHeadOffice
             );
@@ -215,7 +234,7 @@ WHERE emp.isActive = 1
                 throw new Exception("Database prepare failed");
             }
 
-            mysqli_stmt_bind_param($stmt, "ss", $this->currentDate, $this->branchID);
+            mysqli_stmt_bind_param($stmt, "sss", $this->currentDate, $this->branchID, $this->currentDate);
 
             if (!mysqli_stmt_execute($stmt)) {  
                 throw new Exception("Database execute failed");
@@ -268,11 +287,19 @@ LEFT JOIN tblAttendance AS att
     ON emp.employeeID = att.employeeID 
     AND DATE(att.attendanceDate) = ?
 WHERE emp.isActive = 1
-  AND att.checkInTime IS NULL;";
+  AND att.checkInTime IS NULL
+  AND emp.employeeID NOT IN (
+      SELECT employeeID
+      FROM tblApplyLeave
+      WHERE status = 'Approved' AND employeeID <> 888
+        AND ? BETWEEN fromDate AND toDate
+  );
+";
 
             $debug_query = str_replace(
-                ['?'],
+                ['?', '?'],
                 [
+                    "'" . $this->currentDate . "'",
                     "'" . $this->currentDate . "'",
                 ],
                 $queryIndividualNoOfCheckinsInHeadOffice
@@ -284,7 +311,7 @@ WHERE emp.isActive = 1
                 throw new Exception("Database prepare failed");
             }
 
-            mysqli_stmt_bind_param($stmt, "s", $this->currentDate);
+            mysqli_stmt_bind_param($stmt, "ss", $this->currentDate, $this->currentDate);
 
             if (!mysqli_stmt_execute($stmt)) {  
                 throw new Exception("Database execute failed");
@@ -338,6 +365,7 @@ WHERE emp.isActive = 1
                 INNER JOIN tblAttendance AS att ON emp.employeeID = att.employeeID 
                     AND DATE(att.attendanceDate) = ?
                     AND m.branchID IN (?)
+                    AND emp.employeeID <> 888
             GROUP BY 
                 emp.employeeName, 
                 locationName, 
@@ -404,6 +432,7 @@ WHERE emp.isActive = 1
                 LEFT JOIN tblSection AS sec ON assign.sectionID = sec.sectionID
                 INNER JOIN tblAttendance AS att ON emp.employeeID = att.employeeID 
                     AND DATE(att.attendanceDate) = ?                    
+                    AND emp.employeeID <> 888
             GROUP BY 
                 emp.employeeName, 
                 locationName, 
@@ -488,6 +517,7 @@ WHERE emp.isActive = 1
         JOIN tblAttendance AS att ON emp.employeeID = att.employeeID
         WHERE DATE(att.attendanceDate) = ?
           AND m.branchID IN (?) 
+          AND emp.employeeID <> 888
         GROUP BY emp.employeeName, locationName, emp.employeePhone, emp.employeeID
         HAVING early_checkout > 0;";
         
@@ -576,7 +606,7 @@ WHERE emp.isActive = 1
         LEFT JOIN tblSection AS sec ON assign.sectionID = sec.sectionID AND m.branchID = 1
         LEFT JOIN tblBranch AS b ON m.branchID = b.branchID AND m.branchID <> 1
         JOIN tblAttendance AS att ON emp.employeeID = att.employeeID
-        WHERE DATE(att.attendanceDate) = ?
+        WHERE DATE(att.attendanceDate) = ? AND emp.employeeID <> 888
         GROUP BY emp.employeeName, locationName, emp.employeePhone, emp.employeeID
         HAVING early_checkout > 0;";
         
@@ -653,7 +683,7 @@ LEFT JOIN tblSection AS sec ON assign.sectionID = sec.sectionID AND m.branchID =
 LEFT JOIN tblBranch AS b ON m.branchID = b.branchID AND m.branchID <> 1
 JOIN tblApplyLeave AS lv ON emp.employeeID = lv.employeeID
 WHERE lv.status = 'Approved'
-  AND m.branchID IN (?)
+  AND m.branchID IN (?) AND emp.employeeID <> 888
 GROUP BY emp.employeeName, locationName, emp.employeePhone
 HAVING on_leave > 0;
 ";
@@ -730,7 +760,7 @@ LEFT JOIN tblAssignedSection AS assign ON emp.employeeID = assign.employeeID
 LEFT JOIN tblSection AS sec ON assign.sectionID = sec.sectionID AND m.branchID = 1
 LEFT JOIN tblBranch AS b ON m.branchID = b.branchID AND m.branchID <> 1
 JOIN tblApplyLeave AS lv ON emp.employeeID = lv.employeeID
-WHERE lv.status = 'Approved'
+WHERE lv.status = 'Approved' AND emp.employeeID <> 888
 GROUP BY emp.employeeName, locationName, emp.employeePhone
 HAVING on_leave > 0;
 ";
@@ -819,7 +849,7 @@ HAVING on_leave > 0;
         LEFT JOIN tblBranch AS b ON m.branchID = b.branchID AND m.branchID <> 1
         JOIN tblAttendance AS att ON emp.employeeID = att.employeeID
         WHERE DATE(att.attendanceDate) = ?
-          AND m.branchID IN (?)  
+          AND m.branchID IN (?) AND emp.employeeID <> 888
         GROUP BY emp.employeeName, locationName, emp.employeePhone
         HAVING late_checkin > 0;";
         
@@ -908,7 +938,7 @@ HAVING on_leave > 0;
         LEFT JOIN tblSection AS sec ON assign.sectionID = sec.sectionID AND m.branchID = 1
         LEFT JOIN tblBranch AS b ON m.branchID = b.branchID AND m.branchID <> 1
         JOIN tblAttendance AS att ON emp.employeeID = att.employeeID
-        WHERE DATE(att.attendanceDate) = ?
+        WHERE DATE(att.attendanceDate) = ? AND emp.employeeID <> 888
         GROUP BY emp.employeeName, locationName, emp.employeePhone
         HAVING late_checkin > 0;";
         
@@ -1062,7 +1092,7 @@ function GetAllActiveEmployeesforAll($decoded_items) {
 }
 function GetAllAbesentEmployees($decoded_items) {
     $GetValueDashboardObject = new GetValueDashboardComponent();
-    if ($GetValueDashboardObject->loadGetValueDashboard($decoded_items)) {
+    if ($GetValueDashboardObject->loadGetAllAbesentEmployees($decoded_items)) {
         $GetValueDashboardObject->GetAllAbesentEmployeesDetails();
     } else {
         echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
