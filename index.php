@@ -32,6 +32,9 @@ require 'AttendanceOperation/AttendanceOperationComponent.php';
 require 'ApproveLeave/ApproveLeaveRouter.php';
 require 'ApproveLeave/ApproveLeaveComponent.php';
 
+require 'EmployeePaySlip/EmployeePaySlipRouter.php';
+require 'EmployeePaySlip/EmployeePaySlipComponent.php';
+
 require 'WebApp/Dashboard/DashboardRouter.php';
 require 'WebApp/Dashboard/DashboardComponent.php';
 
