@@ -23,6 +23,7 @@ class EmployeeComponent{
     public $medicalLeave;
     public $employeeName;
     public $deviceFingerprint;
+    public $employeeBloodGroup;
 
     public function loadResetPassword(array $data){ 
         if (isset($data['empID'])) {  
@@ -63,6 +64,7 @@ class EmployeeComponent{
             'employeePhone',
             'employeeGender',
             'Designation',
+            'employeeBloodGroup',
             'isManager',
             'employeeDOB',
             'joiningDate',
@@ -93,6 +95,7 @@ class EmployeeComponent{
             $this->employeePhone = trim($data['employeePhone']);
             $this->employeeGender = trim($data['employeeGender']);
             $this->Designation = trim($data['Designation']);
+            $this->employeeBloodGroup = trim($data['employeeBloodGroup']);
             $this->isManager = (int)$data['isManager'];
             $this->employeeDOB = $data['employeeDOB'];
             $this->joiningDate = $data['joiningDate'];
@@ -380,6 +383,7 @@ WHERE tblE.isTemporary = 0;
     tblE.employeePhone,
     tblE.employeeGender, 
     tblE.Designation, 
+    tblE.employeeBloodGroup,
     CASE 
         WHEN tblE.isManager = 1 THEN 'Yes'
         ELSE 'No'
@@ -470,6 +474,7 @@ WHERE
                     employeePhone = ?,  
                     employeeGender = ?,
                     Designation = ?,
+                    employeeBloodGroup = ?,
                     isManager = ?,
                     employeeDOB = ?,
                     joiningDate = ?,
@@ -481,11 +486,12 @@ WHERE
                 throw new Exception("Failed to prepare employee update statement: " . mysqli_error($connect_var));
             }
             
-            mysqli_stmt_bind_param($stmt, "sssssssss", 
+            mysqli_stmt_bind_param($stmt, "ssssssssss", 
                 $this->employeeName,
                 $this->employeePhone,
                 $this->employeeGender,
                 $this->Designation,
+                $this->employeeBloodGroup,
                 $this->isManager,
                 $this->employeeDOB,
                 $this->joiningDate,
