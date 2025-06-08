@@ -319,6 +319,7 @@ class EmployeeComponent{
     
             // 1. Get all active employees Name, ID and BranchID
             $queryGetEmployeeDetails = "SELECT DISTINCT
+    tblE.employeeID,
     tblE.empID, 
     tblE.employeeName, 
     tblE.employeePhone,
