@@ -61,6 +61,18 @@ class RefreshmentMaster {
                 throw new Exception("Missing required fields");
             }
 
+            // Check if employee already submitted for this month
+            $checkQuery = "SELECT SubscriptionID FROM tblNewspaperAllowance 
+                          WHERE EmployeeID = ? AND Month = ? AND Year = ?";
+            $stmt = mysqli_prepare($connect_var, $checkQuery);
+            mysqli_stmt_bind_param($stmt, "sii", $data['employeeID'], $data['month'], $data['year']);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+            
+            if (mysqli_num_rows($result) > 0) {
+                throw new Exception("You have already submitted newspaper selection for this month");
+            }
+
             // Get newspaper costs
             $query = "SELECT NewspaperID, Cost FROM tblNewspaper 
                      WHERE NewspaperID IN (?, ?)";
@@ -247,11 +259,84 @@ class RefreshmentMaster {
 
         mysqli_close($connect_var);
     }
+
+    public function getNewspaperHistory($employeeID) {
+        include('config.inc');
+        header('Content-Type: application/json');
+        error_reporting(E_ALL);
+        ini_set('display_errors', 1);
+    
+        try {
+            $query = "SELECT 
+                        na.SubscriptionID as id,
+                        na.EmployeeID as employeeID,
+                        na.FirstNewspaperID,
+                        na.SecondNewspaperID,
+                        na.FirstNewspaperCost,
+                        na.SecondNewspaperCost,
+                        na.TotalCost as totalAmount,
+                        na.Month,
+                        na.Year,
+                        na.BillImage,
+                        na.CreatedDate,
+                        n1.NewspaperName as firstNewspaperName,
+                        n2.NewspaperName as secondNewspaperName
+                    FROM tblNewspaperAllowance na
+                    LEFT JOIN tblNewspaper n1 ON na.FirstNewspaperID = n1.NewspaperID
+                    LEFT JOIN tblNewspaper n2 ON na.SecondNewspaperID = n2.NewspaperID
+                    WHERE na.EmployeeID = ?
+                    ORDER BY na.CreatedDate DESC";
+    
+            $stmt = mysqli_prepare($connect_var, $query);
+            mysqli_stmt_bind_param($stmt, "s", $employeeID);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+            
+            $history = array();
+            while ($row = mysqli_fetch_assoc($result)) {
+                $history[] = array(
+                    'id' => $row['id'],
+                    'employeeID' => $row['employeeID'],
+                    'firstNewspaperID' => $row['FirstNewspaperID'],
+                    'secondNewspaperID' => $row['SecondNewspaperID'],
+                    'firstNewspaperName' => $row['firstNewspaperName'],
+                    'secondNewspaperName' => $row['secondNewspaperName'],
+                    'firstNewspaperCost' => number_format((float)$row['FirstNewspaperCost'], 2, '.', ''),
+                    'secondNewspaperCost' => number_format((float)$row['SecondNewspaperCost'], 2, '.', ''),
+                    'totalAmount' => number_format((float)$row['totalAmount'], 2, '.', ''),
+                    'month' => $row['Month'],
+                    'year' => $row['Year'],
+                    'billImage' => $row['BillImage'],
+                    'createdDate' => $row['CreatedDate']
+                    // 'status' => $row['status'] // <-- removed
+                );
+            }
+            
+            echo json_encode(array(
+                "status" => "success",
+                "record_count" => count($history),
+                "result" => $history
+            ));
+    
+        } catch (Exception $e) {
+            echo json_encode(array(
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ));
+        }
+    
+        mysqli_close($connect_var);
+    }
 }
 
 function getNewspaperDetails() {
     $refreshmentObject = new RefreshmentMaster();
     $refreshmentObject->getNewspaperDetails();
+}
+
+function getNewspaperHistory($employeeID) {
+    $refreshmentObject = new RefreshmentMaster();
+    $refreshmentObject->getNewspaperHistory($employeeID);
 }
 
 function submitNewspaperSubscription($data) {

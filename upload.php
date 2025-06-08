@@ -33,6 +33,7 @@ if (!is_dir($targetDir)) {
 // Pre-create subdirectories at startup
 $medicalDir = $targetDir . "medical/";
 $fitnessDir = $targetDir . "fitness/";
+$newspaperDir = $targetDir . "newspaper/";
 
 if (!is_dir($medicalDir) && !mkdir($medicalDir, 0755, true)) {
     error_log("Warning: Failed to pre-create medical directory");
@@ -42,6 +43,9 @@ if (!is_dir($fitnessDir) && !mkdir($fitnessDir, 0755, true)) {
     error_log("Warning: Failed to pre-create fitness directory");
 }
 
+if (!is_dir($newspaperDir) && !mkdir($newspaperDir, 0755, true)) {
+    error_log("Warning: Failed to pre-create newspaper directory");
+}
 
 // Check if request contains any data
 if (empty($_POST) && empty($_FILES) && isset($_SERVER['CONTENT_LENGTH']) && $_SERVER['CONTENT_LENGTH'] > 0) {
@@ -89,6 +93,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $targetSubDir .= "medical/";
                 } else if (strtolower($certificateType) === 'fitness') {
                     $targetSubDir .= "fitness/";
+                } else if (strtolower($certificateType) === 'newspaper') {
+                    $targetSubDir .= "newspaper/";
                 }
 
                 // Create directory if it doesn't exist
@@ -120,6 +126,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     $sql = "UPDATE tblApplyLeave SET MedicalCertificatePath = ?, MedicalCertificateUploadDate = ? WHERE applyLeaveID = ?";
                                 } else if (strtolower($certificateType) === 'fitness') {
                                     $sql = "UPDATE tblApplyLeave SET FitnessCertificatePath = ?, FitnessCertificateUploadDate = ?, status = 'Yet To Be Approved' WHERE applyLeaveID = ?";
+                                } else if (strtolower($certificateType) === 'newspaper') {
+                                    $sql = "UPDATE tblNewspaperAllowance SET BillImage = ?, UploadDate = ? WHERE NewspaperAllowanceID = ?";
                                 } else {
                                     $sql = "UPDATE tblApplyLeave SET certificatePath = ?, certificateUploadDate = ? WHERE applyLeaveID = ?";
                                 }
