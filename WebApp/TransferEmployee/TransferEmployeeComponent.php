@@ -7,6 +7,7 @@ class TransferEmployeeComponent{
     public $createdBy;
     public $AssignedDate;
     public $transferMethod;
+    public $managerID;
     public function loadTransferEmployeeDetails(array $data){       
         if (isset($data['empID']) && isset($data['branchID']) && isset($data['createdOn']) && isset($data['createdBy']) && isset($data['AssignedDate']) && isset($data['transferMethod'])) {
             $this->empID = $data['empID'];
@@ -24,6 +25,18 @@ class TransferEmployeeComponent{
             $this->empID = $data['empID'];
             $this->branchName = $data['branchName'];
             $this->transferMethod = $data['transferMethod'];
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    public function loadPermanentTransfer(array $data){
+        if (isset($data['empID']) && isset($data['branchName']) && isset($data['transferMethod']) && isset($data['managerID'])) {
+            $this->empID = $data['empID'];
+            $this->branchName = $data['branchName'];
+            $this->transferMethod = $data['transferMethod'];
+            $this->managerID = $data['managerID'];
             return true;
         } else {
             return false;
@@ -118,6 +131,80 @@ class TransferEmployeeComponent{
             ], JSON_FORCE_OBJECT);
         }
     }
+    public function PermanentTransfer() {
+        include('config.inc');
+        header('Content-Type: application/json');
+    
+        try {
+            $data = [];
+            if($this->transferMethod == "Permanent Transfer"){  
+                // Start transaction
+                mysqli_begin_transaction($connect_var);
+                
+                try {
+                    // 1. Get employeeID first
+                    $queryGetEmployeeID = "SELECT employeeID FROM tblEmployee WHERE empID = ?";
+                    $stmt = mysqli_prepare($connect_var, $queryGetEmployeeID);
+                    mysqli_stmt_bind_param($stmt, "s", $this->empID);
+                    mysqli_stmt_execute($stmt);
+                    $result = mysqli_stmt_get_result($stmt);
+                    $row = mysqli_fetch_assoc($result);
+                    $employeeID = $row['employeeID'];
+                    mysqli_stmt_close($stmt);
+
+                    // 2. Get branchID
+                    $queryGetBranchID = "SELECT branchID FROM tblBranch WHERE branchName = ?";
+                    $stmt = mysqli_prepare($connect_var, $queryGetBranchID);
+                    mysqli_stmt_bind_param($stmt, "s", $this->branchName);
+                    mysqli_stmt_execute($stmt);
+                    $result = mysqli_stmt_get_result($stmt);
+                    $row = mysqli_fetch_assoc($result);
+                    $branchID = $row['branchID'];
+                    mysqli_stmt_close($stmt);
+
+                    // 3. Update branch mapping
+                    $queryUpdateBranch = "UPDATE tblmapEmp SET branchID = ? WHERE employeeID = ?";
+                    $stmt = mysqli_prepare($connect_var, $queryUpdateBranch);
+                    mysqli_stmt_bind_param($stmt, "ss", $branchID, $employeeID);
+                    mysqli_stmt_execute($stmt);
+                    mysqli_stmt_close($stmt);
+
+                    // 4. Update managerID
+                    $queryUpdateManager = "UPDATE tblEmployee SET managerID = ? WHERE employeeID = ?";
+                    $stmt = mysqli_prepare($connect_var, $queryUpdateManager);
+                    mysqli_stmt_bind_param($stmt, "ss", $this->managerID, $employeeID);
+                    mysqli_stmt_execute($stmt);
+                    mysqli_stmt_close($stmt);
+
+                    // Commit transaction
+                    mysqli_commit($connect_var);
+
+                    echo json_encode(array(
+                        "status" => "success",
+                        "message" => "Employee Transferred successfully"
+                    ));
+                } catch (Exception $e) {
+                    // Rollback transaction on error
+                    mysqli_rollback($connect_var);
+                    throw $e;
+                }
+            } else {
+                echo json_encode(array(
+                    "status" => "error",
+                    "message" => "Invalid Transfer Method"
+                ));
+            }
+        } catch (Exception $e) {
+            echo json_encode([
+                "status" => "error", 
+                "message_text" => $e->getMessage()
+            ], JSON_FORCE_OBJECT);
+        } finally {
+            if (isset($connect_var)) {
+                mysqli_close($connect_var);
+            }
+        }
+    }
 
 } // End of 
 function TransferEmployeeDetails($decoded_items) {
@@ -132,6 +219,14 @@ function TemporaryTransfer($decoded_items) {
     $EmployeeObject = new TransferEmployeeComponent();
     if ($EmployeeObject->loadTemporaryTransfer($decoded_items)) {
         $EmployeeObject->TemporaryTransfer($decoded_items);
+    } else {
+        echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
+    }
+}
+function PermanentTransfer($decoded_items) {
+    $EmployeeObject = new TransferEmployeeComponent();
+    if ($EmployeeObject->loadPermanentTransfer($decoded_items)) {
+        $EmployeeObject->PermanentTransfer($decoded_items);
     } else {
         echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
     }

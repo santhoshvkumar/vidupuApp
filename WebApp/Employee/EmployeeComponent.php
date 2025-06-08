@@ -3,7 +3,7 @@
 class EmployeeComponent{
     public $employeeID;
     public $employeeRole;
-    public $EmployeePassword;
+    public $employeePassword;
     public $PresentBranchID;
     public $NewBranchID;
     public $interChangeDate;
@@ -22,6 +22,25 @@ class EmployeeComponent{
     public $privilegeLeave;
     public $medicalLeave;
     public $employeeName;
+    public $deviceFingerprint;
+    public $employeeBloodGroup;
+
+    public function loadResetPassword(array $data){ 
+        if (isset($data['empID'])) {  
+            $this->empID = $data['empID'];
+            return true;
+        } else {
+            return false;
+        }
+    }
+    public function loadDeviceFingerprint(array $data){ 
+        if (isset($data['empID'])) {  
+            $this->empID = $data['empID'];
+            return true;
+        } else {
+            return false;
+        }
+    }
 
     public function loadEmployeeDetails(array $data){
         if (isset($data['employeeID']) && isset($data['currentBranchID'])) {
@@ -45,6 +64,7 @@ class EmployeeComponent{
             'employeePhone',
             'employeeGender',
             'Designation',
+            'employeeBloodGroup',
             'isManager',
             'employeeDOB',
             'joiningDate',
@@ -58,35 +78,41 @@ class EmployeeComponent{
         // Validate required fields
         foreach ($required_fields as $field) {
             if (!isset($data[$field])) {
-                error_log("Field not set: " . $field);
+                error_log("Missing required field: " . $field);
                 return false;
             }
             // Skip empty check for numeric fields
             if (!in_array($field, ['branchID', 'casualLeave', 'privilegeLeave', 'medicalLeave', 'isManager']) && $data[$field] === '') {
-                error_log("Field is empty: " . $field);
+                error_log("Empty required field: " . $field);
                 return false;
             }
         }
 
-        // Set the properties
-        $this->empID = $data['empID'];
-        $this->employeeName = $data['employeeName'];
-        $this->employeePhone = $data['employeePhone'];
-        $this->employeeGender = $data['employeeGender'];
-        $this->Designation = $data['Designation'];
-        $this->isManager = (int)$data['isManager'];
-        $this->employeeDOB = $data['employeeDOB'];
-        $this->joiningDate = $data['joiningDate'];
-        $this->retirementDate = $data['retirementDate'];
-        $this->branchID = (int)$data['branchID'];
-        $this->sectionID = isset($data['sectionID']) && $data['sectionID'] !== '' ? (int)$data['sectionID'] : 0;
-        $this->casualLeave = (int)$data['casualLeave'];
-        $this->privilegeLeave = (int)$data['privilegeLeave'];
-        $this->medicalLeave = (int)$data['medicalLeave'];
-        
-        // Debug log the set properties
-        error_log("Properties set successfully in loadUpdateEmployeeDetails");
-        return true;
+        try {
+            // Set the properties
+            $this->empID = trim($data['empID']);
+            $this->employeeName = trim($data['employeeName']);
+            $this->employeePhone = trim($data['employeePhone']);
+            $this->employeeGender = trim($data['employeeGender']);
+            $this->Designation = trim($data['Designation']);
+            $this->employeeBloodGroup = trim($data['employeeBloodGroup']);
+            $this->isManager = (int)$data['isManager'];
+            $this->employeeDOB = $data['employeeDOB'];
+            $this->joiningDate = $data['joiningDate'];
+            $this->retirementDate = $data['retirementDate'];
+            $this->branchID = (int)$data['branchID'];
+            $this->sectionID = isset($data['sectionID']) && $data['sectionID'] !== '' ? (int)$data['sectionID'] : 0;
+            $this->casualLeave = (int)$data['casualLeave'];
+            $this->privilegeLeave = (int)$data['privilegeLeave'];
+            $this->medicalLeave = (int)$data['medicalLeave'];
+            
+            // Debug log the set properties
+            error_log("Properties set successfully in loadUpdateEmployeeDetails");
+            return true;
+        } catch (Exception $e) {
+            error_log("Error setting properties: " . $e->getMessage());
+            return false;
+        }
     }
     public function loadGetEmployeeDetails(array $data) {
         if (isset($data['employeeID'])) {
@@ -143,7 +169,77 @@ class EmployeeComponent{
             ], JSON_FORCE_OBJECT);
         }
     } 
+    public function ResetPassword() {
+        include('config.inc');
+        header('Content-Type: application/json');    
+        try {       
+            $data = [];                       
 
+            $ResetPasswordQuery = "
+               UPDATE tblEmployee 
+               SET employeePassword = MD5('Password#1') 
+               WHERE empID = ?;";
+
+
+            $stmt = mysqli_prepare($connect_var, $ResetPasswordQuery);
+            if (!$stmt) {
+                throw new Exception("Database prepare failed");
+            }
+
+            mysqli_stmt_bind_param($stmt, "s", 
+                $this->empID
+            );
+            
+            if (!mysqli_stmt_execute($stmt)) {
+                throw new Exception("Database execute failed");
+            }
+
+            $result = mysqli_stmt_get_result($stmt);    
+            $ResetPasswordResult = [];    
+            $ResetPasswordResult['status'] = "success";
+            $ResetPasswordResult['message_text'] = "Password reset successfully";
+            
+            echo json_encode($ResetPasswordResult, JSON_FORCE_OBJECT);
+            
+        } catch (Exception $e) {
+            echo json_encode([
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ], JSON_FORCE_OBJECT);
+        }
+    }
+    public function ResetDeviceFingerprint() {
+        include('config.inc');
+        header('Content-Type: application/json');
+        try {
+            $data = [];
+            $ResetDeviceFingerprintQuery = "UPDATE tblEmployee SET deviceFingerprint = '' WHERE empID = ?";
+            $stmt = mysqli_prepare($connect_var, $ResetDeviceFingerprintQuery);
+            if (!$stmt) {
+                throw new Exception("Database prepare failed");
+            }
+
+            mysqli_stmt_bind_param($stmt, "s", 
+                $this->empID
+            );
+            
+            if (!mysqli_stmt_execute($stmt)) {
+                throw new Exception("Database execute failed");
+            }
+
+            $result = mysqli_stmt_get_result($stmt);    
+            $ResetDeviceFingerprintResult = [];    
+            $ResetDeviceFingerprintResult['status'] = "success";
+            $ResetDeviceFingerprintResult['message_text'] = "Device fingerprint reset successfully";            
+            echo json_encode($ResetDeviceFingerprintResult, JSON_FORCE_OBJECT);
+
+        } catch (Exception $e) {
+            echo json_encode([
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ], JSON_FORCE_OBJECT);
+        }   
+    }
     public function AllEmployeeDetails() {
         include('config.inc');
         header('Content-Type: application/json');
@@ -222,12 +318,14 @@ class EmployeeComponent{
             $data = [];
     
             // 1. Get all active employees Name, ID and BranchID
-            $queryGetEmployeeDetails = "SELECT 
+            $queryGetEmployeeDetails = "SELECT DISTINCT
+    tblE.employeeID,
     tblE.empID, 
     tblE.employeeName, 
     tblE.employeePhone,
     tblE.employeeGender, 
     tblE.Designation, 
+    tblE.employeeBloodGroup,
     CASE 
         WHEN tblE.isManager = 1 THEN 'Yes'
         ELSE 'No'
@@ -240,37 +338,19 @@ class EmployeeComponent{
     tblS.sectionName,
     tblL.casualLeave,
     tblL.privilegeLeave,
-    tblL.medicalLeave
+    tblL.medicalLeave,
+    tblE.deviceFingerprint,
+    tblE.employeePassword
 FROM 
     tblEmployee tblE
-JOIN 
-    tblmapEmp tblM ON tblE.employeeID = tblM.employeeID
-JOIN 
-    tblBranch tblB ON tblM.branchID = tblB.branchID
-LEFT JOIN 
-    tblAssignedSection tblA ON tblE.employeeID = tblA.employeeID AND tblA.isActive = 1
-LEFT JOIN 
-    tblSection tblS ON tblA.sectionID = tblS.sectionID
-LEFT JOIN 
-    tblLeaveBalance tblL ON tblE.employeeID = tblL.employeeID
-WHERE 
-    tblE.isTemporary = 0
-GROUP BY 
-    tblE.empID, 
-    tblE.employeeName, 
-    tblE.employeePhone,
-    tblE.employeeGender, 
-    tblE.Designation,
-    tblE.isManager,
-    tblE.employeeDOB,
-    tblE.joiningDate,
-    tblE.retirementDate,
-    tblB.branchID, 
-    tblB.branchName,   
-    tblS.sectionName,
-    tblL.casualLeave,
-    tblL.privilegeLeave,
-    tblL.medicalLeave;";
+JOIN tblmapEmp tblM ON tblE.employeeID = tblM.employeeID
+JOIN tblBranch tblB ON tblM.branchID = tblB.branchID
+LEFT JOIN tblAssignedSection tblA 
+       ON tblE.employeeID = tblA.employeeID AND tblA.isActive = 1
+LEFT JOIN tblSection tblS ON tblA.sectionID = tblS.sectionID
+LEFT JOIN tblLeaveBalance tblL ON tblE.employeeID = tblL.employeeID
+WHERE tblE.isTemporary = 0;
+";
             $result = mysqli_query($connect_var, $queryGetEmployeeDetails);            
 
             // Initialize an array to hold all employee details
@@ -304,6 +384,7 @@ GROUP BY
     tblE.employeePhone,
     tblE.employeeGender, 
     tblE.Designation, 
+    tblE.employeeBloodGroup,
     CASE 
         WHEN tblE.isManager = 1 THEN 'Yes'
         ELSE 'No'
@@ -394,6 +475,7 @@ WHERE
                     employeePhone = ?,  
                     employeeGender = ?,
                     Designation = ?,
+                    employeeBloodGroup = ?,
                     isManager = ?,
                     employeeDOB = ?,
                     joiningDate = ?,
@@ -405,11 +487,12 @@ WHERE
                 throw new Exception("Failed to prepare employee update statement: " . mysqli_error($connect_var));
             }
             
-            mysqli_stmt_bind_param($stmt, "sssssssss", 
+            mysqli_stmt_bind_param($stmt, "ssssssssss", 
                 $this->employeeName,
                 $this->employeePhone,
                 $this->employeeGender,
                 $this->Designation,
+                $this->employeeBloodGroup,
                 $this->isManager,
                 $this->employeeDOB,
                 $this->joiningDate,
@@ -439,8 +522,9 @@ WHERE
             }
             mysqli_stmt_close($stmt);
             
-            // 3. Update section assignment if sectionID is not 0
-            if ($this->sectionID != 0) {
+            // 3. Update section assignment if sectionID is not empty
+            if (!empty($this->sectionID)) {
+                // First deactivate all existing section assignments
                 $queryUpdateSection = "UPDATE tblAssignedSection 
                     SET isActive = 0 
                     WHERE employeeID = (SELECT employeeID FROM tblEmployee WHERE empID = ?)";
@@ -458,8 +542,8 @@ WHERE
                 mysqli_stmt_close($stmt);
                 
                 // Insert new section assignment
-                $queryInsertSection = "INSERT INTO tblAssignedSection (employeeID, sectionID, isActive) 
-                    SELECT employeeID, ?, 1 
+                $queryInsertSection = "INSERT INTO tblAssignedSection (employeeID, sectionID, isActive, createdOn) 
+                    SELECT employeeID, ?, 1, CURDATE()
                     FROM tblEmployee 
                     WHERE empID = ?";
                     
@@ -472,6 +556,23 @@ WHERE
                 
                 if (!mysqli_stmt_execute($stmt)) {
                     throw new Exception("Failed to insert new section assignment: " . mysqli_error($connect_var));
+                }
+                mysqli_stmt_close($stmt);
+            } else {
+                // If sectionID is empty, just deactivate all existing section assignments
+                $queryUpdateSection = "UPDATE tblAssignedSection 
+                    SET isActive = 0 
+                    WHERE employeeID = (SELECT employeeID FROM tblEmployee WHERE empID = ?)";
+                    
+                $stmt = mysqli_prepare($connect_var, $queryUpdateSection);
+                if (!$stmt) {
+                    throw new Exception("Failed to prepare section update statement: " . mysqli_error($connect_var));
+                }
+                
+                mysqli_stmt_bind_param($stmt, "s", $this->empID);
+                
+                if (!mysqli_stmt_execute($stmt)) {
+                    throw new Exception("Failed to update section assignment: " . mysqli_error($connect_var));
                 }
                 mysqli_stmt_close($stmt);
             }
@@ -587,6 +688,22 @@ function UpdateEmployeeDetailsBasedOnID($decoded_items) {
             "debug_info" => "Validation failed in loadUpdateEmployeeDetails"
         ), JSON_FORCE_OBJECT);
     }
-}   
+}
+function ResetPassword($decoded_items) {
+    $ResetPasswordObject = new EmployeeComponent();
+    if ($ResetPasswordObject->loadResetPassword($decoded_items)) {
+        $ResetPasswordObject->ResetPassword();
+    } else {    
+        echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
+    }
+}
+function ResetDeviceFingerprint($decoded_items) {
+    $ResetDeviceFingerprintObject = new EmployeeComponent();
+    if ($ResetDeviceFingerprintObject->loadDeviceFingerprint($decoded_items)) {
+        $ResetDeviceFingerprintObject->ResetDeviceFingerprint();
+    } else {    
+        echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
+    }
+}
 ?>
 

@@ -19,6 +19,14 @@ $f3->route('POST /TemporaryTransfer', function($f3) {
     } else {
         echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
     }
-}); 
+});
+$f3->route('POST /PermanentTransfer', function($f3) {
+    $decoded_items = json_decode($f3->get('BODY'), true);
+    if($decoded_items != NULL) {    
+        PermanentTransfer($decoded_items);
+    } else {
+        echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
+    }
+});
 /*****************  End Temporary Transfer Employee Details *****************/
 ?>
