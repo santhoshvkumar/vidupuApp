@@ -515,8 +515,9 @@ WHERE
             }
             mysqli_stmt_close($stmt);
             
-            // 3. Update section assignment if sectionID is not 0
-            if ($this->sectionID != 0) {
+            // 3. Update section assignment if sectionID is not empty
+            if (!empty($this->sectionID)) {
+                // First deactivate all existing section assignments
                 $queryUpdateSection = "UPDATE tblAssignedSection 
                     SET isActive = 0 
                     WHERE employeeID = (SELECT employeeID FROM tblEmployee WHERE empID = ?)";
@@ -534,8 +535,8 @@ WHERE
                 mysqli_stmt_close($stmt);
                 
                 // Insert new section assignment
-                $queryInsertSection = "INSERT INTO tblAssignedSection (employeeID, sectionID, isActive) 
-                    SELECT employeeID, ?, 1 
+                $queryInsertSection = "INSERT INTO tblAssignedSection (employeeID, sectionID, isActive, createdOn) 
+                    SELECT employeeID, ?, 1, CURDATE()
                     FROM tblEmployee 
                     WHERE empID = ?";
                     
@@ -548,6 +549,23 @@ WHERE
                 
                 if (!mysqli_stmt_execute($stmt)) {
                     throw new Exception("Failed to insert new section assignment: " . mysqli_error($connect_var));
+                }
+                mysqli_stmt_close($stmt);
+            } else {
+                // If sectionID is empty, just deactivate all existing section assignments
+                $queryUpdateSection = "UPDATE tblAssignedSection 
+                    SET isActive = 0 
+                    WHERE employeeID = (SELECT employeeID FROM tblEmployee WHERE empID = ?)";
+                    
+                $stmt = mysqli_prepare($connect_var, $queryUpdateSection);
+                if (!$stmt) {
+                    throw new Exception("Failed to prepare section update statement: " . mysqli_error($connect_var));
+                }
+                
+                mysqli_stmt_bind_param($stmt, "s", $this->empID);
+                
+                if (!mysqli_stmt_execute($stmt)) {
+                    throw new Exception("Failed to update section assignment: " . mysqli_error($connect_var));
                 }
                 mysqli_stmt_close($stmt);
             }

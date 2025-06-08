@@ -8,18 +8,16 @@ ini_set('display_startup_errors', 1);
 ini_set('display_errors', 1);
 error_reporting(-1);
 
-
-$f3=require('lib/base.php');
-
+$f3 = require('lib/base.php');
 $f3->config('config.ini');
 
-
+// Load all required components and routers
 require 'UserLogin/UserLoginRouter.php';
 require 'UserLogin/UserLoginComponent.php';
 
 require 'DailyQuote/DailyQuoteRouter.php';
 require 'DailyQuote/DailyQuoteComponent.php';
-// Commenting out LeaveBalance temporarily
+
 require 'LeaveBalance/LeaveBalanceRouter.php';
 require 'LeaveBalance/LeaveBalanceComponent.php';
 
@@ -32,8 +30,8 @@ require 'AttendanceOperation/AttendanceOperationComponent.php';
 require 'ApproveLeave/ApproveLeaveRouter.php';
 require 'ApproveLeave/ApproveLeaveComponent.php';
 
-require 'EmployeePaySlip/EmployeePaySlipRouter.php';
 require 'EmployeePaySlip/EmployeePaySlipComponent.php';
+require 'EmployeePaySlip/EmployeePaySlipRouter.php';
 
 require 'WebApp/Dashboard/DashboardRouter.php';
 require 'WebApp/Dashboard/DashboardComponent.php';
@@ -53,8 +51,8 @@ require 'WebApp/Login/LoginRouter.php';
 require 'WebApp/BranchWiseFetchDetails/BranchWiseFetchDetailsComponent.php';
 require 'WebApp/BranchWiseFetchDetails/BranchWiseFetchDetailsRouter.php';	
 
-require 'WebApp/ResetPassword/ResetPasswordComponent.php';
-require 'WebApp/ResetPassword/ResetPasswordRouter.php';
+// require 'WebApp/ResetPassword/ResetPasswordComponent.php';
+// require 'WebApp/ResetPassword/ResetPasswordRouter.php';
 
 require 'WebApp/GetValueDashboard/GetValueDashboardComponent.php';
 require 'WebApp/GetValueDashboard/GetValueDashboardRouter.php';
@@ -68,17 +66,11 @@ require 'WebApp/Reports/ReportsRouter.php';
 require 'Refreshment/refreshmentRouter.php';
 require 'Refreshment/refreshmentComponent.php';
 
-// require 'AddEmployee/AddEmployeeComponent.php';
-// require 'AddEmployee/AddEmployeeRouter.php';
-
-// require 'LeaveHistory/LeaveHistoryRouter.php';
-// require 'LeaveHistory/LeaveHistoryComponent.php';
-// require 'Attendance/AttendanceRouter.php';
-// require 'Attendance/AttendanceComponent.php';
-
 require 'AttendanceReport/DailyAttendanceReportRouter.php';
 require 'AttendanceReport/DailyAttendanceReportComponent.php';
 
+// Register all routers
+\EmployeePaySlip\EmployeePaySlipRouter::register($f3);
 
 $f3->route('GET /',
 	function($f3) {
