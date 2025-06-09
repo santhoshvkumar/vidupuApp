@@ -1,50 +1,20 @@
 <?php
+require_once('ApproveRefreshmentComponent.php');
 
 /*****************   Login User Temp  *******************/
-$f3->route('GET /EmployeeDetails',
+$f3->route('POST /GetAllEmployeeRefreshmentDetails', function($f3) {
+    $app = new ApproveRefreshmentComponent();
+    $data = json_decode($f3->get('BODY'), true);
+    $app->GetAllEmployeeRefreshmentDetails($data);
+});
 
-    function($f3){
-            header('Content-Type: application/json');
-            $decoded_items = json_decode($f3->get('BODY'),true);
-            if(!$decoded_items == NULL)
-            EmployeeDetails($decoded_items);
-            else
-                echo json_encode(array("status"=>"error Here for Dashboard Value","message_text"=>"Invalid input parameters"),JSON_FORCE_OBJECT);
-
-    }
-);
-
-$f3->route('GET /GetAllEmployeeDetails',
-
-    function($f3){
-            GetAllEmployeeDetails();
-
-}
-);
+$f3->route('POST /ApproveEmployeeRefreshmentDetailsByID', function($f3) {
+    $app = new ApproveRefreshmentComponent();
+    $data = json_decode($f3->get('BODY'), true);
+    $app->ApproveEmployeeRefreshmentDetailsByID($data);
+}); 
 
 
-$f3->route('GET /AllEmployeeDetails',
-
-    function($f3){
-                EmployeeDetails();
-
-    }
-);
-
-
-$f3->route('POST /UpdateEmployeeDetails',
-
-    function($f3){
-            header('Content-Type: application/json');
-            $decoded_items = json_decode($f3->get('BODY'),true);
-            if(!$decoded_items == NULL)
-                UpdateEmployeeDetails($decoded_items);
-            else
-                echo json_encode(array("status"=>"error Login Value","message_text"=>"Invalid input parameters"),JSON_FORCE_OBJECT);
-
-    }
-
-);
 $f3->route('POST /GetEmployeeDetails',
 
     function($f3){
@@ -74,18 +44,12 @@ $f3->route('POST /GetEmployeeBasedOnBranch',
 
 );
 
-$f3->route('POST /GetEmployeeDetailsBasedOnID',
+$f3->route('POST /GetEmployeeDetailsBasedOnID', function($f3) {
+    $app = new ApproveRefreshmentComponent();
+    $data = json_decode($f3->get('BODY'), true);
+    $app->GetEmployeeDetailsBasedOnID($data);
+});
 
-    function($f3){
-            header('Content-Type: application/json');
-            $decoded_items = json_decode($f3->get('BODY'),true);
-            if(!$decoded_items == NULL)     
-                GetEmployeeDetailsBasedOnID($decoded_items);
-            else
-                echo json_encode(array("status"=>"error Login Value","message_text"=>"Invalid input parameters"),JSON_FORCE_OBJECT);
-
-    }   
-);
 $f3->route('POST /UpdateEmployeeDetailsBasedOnID',
     function($f3){
             header('Content-Type: application/json');
@@ -126,5 +90,11 @@ $f3->route('POST /ResetEmployeeActiveStatus',
             echo json_encode(array("status"=>"error", "message_text"=>"Invalid input parameters"), JSON_FORCE_OBJECT);
     }
 );
+
+$f3->route('POST /CalculateRefreshmentAllowance', function($f3) {
+    $app = new ApproveRefreshmentComponent();
+    $data = json_decode($f3->get('BODY'), true);
+    $app->CalculateRefreshmentAllowance($data);
+});
 /*****************  End Login User Temp *****************/
 ?>
