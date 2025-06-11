@@ -34,11 +34,12 @@ class TransferEmployeeComponent{
     }
 
     public function loadPermanentTransfer(array $data){
-        if (isset($data['empID']) && isset($data['branchName']) && isset($data['transferMethod']) && isset($data['managerID'])) {
+        if (isset($data['empID']) && isset($data['branchName']) && isset($data['transferMethod']) && isset($data['managerID']) && isset($data['userName'])) {
             $this->empID = $data['empID'];
             $this->branchName = $data['branchName'];
             $this->transferMethod = $data['transferMethod'];
             $this->managerID = $data['managerID'];
+            $this->userName = $data['userName'];
             return true;
         } else {
             return false;
@@ -180,45 +181,70 @@ class TransferEmployeeComponent{
         header('Content-Type: application/json');
     
         try {
-            $data = [];
             if($this->transferMethod == "Permanent Transfer"){  
                 // Start transaction
                 mysqli_begin_transaction($connect_var);
                 
                 try {
-                    // 1. Get employeeID first
-                    $queryGetEmployeeID = "SELECT employeeID FROM tblEmployee WHERE empID = ?";
-                    $stmt = mysqli_prepare($connect_var, $queryGetEmployeeID);
-                    mysqli_stmt_bind_param($stmt, "s", $this->empID);
-                    mysqli_stmt_execute($stmt);
-                    $result = mysqli_stmt_get_result($stmt);
+                    // 1. Get the new branchID
+                    $queryGetBranchID = "SELECT branchID FROM tblBranch WHERE branchName = ?";
+                    $stmt1 = mysqli_prepare($connect_var, $queryGetBranchID);
+                    mysqli_stmt_bind_param($stmt1, "s", $this->branchName);
+                    mysqli_stmt_execute($stmt1);
+                    $result = mysqli_stmt_get_result($stmt1);
+                    $row = mysqli_fetch_assoc($result);
+                    $newBranchID = $row['branchID'];
+                    mysqli_stmt_close($stmt1);
+
+                    // 2. Get employeeID, current branchID and employee name
+                    $queryGetEmployee = "SELECT e.employeeID, e.employeeName, m.branchID as currentBranchID 
+                                       FROM tblEmployee e 
+                                       JOIN tblmapEmp m ON e.employeeID = m.employeeID 
+                                       WHERE e.empID = ?";
+                    $stmt2 = mysqli_prepare($connect_var, $queryGetEmployee);
+                    mysqli_stmt_bind_param($stmt2, "s", $this->empID);
+                    mysqli_stmt_execute($stmt2);
+                    $result = mysqli_stmt_get_result($stmt2);
                     $row = mysqli_fetch_assoc($result);
                     $employeeID = $row['employeeID'];
-                    mysqli_stmt_close($stmt);
-
-                    // 2. Get branchID
-                    $queryGetBranchID = "SELECT branchID FROM tblBranch WHERE branchName = ?";
-                    $stmt = mysqli_prepare($connect_var, $queryGetBranchID);
-                    mysqli_stmt_bind_param($stmt, "s", $this->branchName);
-                    mysqli_stmt_execute($stmt);
-                    $result = mysqli_stmt_get_result($stmt);
-                    $row = mysqli_fetch_assoc($result);
-                    $branchID = $row['branchID'];
-                    mysqli_stmt_close($stmt);
+                    $employeeName = $row['employeeName'];
+                    $currentBranchID = $row['currentBranchID'];
+                    mysqli_stmt_close($stmt2);
 
                     // 3. Update branch mapping
                     $queryUpdateBranch = "UPDATE tblmapEmp SET branchID = ? WHERE employeeID = ?";
-                    $stmt = mysqli_prepare($connect_var, $queryUpdateBranch);
-                    mysqli_stmt_bind_param($stmt, "ss", $branchID, $employeeID);
-                    mysqli_stmt_execute($stmt);
-                    mysqli_stmt_close($stmt);
+                    $stmt3 = mysqli_prepare($connect_var, $queryUpdateBranch);
+                    mysqli_stmt_bind_param($stmt3, "ss", $newBranchID, $employeeID);
+                    mysqli_stmt_execute($stmt3);
+                    mysqli_stmt_close($stmt3);
 
                     // 4. Update managerID
                     $queryUpdateManager = "UPDATE tblEmployee SET managerID = ? WHERE employeeID = ?";
-                    $stmt = mysqli_prepare($connect_var, $queryUpdateManager);
-                    mysqli_stmt_bind_param($stmt, "ss", $this->managerID, $employeeID);
-                    mysqli_stmt_execute($stmt);
-                    mysqli_stmt_close($stmt);
+                    $stmt4 = mysqli_prepare($connect_var, $queryUpdateManager);
+                    mysqli_stmt_bind_param($stmt4, "ss", $this->managerID, $employeeID);
+                    mysqli_stmt_execute($stmt4);
+                    mysqli_stmt_close($stmt4);
+
+                    // 5. Record the transfer in history
+                    $queryInsertHistory = "INSERT INTO tbltransferhistory (
+                        emplD,
+                        employeeName,
+                        existingBranch,
+                        newBranch,
+                        createdOn,
+                        createdBy
+                    ) VALUES (?, ?, ?, ?, NOW(), ?)";
+                    
+                    $stmt5 = mysqli_prepare($connect_var, $queryInsertHistory);
+                    mysqli_stmt_bind_param($stmt5, "sssss", 
+                        $this->empID,
+                        $employeeName,
+                        $currentBranchID,
+                        $newBranchID,
+                        $this->userName
+                    );
+                    mysqli_stmt_execute($stmt5);
+                    mysqli_stmt_close($stmt5);
 
                     // Commit transaction
                     mysqli_commit($connect_var);
