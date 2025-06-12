@@ -269,6 +269,7 @@ ORDER BY
     e.Designation, 
     e.employeePhone AS Employee_Phone, 
     b.branchName AS Branch_Name,
+    l.reason AS ReasonForLeave,
     l.typeOfLeave AS Type_Of_Leave, 
     l.leaveDuration AS Leave_Duration,
     l.createdOn AS Applied_On, 

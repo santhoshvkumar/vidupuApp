@@ -33,6 +33,14 @@ class EmployeeComponent{
             return false;
         }
     }
+    public function loadResetEmployeeActiveStatus(array $data){ 
+        if (isset($data['empID'])) {  
+            $this->empID = $data['empID'];
+            return true;
+        } else {
+            return false;
+        }
+    }
     public function loadDeviceFingerprint(array $data){ 
         if (isset($data['empID'])) {  
             $this->empID = $data['empID'];
@@ -240,6 +248,38 @@ class EmployeeComponent{
             ], JSON_FORCE_OBJECT);
         }   
     }
+    public function ResetEmployeeActiveStatus() {
+        include('config.inc');
+        header('Content-Type: application/json');
+        try {
+            $data = [];
+            $ResetEmployeeActiveStatusQuery = "UPDATE tblEmployee SET isActive = 0 WHERE empID = ?";
+            $stmt = mysqli_prepare($connect_var, $ResetEmployeeActiveStatusQuery);
+            if (!$stmt) {
+                throw new Exception("Database prepare failed");
+            }
+
+            mysqli_stmt_bind_param($stmt, "s", 
+                $this->empID
+            );
+            
+            if (!mysqli_stmt_execute($stmt)) {
+                throw new Exception("Database execute failed");
+            }
+
+            $result = mysqli_stmt_get_result($stmt);    
+            $ResetEmployeeActiveStatusResult = [];    
+            $ResetEmployeeActiveStatusResult['status'] = "success";
+            $ResetEmployeeActiveStatusResult['message_text'] = "Employee active status reset successfully";            
+            echo json_encode($ResetEmployeeActiveStatusResult, JSON_FORCE_OBJECT);
+
+        } catch (Exception $e) {
+            echo json_encode([
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ], JSON_FORCE_OBJECT);
+        }   
+    }
     public function AllEmployeeDetails() {
         include('config.inc');
         header('Content-Type: application/json');
@@ -349,7 +389,7 @@ LEFT JOIN tblAssignedSection tblA
        ON tblE.employeeID = tblA.employeeID AND tblA.isActive = 1
 LEFT JOIN tblSection tblS ON tblA.sectionID = tblS.sectionID
 LEFT JOIN tblLeaveBalance tblL ON tblE.employeeID = tblL.employeeID
-WHERE tblE.isTemporary = 0;
+WHERE tblE.isTemporary = 0 and tblE.isActive = 1;
 ";
             $result = mysqli_query($connect_var, $queryGetEmployeeDetails);            
 
@@ -701,6 +741,14 @@ function ResetDeviceFingerprint($decoded_items) {
     $ResetDeviceFingerprintObject = new EmployeeComponent();
     if ($ResetDeviceFingerprintObject->loadDeviceFingerprint($decoded_items)) {
         $ResetDeviceFingerprintObject->ResetDeviceFingerprint();
+    } else {    
+        echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
+    }
+}
+function ResetEmployeeActiveStatus($decoded_items) {
+    $ResetEmployeeActiveStatusObject = new EmployeeComponent();
+    if ($ResetEmployeeActiveStatusObject->loadResetEmployeeActiveStatus($decoded_items)) {
+        $ResetEmployeeActiveStatusObject->ResetEmployeeActiveStatus();
     } else {    
         echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
     }
