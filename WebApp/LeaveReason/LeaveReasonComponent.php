@@ -17,6 +17,26 @@ class LeaveReasonComponent{
             return false;
         }
     }
+    public function loadAddLeaveReasonDetails(array $data){
+        if (isset($data['reasonType']) && isset($data['reasonDetails']) && isset($data['createdBy'])){
+            $this->reasonType = $data['reasonType'];
+            $this->reasonDetails = $data['reasonDetails'];
+            $this->createdBy = $data['createdBy'];
+            return true;
+        } else {
+            return false;
+        }
+    }
+    public function loadUpdateLeaveReasonDetails(array $data) {
+        if (isset($data['reasonID']) && isset($data['isActive'])) {
+            $this->reasonID = $data['reasonID'];
+            $this->isActive = $data['isActive'];
+            return true;
+        } else {
+            error_log("Missing required parameters. Received data: " . json_encode($data));
+            return false;
+        }
+    }
     public function GetAllLeaveReasonDetails() {
         include('config.inc');
         header('Content-Type: application/json');
@@ -55,7 +75,7 @@ FROM
             ], JSON_FORCE_OBJECT);
         }
     }
-    public function AddEmployeeDetailForEmployee() {
+    public function AddLeaveReasonDetails() {
         include('config.inc');
         header('Content-Type: application/json');
     
@@ -63,72 +83,30 @@ FROM
             mysqli_begin_transaction($connect_var);
 
             // 1. Insert into tblEmployee
-            $queryEmployee = "INSERT INTO tblEmployee (
-                empID, employeeName, employeePhone, employeeGender, Designation, 
-                employeePassword, employeeBloodGroup, employeeDOB, isManager, 
-                joiningDate, retirementDate, isActive, deviceFingerprint
-            ) VALUES (?, ?, ?, ?, ?, MD5('Password#1'), ?, ?, ?, ?, ?, 1, '')";
+            $queryLeaveReason = "INSERT INTO tblReason (
+                reasonType, reasonDetails, createdOn, createdBy, isActive
+            ) VALUES (?, ?, CURDATE(), ?, 1)";
             
-            $stmt = mysqli_prepare($connect_var, $queryEmployee);
-            mysqli_stmt_bind_param($stmt, "ssssssssss",
-                $this->empID,
-                $this->employeeName,
-                $this->employeePhone,
-                $this->employeeGender,
-                $this->Designation,
-                $this->employeeBloodGroup,
-                $this->employeeDOB,
-                $this->isManager,
-                $this->joiningDate,
-                $this->retirementDate
+            $stmt = mysqli_prepare($connect_var, $queryLeaveReason);
+            mysqli_stmt_bind_param($stmt, "sss",
+                $this->reasonType,
+                $this->reasonDetails,
+                $this->createdBy
             );
 
             if (!mysqli_stmt_execute($stmt)) {
-                throw new Exception("Error inserting employee: " . mysqli_error($connect_var));
+                throw new Exception("Error inserting leave reason: " . mysqli_error($connect_var));
             }
             
-            // Get the auto-incremented employeeID
-            $employeeID = mysqli_insert_id($connect_var);
+            // Get the auto-incremented reasonID
+            $reasonID = mysqli_insert_id($connect_var);
             mysqli_stmt_close($stmt);
-
-            // 2. Insert into tblmapEmp (Employee-Branch mapping)
-            $queryMapEmp = "INSERT INTO tblmapEmp (employeeID, branchID) VALUES (?, ?)";
-            $stmt = mysqli_prepare($connect_var, $queryMapEmp);
-            mysqli_stmt_bind_param($stmt, "ii", $employeeID, $this->branchID);
-            
-            if (!mysqli_stmt_execute($stmt)) {
-                throw new Exception("Error mapping employee to branch: " . mysqli_error($connect_var));
-            }
-            mysqli_stmt_close($stmt);
-
-            // 3. If section is provided, insert into tblAssignedSection
-            if ($this->sectionID && $this->sectionID !== "") {
-                $queryAssignedSection = "INSERT INTO tblAssignedSection (employeeID, sectionID, isActive) VALUES (?, ?, 1)";
-                $stmt = mysqli_prepare($connect_var, $queryAssignedSection);
-                mysqli_stmt_bind_param($stmt, "ii", $employeeID, $this->sectionID);
-                
-                if (!mysqli_stmt_execute($stmt)) {
-                    throw new Exception("Error assigning section: " . mysqli_error($connect_var));
-                }
-                mysqli_stmt_close($stmt);
-            }
-
-            // 4. Insert into tblLeaveBalance
-            $queryLeaveBalance = "INSERT INTO tblLeaveBalance (employeeID, casualLeave, privilegeLeave, medicalLeave) VALUES (?, ?, ?, ?)";
-            $stmt = mysqli_prepare($connect_var, $queryLeaveBalance);
-            mysqli_stmt_bind_param($stmt, "iiii", $employeeID, $this->casualLeave, $this->privilegeLeave, $this->medicalLeave);
-            
-            if (!mysqli_stmt_execute($stmt)) {
-                throw new Exception("Error setting leave balance: " . mysqli_error($connect_var));
-            }
-            mysqli_stmt_close($stmt);
-
             mysqli_commit($connect_var);
             
             echo json_encode([
                 "status" => "success",
-                "message" => "Employee added successfully",
-                "employeeID" => $employeeID
+                "message" => "Leave reason added successfully",
+                "reasonID" => $reasonID
             ]);
 
         } catch (Exception $e) {
@@ -142,11 +120,75 @@ FROM
                 mysqli_close($connect_var);
             }
         }
+    }    
+    public function UpdateLeaveReasonDetailsBasedonReasonID($decoded_items) {
+        include('config.inc');
+        header('Content-Type: application/json');
+        error_log("UpdateLeaveReasonDetailsBasedonReasonID: " . json_encode($decoded_items));
+        try {
+            if (!$this->loadUpdateLeaveReasonDetails($decoded_items)) {
+                throw new Exception("Thappu");
+            }
+    
+            // Update the leave reason status
+            $query = "UPDATE tblReason SET isActive = ? WHERE reasonID = ?";
+            $stmt = mysqli_prepare($connect_var, $query);
+            
+            if (!$stmt) {           
+                throw new Exception("Database prepare failed: " . mysqli_error($connect_var));
+            }
+
+            mysqli_stmt_bind_param($stmt, "ii", $this->isActive, $this->reasonID);
+
+            if (!mysqli_stmt_execute($stmt)) {  
+                throw new Exception("Database execute failed: " . mysqli_error($connect_var));
+            }
+
+            if (mysqli_stmt_affected_rows($stmt) > 0) {
+                echo json_encode([
+                    "status" => "success",
+                    "message" => "Leave reason status updated successfully"
+                ]);
+            } else {
+                echo json_encode([
+                    "status" => "error",
+                    "message_text" => "No leave reason found with the given ID"
+                ], JSON_FORCE_OBJECT);  
+            }
+
+            mysqli_stmt_close($stmt);
+            mysqli_close($connect_var);
+        } catch (Exception $e) {
+            error_log("Error in UpdateLeaveReasonDetailsBasedonReasonID: " . $e->getMessage());
+            echo json_encode([
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ], JSON_FORCE_OBJECT);
+        }
     }
 }       
 function GetAllLeaveReasonDetails() {
     $LeaveReasonComponent = new LeaveReasonComponent();
     $LeaveReasonComponent->GetAllLeaveReasonDetails();
+}
+function UpdateLeaveReasonDetailsBasedonReasonID($decoded_items) {
+    $UpdateLeaveReasonDetailsBasedonReasonIDObject = new LeaveReasonComponent();
+    if ($UpdateLeaveReasonDetailsBasedonReasonIDObject->loadUpdateLeaveReasonDetails($decoded_items)) {
+        $UpdateLeaveReasonDetailsBasedonReasonIDObject->UpdateLeaveReasonDetailsBasedonReasonID($decoded_items);
+    } else {    
+        echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
+    }
+}
+function AddLeaveReasonDetails($decoded_items) {
+    $LeaveReasonObject = new LeaveReasonComponent();
+    if ($LeaveReasonObject->loadAddLeaveReasonDetails($decoded_items)) {
+        $LeaveReasonObject->AddLeaveReasonDetails();
+    } else {
+        echo json_encode([
+            "status" => "error", 
+            "message_text" => "Invalid Input Parameters"
+        ], JSON_FORCE_OBJECT);
+    }
 }
 ?>
 
