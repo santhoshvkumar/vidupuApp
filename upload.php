@@ -86,15 +86,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Get certificate type and leave ID
                 $certificateType = isset($_POST['certificateType']) ? $_POST['certificateType'] : null;
                 $applyLeaveID = isset($_POST['applyLeaveID']) ? $_POST['applyLeaveID'] : null;
+                $employeeID = isset($_POST['employeeID']) ? $_POST['employeeID'] : null;
                 
-                // Set appropriate target directory
+                // Set appropriate target directory with employee ID
                 $targetSubDir = "uploads/";
                 if (strtolower($certificateType) === 'medical') {
-                    $targetSubDir .= "medical/";
+                    $targetSubDir .= "medical/" . $employeeID . "/";
                 } else if (strtolower($certificateType) === 'fitness') {
-                    $targetSubDir .= "fitness/";
+                    $targetSubDir .= "fitness/" . $employeeID . "/";
                 } else if (strtolower($certificateType) === 'newspaper') {
-                    $targetSubDir .= "newspaper/";
+                    $targetSubDir .= "newspaper/" . $employeeID . "/";
                 }
 
                 // Create directory if it doesn't exist
@@ -117,7 +118,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 throw new Exception("Database connection failed: " . $connect_var->connect_error);
                             }
                             
-                            if ($applyLeaveID && $certificateType) {
+                            // Handle newspaper bills differently since they don't have applyLeaveID
+                            if (strtolower($certificateType) === 'newspaper') {
+                                // Return success response for newspaper bills without database update
+                                echo json_encode([
+                                    'status' => 'success',
+                                    'message' => 'Newspaper bill uploaded successfully',
+                                    'filePath' => $destPath
+                                ]);
+                            } else if ($applyLeaveID && $certificateType) {
                                 // Current timestamp for the upload time
                                 $currentTimestamp = date('Y-m-d H:i:s');
                                 
@@ -126,8 +135,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     $sql = "UPDATE tblApplyLeave SET MedicalCertificatePath = ?, MedicalCertificateUploadDate = ? WHERE applyLeaveID = ?";
                                 } else if (strtolower($certificateType) === 'fitness') {
                                     $sql = "UPDATE tblApplyLeave SET FitnessCertificatePath = ?, FitnessCertificateUploadDate = ?, status = 'Yet To Be Approved' WHERE applyLeaveID = ?";
-                                } else if (strtolower($certificateType) === 'newspaper') {
-                                    $sql = "UPDATE tblNewspaperAllowance SET BillImage = ?, UploadDate = ? WHERE NewspaperAllowanceID = ?";
                                 } else {
                                     $sql = "UPDATE tblApplyLeave SET certificatePath = ?, certificateUploadDate = ? WHERE applyLeaveID = ?";
                                 }

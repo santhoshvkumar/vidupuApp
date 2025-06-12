@@ -4,6 +4,7 @@ class DailyQuoteMaster {
     private $currentDate;
     private $currentVersion = '1.0.13';
     private $playStoreLink = 'https://play.google.com/store/apps/details?id=com.tnscbank.dailyApp';
+    private $isRefreshmentEnabled = true;
     
     public function __construct() {
         $this->currentDate = date('Y-m-d');
@@ -58,7 +59,8 @@ class DailyQuoteMaster {
                 'status' => 'success',
                 'message' => 'Version check successful',
                 'currentVersion' => $this->currentVersion,
-                'playStoreLink' => $this->playStoreLink
+                'playStoreLink' => $this->playStoreLink,
+                'isRefreshmentEnabled' => $this->isRefreshmentEnabled
             ];
         } catch (Exception $e) {
             return [

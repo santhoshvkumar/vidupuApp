@@ -55,10 +55,39 @@ class RefreshmentMaster {
 
         try {
             // Validate required fields
-            if (!isset($data['employeeID']) || !isset($data['firstNewspaperID']) || 
-                !isset($data['secondNewspaperID']) || !isset($data['month']) || 
-                !isset($data['year']) || !isset($data['billImage'])) {
-                throw new Exception("Missing required fields");
+            if (!isset($data['employeeID']) || empty($data['employeeID'])) {
+                throw new Exception("Employee ID is required");
+            }
+
+            if (!isset($data['firstNewspaperID']) || !is_numeric($data['firstNewspaperID'])) {
+                throw new Exception("First newspaper selection is invalid");
+            }
+
+            if (!isset($data['secondNewspaperID']) || !is_numeric($data['secondNewspaperID'])) {
+                throw new Exception("Second newspaper selection is invalid");
+            }
+
+            if (!isset($data['month']) || !is_numeric($data['month']) || $data['month'] < 1 || $data['month'] > 12) {
+                throw new Exception("Invalid month selected");
+            }
+
+            if (!isset($data['year']) || !is_numeric($data['year']) || $data['year'] < 2000 || $data['year'] > 2100) {
+                throw new Exception("Invalid year selected");
+            }
+
+            if (!isset($data['billImage']) || empty($data['billImage'])) {
+                throw new Exception("Bill image is required");
+            }
+
+            // Check if employee exists
+            $checkEmployeeQuery = "SELECT EmployeeID FROM tblEmployee WHERE EmployeeID = ?";
+            $stmt = mysqli_prepare($connect_var, $checkEmployeeQuery);
+            mysqli_stmt_bind_param($stmt, "s", $data['employeeID']);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+            
+            if (mysqli_num_rows($result) === 0) {
+                throw new Exception("Invalid employee ID");
             }
 
             // Check if employee already submitted for this month
@@ -98,8 +127,8 @@ class RefreshmentMaster {
             $insertQuery = "INSERT INTO tblNewspaperAllowance 
                           (EmployeeID, FirstNewspaperID, SecondNewspaperID, 
                            FirstNewspaperCost, SecondNewspaperCost, TotalCost,
-                           Month, Year, BillImage) 
-                          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                           Month, Year, BillImage, CreatedDate) 
+                          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
             
             $stmt = mysqli_prepare($connect_var, $insertQuery);
             mysqli_stmt_bind_param($stmt, "siidddiis", 
@@ -121,10 +150,11 @@ class RefreshmentMaster {
                     "allowance_id" => mysqli_insert_id($connect_var)
                 ));
             } else {
-                throw new Exception("Failed to submit newspaper allowance");
+                throw new Exception("Failed to submit newspaper allowance: " . mysqli_error($connect_var));
             }
 
         } catch (Exception $e) {
+            error_log("Error in submitNewspaperAllowance: " . $e->getMessage());
             echo json_encode(array(
                 "status" => "error",
                 "message_text" => $e->getMessage()
