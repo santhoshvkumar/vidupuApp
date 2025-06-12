@@ -66,8 +66,15 @@ require 'WebApp/Reports/ReportsRouter.php';
 require 'Refreshment/refreshmentRouter.php';
 require 'Refreshment/refreshmentComponent.php';
 
+require 'WebApp/ApproveRefreshment/ApproveRefreshmentComponent.php';
+require 'WebApp/ApproveRefreshment/ApproveRefreshmentRouter.php';
+
 require 'AttendanceReport/DailyAttendanceReportRouter.php';
 require 'AttendanceReport/DailyAttendanceReportComponent.php';
+
+require 'WebApp/LeaveReason/LeaveReasonComponent.php';
+require 'WebApp/LeaveReason/LeaveReasonRouter.php';
+
 
 // Register all routers
 \EmployeePaySlip\EmployeePaySlipRouter::register($f3);
