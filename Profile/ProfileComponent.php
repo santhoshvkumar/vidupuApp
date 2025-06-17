@@ -257,4 +257,88 @@ function getProfileDetails($decoded_items) {
     }
 }
 
+function updateProfilePhoto() {
+    include('config.inc');
+    header('Content-Type: application/json');
+    try {
+        if (!isset($_POST['EmployeeID']) || !isset($_FILES['photo'])) {
+            echo json_encode(array(
+                "status" => "error",
+                "message_text" => "EmployeeID and photo are required"
+            ), JSON_FORCE_OBJECT);
+            return;
+        }
+        $employeeID = $_POST['EmployeeID'];
+        $file = $_FILES['photo'];
+        $uploadDir = __DIR__ . '/../uploads/profile_photos/';
+        if (!file_exists($uploadDir)) {
+            mkdir($uploadDir, 0777, true);
+        }
+        $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
+        $fileName = 'profile_' . $employeeID . '_' . time() . '.' . $ext;
+        $filePath = $uploadDir . $fileName;
+        $dbPath = 'uploads/profile_photos/' . $fileName;
+        if (move_uploaded_file($file['tmp_name'], $filePath)) {
+            // Update DB
+            $query = "UPDATE tblEmployee SET employeePhoto = ? WHERE employeeID = ?";
+            $stmt = mysqli_prepare($connect_var, $query);
+            mysqli_stmt_bind_param($stmt, "ss", $dbPath, $employeeID);
+            if (mysqli_stmt_execute($stmt)) {
+                echo json_encode(array(
+                    "status" => "success",
+                    "message_text" => "Profile photo updated successfully",
+                    "photoPath" => $dbPath
+                ), JSON_FORCE_OBJECT);
+            } else {
+                echo json_encode(array(
+                    "status" => "error",
+                    "message_text" => "Failed to update database"
+                ), JSON_FORCE_OBJECT);
+            }
+            mysqli_stmt_close($stmt);
+        } else {
+            echo json_encode(array(
+                "status" => "error",
+                "message_text" => "Failed to upload file"
+            ), JSON_FORCE_OBJECT);
+        }
+        mysqli_close($connect_var);
+    } catch(Exception $e) {
+        echo json_encode(array(
+            "status" => "error",
+            "message_text" => "Error uploading photo: " . $e->getMessage()
+        ), JSON_FORCE_OBJECT);
+    }
+}
+
+function updateProfilePhotoPath($decoded_items) {
+    include('config.inc');
+    header('Content-Type: application/json');
+    if (!isset($decoded_items['EmployeeID']) || !isset($decoded_items['photoPath'])) {
+        echo json_encode([
+            'status' => 'error',
+            'message_text' => 'EmployeeID and photoPath are required'
+        ]);
+        return;
+    }
+    $employeeID = $decoded_items['EmployeeID'];
+    $photoPath = $decoded_items['photoPath'];
+    $query = "UPDATE tblEmployee SET employeePhoto = ? WHERE employeeID = ?";
+    $stmt = mysqli_prepare($connect_var, $query);
+    mysqli_stmt_bind_param($stmt, "ss", $photoPath, $employeeID);
+    if (mysqli_stmt_execute($stmt)) {
+        echo json_encode([
+            'status' => 'success',
+            'message_text' => 'Profile photo updated successfully'
+        ]);
+    } else {
+        echo json_encode([
+            'status' => 'error',
+            'message_text' => 'Failed to update database'
+        ]);
+    }
+    mysqli_stmt_close($stmt);
+    mysqli_close($connect_var);
+}
+
 ?>

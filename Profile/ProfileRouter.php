@@ -42,4 +42,21 @@ $f3->route('POST /GetProfileDetails',
 );
 /*****************  End Get Profile Details *****************/
 
+/*****************   Update Profile Photo  *******************/
+$f3->route('POST /UpdateProfilePhoto',
+    function($f3){
+        updateProfilePhoto();
+    }
+);
+/*****************  End Update Profile Photo *****************/
+
+/*****************   Update Profile Photo Path  *******************/
+$f3->route('POST /UpdateProfilePhotoPath',
+    function($f3){
+        $decoded_items = json_decode($f3->get('BODY'), true);
+        updateProfilePhotoPath($decoded_items);
+    }
+);
+/*****************  End Update Profile Photo Path *****************/
+
 ?>
