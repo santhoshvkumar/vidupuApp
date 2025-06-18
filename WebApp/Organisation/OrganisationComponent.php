@@ -157,7 +157,7 @@ class OrganisationComponent {
                     $tempFilePath = $baseUploadDir . 'temp/' . basename($this->organisationLogo);
                     $newFolderPath = $baseUploadDir . $latestOrganisationCreatedID . '/';
                     echo "New Folder Path" .$newFolderPath;
-                    $newFilePath = $newFolderPath . basename($this->organisationLogo);
+                    $newFilePath = $newFolderPath . 'companyLogo.png';
                     echo "Folder Path".$newFolderPath;
                     // Create organisation-specific folder
                     if (!file_exists($newFolderPath)) {
@@ -168,7 +168,7 @@ class OrganisationComponent {
                     // Move file from temp to organisation folder
                     if (file_exists($tempFilePath)) {
                         if (rename($tempFilePath, $newFilePath)) {
-                            $this->organisationLogo = 'uploads/Organisation/' . $latestOrganisationCreatedID . '/' . basename($this->organisationLogo);
+                            $this->organisationLogo = 'uploads/Organisation/' . $latestOrganisationCreatedID . '/companyLogo.png';
                             
                             // Update the database with the correct path
                             $updateQuery = "UPDATE tblOrganisation SET organisationLogo = ? WHERE organisationID = ?";
