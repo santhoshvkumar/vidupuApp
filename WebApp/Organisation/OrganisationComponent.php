@@ -121,8 +121,8 @@ class OrganisationComponent {
                 organisationName, organisationLogo, website, emailID, 
                 createdOn, createdBy, contactPerson1Name, contactPerson1Email, 
                 contactPerson1Phone, contactPerson2Name, contactPerson2Email, 
-                contactPerson2Phone, isActive
-            ) VALUES (?, ?, ?, ?, CURDATE(), ?, ?, ?, ?, ?, ?, ?, ?)";
+                contactPerson2Phone
+            ) VALUES (?, ?, ?, ?, CURDATE(), ?, ?, ?, ?, ?, ?, ?)";
 
             $stmt = mysqli_prepare($connect_var, $queryCreateOrganisation);
             if (!$stmt) {
@@ -133,7 +133,7 @@ class OrganisationComponent {
                 return;
             }
             
-            mysqli_stmt_bind_param($stmt, "ssssssssssss",
+            mysqli_stmt_bind_param($stmt, "sssssssssss",
                 $this->organisationName,
                 $this->organisationLogo,
                 $this->website,
@@ -145,7 +145,6 @@ class OrganisationComponent {
                 $this->contactPerson2Name,
                 $this->contactPerson2Email,
                 $this->contactPerson2Phone,
-                '1'
             );
 
             if (mysqli_stmt_execute($stmt)) {
