@@ -152,7 +152,7 @@ class OrganisationComponent {
                 
                 
                 if (strpos($this->organisationLogo, 'uploads/Organisation/temp/') === 0) {
-                    $baseUploadDir = dirname(__FILE__) . '/../../uploads/Organisation/';
+                    $baseUploadDir = dirname(__FILE__) . 'uploads/Organisation/';
                     $tempFilePath = $baseUploadDir . 'temp/' . basename($this->organisationLogo);
                     $newFolderPath = $baseUploadDir . $latestOrganisationCreatedID . '/';
                     $newFilePath = $newFolderPath . basename($this->organisationLogo);
