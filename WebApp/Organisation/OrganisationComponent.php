@@ -152,7 +152,7 @@ class OrganisationComponent {
                 
                 
                 if (strpos($this->organisationLogo, 'uploads/Organisation/temp/') === 0) {
-                    $baseUploadDir = '/data/server/live/API/public_html/vidupuApp/uploads';
+                    $baseUploadDir = '/data/server/live/API/public_html/vidupuApp/uploads/';
                     echo "Base Director" .$baseUploadDir;
                     $tempFilePath = $baseUploadDir . 'temp/' . basename($this->organisationLogo);
                     $newFolderPath = $baseUploadDir . $latestOrganisationCreatedID . '/';
