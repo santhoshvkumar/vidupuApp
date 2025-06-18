@@ -14,12 +14,15 @@ $f3->route('GET /EmployeeDetails',
     }
 );
 
-$f3->route('GET /GetAllEmployeeDetails',
-
+$f3->route('POST /GetAllEmployeeDetails',
     function($f3){
-            GetAllEmployeeDetails();
-
-}
+        header('Content-Type: application/json');
+        $decoded_items = json_decode($f3->get('BODY'),true);
+        if(!$decoded_items == NULL)
+            GetAllEmployees($decoded_items);
+        else
+            echo json_encode(array("status"=>"error Login Value","message_text"=>"Invalid input parameters"),JSON_FORCE_OBJECT);
+    }
 );
 
 
