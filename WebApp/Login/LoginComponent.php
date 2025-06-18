@@ -29,12 +29,15 @@ class LoginComponent{
 
             $queryLoginDetails = "
                 SELECT 
-                    userID, 
-                    userName, 
-                    sectionID,
-                    role,
-                    organisationID 
-                FROM tblUser 
+                    tblU.userID, 
+                    tblU.userName, 
+                    tblU.sectionID,
+                    tblU.role,
+                    tblU.organisationID,
+                    tblO.organisationName,
+                    tblO.organisationLogo
+                FROM tblUser tblU 
+                INNER JOIN tblOrganisation tblO tblO.organisationID = tblU.organisationID
                 WHERE userPhone = ? 
                 AND userPassword = MD5(?);";
 
