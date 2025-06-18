@@ -32,7 +32,8 @@ class LoginComponent{
                     userID, 
                     userName, 
                     sectionID,
-                    role 
+                    role,
+                    organisationID 
                 FROM tblUser 
                 WHERE userPhone = ? 
                 AND userPassword = MD5(?);";
@@ -75,7 +76,7 @@ class LoginComponent{
                 $data['userName'] = $row['userName'];
                 $data['sectionID'] = $row['sectionID'];
                 $data['role'] = $row['role'];
-                
+                $data['organisationID'] = $row['organisationID'];
                 // Debug final data
                 error_log("Final Data: " . print_r($data, true));
                 
