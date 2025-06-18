@@ -153,15 +153,11 @@ class OrganisationComponent {
                 
                 if (strpos($this->organisationLogo, 'uploads/Organisation/temp/') === 0) {
                     $baseUploadDir = '/data/server/live/API/public_html/vidupuApp/uploads/Organisation/';
-                    echo "Base Director" .$baseUploadDir;
                     $tempFilePath = $baseUploadDir . 'temp/' . basename($this->organisationLogo);
                     $newFolderPath = $baseUploadDir . $latestOrganisationCreatedID . '/';
-                    echo "New Folder Path" .$newFolderPath;
                     $newFilePath = $newFolderPath . 'companyLogo.png';
-                    echo "Folder Path".$newFolderPath;
                     // Create organisation-specific folder
                     if (!file_exists($newFolderPath)) {
-                        echo $newFolderPath;
                         mkdir($newFolderPath, 0777, true);
                     }
                     
