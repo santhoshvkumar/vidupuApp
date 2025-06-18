@@ -37,7 +37,7 @@ class LoginComponent{
                     tblO.organisationName,
                     tblO.organisationLogo
                 FROM tblUser tblU 
-                INNER JOIN tblOrganisation tblO tblO.organisationID = tblU.organisationID
+                INNER JOIN tblOrganisation tblO on tblO.organisationID = tblU.organisationID
                 WHERE userPhone = ? 
                 AND userPassword = MD5(?);";
 
