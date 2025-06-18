@@ -189,14 +189,7 @@ class OrganisationComponent {
                     $latestSectionID = mysqli_insert_id($connect_var);
                     mysqli_stmt_close($sectionStmt);
 
-                    // Update sectionHeadID with the latest inserted sectionID
-                    $updateSectionHeadQuery = "UPDATE tblSection SET sectionHeadID = ? WHERE sectionID = ?";
-                    $updateSectionStmt = mysqli_prepare($connect_var, $updateSectionHeadQuery);
-                    if ($updateSectionStmt) {
-                        mysqli_stmt_bind_param($updateSectionStmt, "ii", $latestSectionID, $latestSectionID);
-                        mysqli_stmt_execute($updateSectionStmt);
-                        mysqli_stmt_close($updateSectionStmt);
-                    }
+                  
 
                     // Insert into tblUser
                     $createUserQuery = "INSERT INTO tblUser (userName, userPhone, userPassword, sectionID, isActive, role, organisationID) VALUES (?, ?, ?, ?, ?, ?, ?)";
@@ -218,7 +211,18 @@ class OrganisationComponent {
                             $latestOrganisationCreatedID
                         );
                         mysqli_stmt_execute($userStmt);
+                        $latestUserID = mysqli_insert_id($connect_var);
                         mysqli_stmt_close($userStmt);
+
+
+                          // Update sectionHeadID with the latest inserted sectionID
+                        $updateSectionHeadQuery = "UPDATE tblSection SET sectionHeadID = ? WHERE sectionID = ?";
+                        $updateSectionStmt = mysqli_prepare($connect_var, $updateSectionHeadQuery);
+                        if ($updateSectionStmt) {
+                            mysqli_stmt_bind_param($updateSectionStmt, "ii", $latestUserID , $latestSectionID);
+                            mysqli_stmt_execute($updateSectionStmt);
+                            mysqli_stmt_close($updateSectionStmt);
+                        }
                     }
                 }
                 
