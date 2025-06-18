@@ -80,6 +80,8 @@ class LoginComponent{
                 $data['sectionID'] = $row['sectionID'];
                 $data['role'] = $row['role'];
                 $data['organisationID'] = $row['organisationID'];
+                $data['organisationName'] = $row['organisationName'];
+                $data['organisationLogo'] = $row['organisationLogo'];
                 // Debug final data
                 error_log("Final Data: " . print_r($data, true));
                 
