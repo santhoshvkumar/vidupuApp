@@ -16,14 +16,14 @@ class OrganisationComponent {
     public $isActive;
 
     public function loadOrganisationDetails(array $data) {
-        if (isset($data['organisationName']) && isset($data['organisationLogo']) && 
-            isset($data['website']) && isset($data['emailID']) && 
-            isset($data['contactPerson1Name']) && isset($data['contactPerson1Email']) && 
-            isset($data['contactPerson1Phone']) && isset($data['contactPerson2Name']) && 
-            isset($data['contactPerson2Email']) && isset($data['contactPerson2Phone'])) {
+        // Check if required fields exist (excluding organisationLogo since it's optional)
+        if (isset($data['organisationName']) && isset($data['website']) && 
+            isset($data['emailID']) && isset($data['contactPerson1Name']) && 
+            isset($data['contactPerson1Email']) && isset($data['contactPerson1Phone']) && 
+            isset($data['contactPerson2Name']) && isset($data['contactPerson2Email']) && 
+            isset($data['contactPerson2Phone'])) {
             
             $this->organisationName = $data['organisationName'];
-            $this->organisationLogo = $data['organisationLogo'];
             $this->website = $data['website'];
             $this->emailID = $data['emailID'];
             $this->contactPerson1Name = $data['contactPerson1Name'];
@@ -33,8 +33,80 @@ class OrganisationComponent {
             $this->contactPerson2Email = $data['contactPerson2Email'];
             $this->contactPerson2Phone = $data['contactPerson2Phone'];
             $this->isActive = isset($data['isActive']) ? $data['isActive'] : 1;
+            $this->createdBy = isset($data['createdBy']) ? intval($data['createdBy']) : 1;
+            
+            // Set organisationID if provided (for updates)
+            if (isset($data['organisationID'])) {
+                $this->organisationID = $data['organisationID'];
+            }
+            
+            // Handle file upload for organisation logo
+            // For updates, preserve existing logo if no new file is uploaded
+            if (isset($data['organisationLogo']) && !empty($data['organisationLogo'])) {
+                $this->organisationLogo = $data['organisationLogo'];
+            } else {
+                $this->organisationLogo = '';
+            }
+            
+            // Check if a new file is being uploaded
+            if (isset($_FILES['organisationLogo']) && $_FILES['organisationLogo']['error'] === UPLOAD_ERR_OK) {
+                // Use absolute path for upload directory
+                $baseUploadDir = dirname(__FILE__) . '/../../uploads/organisation_logos/';
+                
+                // Create base directory if it doesn't exist
+                if (!file_exists($baseUploadDir)) {
+                    mkdir($baseUploadDir, 0777, true);
+                }
+        
+                $file = $_FILES['organisationLogo'];
+                $fileName = $file['name'];
+                $fileTmpName = $file['tmp_name'];
+                $fileSize = $file['size'];
+                $fileError = $file['error'];
+                $fileType = $file['type'];
+                
+                // Get file extension
+                $fileExt = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+                
+                // Allowed file types
+                $allowed = array('jpg', 'jpeg', 'png', 'gif');
+                
+                if (in_array($fileExt, $allowed)) {
+                    if ($fileError === 0) {
+                        if ($fileSize < 5000000) { // 5MB limit
+                            // Generate unique filename
+                            $fileNameNew = uniqid('logo_', true) . "." . $fileExt;
+                            
+                            // For updates, use existing organisationID, for creates we'll handle it after insertion
+                            if (isset($this->organisationID) && !empty($this->organisationID)) {
+                                // Update mode - use existing organisationID
+                                $organisationFolder = $baseUploadDir . $this->organisationID . '/';
+                                $fileDestination = $organisationFolder . $fileNameNew;
+                                $this->organisationLogo = 'uploads/organisation_logos/' . $this->organisationID . '/' . $fileNameNew;
+                            } else {
+                                // Create mode - we'll need to update this after getting the organisationID
+                                $tempFolder = $baseUploadDir . 'temp/';
+                                $fileDestination = $tempFolder . $fileNameNew;
+                                $this->organisationLogo = 'uploads/organisation_logos/temp/' . $fileNameNew;
+                            }
+                            
+                            // Create organisation-specific folder
+                            $organisationFolder = dirname($fileDestination);
+                            if (!file_exists($organisationFolder)) {
+                                mkdir($organisationFolder, 0777, true);
+                            }
+                            
+                            move_uploaded_file($fileTmpName, $fileDestination);
+                        }
+                    }
+                }
+            } else {
+                error_log("No new file uploaded, keeping existing logo: " . $this->organisationLogo);
+            }
+            
             return true;
         } else {
+            // Debug: Log what data was received
             return false;
         }
     }
@@ -54,6 +126,14 @@ class OrganisationComponent {
             ) VALUES (?, ?, ?, ?, CURDATE(), ?, ?, ?, ?, ?, ?, ?, ?)";
 
             $stmt = mysqli_prepare($connect_var, $queryCreateOrganisation);
+            if (!$stmt) {
+                echo json_encode(array(
+                    "status" => "error",
+                    "message" => "Database prepare statement failed"
+                ));
+                return;
+            }
+            
             mysqli_stmt_bind_param($stmt, "ssssssssssss",
                 $this->organisationName,
                 $this->organisationLogo,
@@ -70,14 +150,90 @@ class OrganisationComponent {
             );
 
             if (mysqli_stmt_execute($stmt)) {
+                $latestOrganisationCreatedID = mysqli_insert_id($connect_var);
+                
+                
+                if (strpos($this->organisationLogo, 'uploads/organisation_logos/temp/') === 0) {
+                    $baseUploadDir = dirname(__FILE__) . '/../../uploads/organisation_logos/';
+                    $tempFilePath = $baseUploadDir . 'temp/' . basename($this->organisationLogo);
+                    $newFolderPath = $baseUploadDir . $latestOrganisationCreatedID . '/';
+                    $newFilePath = $newFolderPath . basename($this->organisationLogo);
+                    
+                    // Create organisation-specific folder
+                    if (!file_exists($newFolderPath)) {
+                        mkdir($newFolderPath, 0777, true);
+                    }
+                    
+                    // Move file from temp to organisation folder
+                    if (file_exists($tempFilePath)) {
+                        if (rename($tempFilePath, $newFilePath)) {
+                            $this->organisationLogo = 'uploads/organisation_logos/' . $latestOrganisationCreatedID . '/' . basename($this->organisationLogo);
+                            
+                            // Update the database with the correct path
+                            $updateQuery = "UPDATE tblOrganisation SET organisationLogo = ? WHERE organisationID = ?";
+                            $updateStmt = mysqli_prepare($connect_var, $updateQuery);
+                            if ($updateStmt) {
+                                mysqli_stmt_bind_param($updateStmt, "si", $this->organisationLogo, $latestOrganisationCreatedID);
+                                mysqli_stmt_execute($updateStmt);
+                                mysqli_stmt_close($updateStmt);
+                            }
+                        }
+                    }
+                }
+                
+                // Insert into tblSection with the latest organisation ID
+                $createSectionQuery = "INSERT INTO tblSection (SectionName, sectionHeadID, organisationID) VALUES (?, ?, ?)";
+                $sectionStmt = mysqli_prepare($connect_var, $createSectionQuery);
+                if ($sectionStmt) {
+                    $sectionName = "Establishment";
+                    $sectionHeadID = 0;
+                    mysqli_stmt_bind_param($sectionStmt, "sii", $sectionName, $sectionHeadID, $latestOrganisationCreatedID);
+                    mysqli_stmt_execute($sectionStmt);
+                    $latestSectionID = mysqli_insert_id($connect_var);
+                    mysqli_stmt_close($sectionStmt);
+
+                    // Update sectionHeadID with the latest inserted sectionID
+                    $updateSectionHeadQuery = "UPDATE tblSection SET sectionHeadID = ? WHERE sectionID = ?";
+                    $updateSectionStmt = mysqli_prepare($connect_var, $updateSectionHeadQuery);
+                    if ($updateSectionStmt) {
+                        mysqli_stmt_bind_param($updateSectionStmt, "ii", $latestSectionID, $latestSectionID);
+                        mysqli_stmt_execute($updateSectionStmt);
+                        mysqli_stmt_close($updateSectionStmt);
+                    }
+
+                    // Insert into tblUser
+                    $createUserQuery = "INSERT INTO tblUser (userName, userPhone, userPassword, sectionID, isActive, role, organisationID) VALUES (?, ?, ?, ?, ?, ?, ?)";
+                    $userStmt = mysqli_prepare($connect_var, $createUserQuery);
+                    if ($userStmt) {
+                        $userName = $this->organisationName;
+                        $userPhone = $this->contactPerson1Phone;
+                        $userPassword = password_hash('Password#1', PASSWORD_DEFAULT);
+                        $isActive = 1;
+                        $role = 'Admin';
+
+                        mysqli_stmt_bind_param($userStmt, "sssiisi",
+                            $userName,
+                            $userPhone,
+                            $userPassword,
+                            $latestSectionID,
+                            $isActive,
+                            $role,
+                            $latestOrganisationCreatedID
+                        );
+                        mysqli_stmt_execute($userStmt);
+                        mysqli_stmt_close($userStmt);
+                    }
+                }
+                
                 echo json_encode(array(
                     "status" => "success",
-                    "message" => "Organisation created successfully"
+                    "message" => "Organisation created successfully",
+                    "organisationID" => $latestOrganisationCreatedID
                 ));
             } else {
                 echo json_encode(array(
                     "status" => "error",
-                    "message" => "Error creating organisation"
+                    "message" => "Error creating organisation: " . mysqli_stmt_error($stmt)
                 ));
             }
             mysqli_stmt_close($stmt);
@@ -112,6 +268,14 @@ class OrganisationComponent {
                 WHERE organisationID = ?";
 
             $stmt = mysqli_prepare($connect_var, $queryUpdateOrganisation);
+            if (!$stmt) {
+                echo json_encode(array(
+                    "status" => "error",
+                    "message" => "Database prepare statement failed"
+                ));
+                return;
+            }
+            
             mysqli_stmt_bind_param($stmt, "ssssssssssss",
                 $this->organisationName,
                 $this->organisationLogo,
@@ -128,14 +292,16 @@ class OrganisationComponent {
             );
 
             if (mysqli_stmt_execute($stmt)) {
+                $affectedRows = mysqli_stmt_affected_rows($stmt);
                 echo json_encode(array(
                     "status" => "success",
-                    "message" => "Organisation updated successfully"
+                    "message" => "Organisation updated successfully",
+                    "affected_rows" => $affectedRows
                 ));
             } else {
                 echo json_encode(array(
                     "status" => "error",
-                    "message" => "Error updating organisation"
+                    "message" => "Error updating organisation: " . mysqli_stmt_error($stmt)
                 ));
             }
             mysqli_stmt_close($stmt);
@@ -234,23 +400,38 @@ class OrganisationComponent {
     
         try {
             $data = [];
+            
+            // Debug: Check if database connection is working
+            if (!$connect_var) {
+                echo json_encode(array(
+                    "status" => "error",
+                    "message" => "Database connection failed"
+                ));
+                return;
+            }
     
-            $queryGetAllOrganisations = "SELECT * FROM tblOrganisation WHERE isActive = 1 ORDER BY organisationName ASC";
+            $queryGetAllOrganisations = "SELECT * FROM tblOrganisation WHERE isActive = 1 ORDER BY organisationID DESC";
+            
             $result = mysqli_query($connect_var, $queryGetAllOrganisations);
             
             if ($result) {
                 $organisations = array();
+                $count = 0;
                 while ($row = mysqli_fetch_assoc($result)) {
                     $organisations[] = $row;
+                    $count++;
                 }
+                
                 echo json_encode(array(
                     "status" => "success",
-                    "data" => $organisations
+                    "data" => $organisations,
+                    "count" => count($organisations)
                 ));
             } else {
                 echo json_encode(array(
                     "status" => "error",
-                    "message" => "Error fetching organisations"
+                    "message" => "Error fetching organisations",
+                    "mysql_error" => mysqli_error($connect_var)
                 ));
             }
             mysqli_close($connect_var);
@@ -264,20 +445,45 @@ class OrganisationComponent {
 }
 
 function CreateOrganisation($decoded_items) {
-    $OrganisationObject = new OrganisationComponent();
-    if ($OrganisationObject->loadOrganisationDetails($decoded_items)) {
-        $OrganisationObject->CreateOrganisation();
+    if (isset($_SERVER['CONTENT_TYPE']) && strpos($_SERVER['CONTENT_TYPE'], 'multipart/form-data') !== false) {
+        // For FormData, use $_POST instead of decoded JSON
+        $OrganisationObject = new OrganisationComponent();
+        if ($OrganisationObject->loadOrganisationDetails($_POST)) {
+            $OrganisationObject->CreateOrganisation();
+        } else {
+            echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
+        }
     } else {
-        echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
+        // For JSON requests, use the decoded items
+        $OrganisationObject = new OrganisationComponent();
+        if ($OrganisationObject->loadOrganisationDetails($decoded_items)) {
+            $OrganisationObject->CreateOrganisation();
+        } else {
+            echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
+        }
     }
 }
 
 function UpdateOrganisation($decoded_items) {
-    $OrganisationObject = new OrganisationComponent();
-    if ($OrganisationObject->loadOrganisationDetails($decoded_items)) {
-        $OrganisationObject->UpdateOrganisation();
+    if (isset($_SERVER['CONTENT_TYPE']) && strpos($_SERVER['CONTENT_TYPE'], 'multipart/form-data') !== false) {
+        $OrganisationObject = new OrganisationComponent();
+        if ($OrganisationObject->loadOrganisationDetails($_POST)) {
+            // Set the organisationID from FormData
+            if (isset($_POST['organisationID'])) {
+                $OrganisationObject->organisationID = $_POST['organisationID'];
+            }
+            $OrganisationObject->UpdateOrganisation();
+        } else {
+            echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
+        }
     } else {
-        echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
+        // For JSON requests, use the decoded items
+        $OrganisationObject = new OrganisationComponent();
+        if ($OrganisationObject->loadOrganisationDetails($decoded_items)) {
+            $OrganisationObject->UpdateOrganisation();
+        } else {
+            echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
+        }
     }
 }
 
