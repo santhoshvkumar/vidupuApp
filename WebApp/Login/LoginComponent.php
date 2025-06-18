@@ -48,6 +48,7 @@ class LoginComponent{
                 $queryLoginDetails
             );
             error_log("Debug Query: " . $debug_query);
+            echo $debug_query;
 
             $stmt = mysqli_prepare($connect_var, $queryLoginDetails);
             if (!$stmt) {
