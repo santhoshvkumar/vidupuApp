@@ -50,7 +50,7 @@ class OrganisationComponent {
             // Check if a new file is being uploaded
             if (isset($_FILES['organisationLogo']) && $_FILES['organisationLogo']['error'] === UPLOAD_ERR_OK) {
                 // Use absolute path for upload directory
-                $baseUploadDir = dirname(__FILE__) . 'uploads/Organisation/';
+                $baseUploadDir = '/data/server/live/API/public_html/vidupuApp/uploads/Organisation/';
                 
                 // Create base directory if it doesn't exist
                 if (!file_exists($baseUploadDir)) {
