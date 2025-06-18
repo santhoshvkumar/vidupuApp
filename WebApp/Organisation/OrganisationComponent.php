@@ -156,9 +156,10 @@ class OrganisationComponent {
                     $tempFilePath = $baseUploadDir . 'temp/' . basename($this->organisationLogo);
                     $newFolderPath = $baseUploadDir . $latestOrganisationCreatedID . '/';
                     $newFilePath = $newFolderPath . basename($this->organisationLogo);
-                    
+                    echo "Folder Path".$newFolderPath;
                     // Create organisation-specific folder
                     if (!file_exists($newFolderPath)) {
+                        echo $newFolderPath;
                         mkdir($newFolderPath, 0777, true);
                     }
                     
