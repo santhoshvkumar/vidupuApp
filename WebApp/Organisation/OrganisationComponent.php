@@ -32,7 +32,6 @@ class OrganisationComponent {
             $this->contactPerson2Name = $data['contactPerson2Name'];
             $this->contactPerson2Email = $data['contactPerson2Email'];
             $this->contactPerson2Phone = $data['contactPerson2Phone'];
-            $this->isActive = isset($data['isActive']) ? $data['isActive'] : 1;
             $this->createdBy = isset($data['createdBy']) ? intval($data['createdBy']) : 1;
             
             // Set organisationID if provided (for updates)
@@ -82,12 +81,12 @@ class OrganisationComponent {
                                 // Update mode - use existing organisationID
                                 $organisationFolder = $baseUploadDir . $this->organisationID . '/';
                                 $fileDestination = $organisationFolder . $fileNameNew;
-                                $this->organisationLogo = 'uploads/organisation_logos/' . $this->organisationID . '/' . $fileNameNew;
+                                $this->organisationLogo = 'uploads/Organisation/' . $this->organisationID . '/' . $fileNameNew;
                             } else {
                                 // Create mode - we'll need to update this after getting the organisationID
                                 $tempFolder = $baseUploadDir . 'temp/';
                                 $fileDestination = $tempFolder . $fileNameNew;
-                                $this->organisationLogo = 'uploads/organisation_logos/temp/' . $fileNameNew;
+                                $this->organisationLogo = 'uploads/Organisation/temp/' . $fileNameNew;
                             }
                             
                             // Create organisation-specific folder
@@ -146,7 +145,7 @@ class OrganisationComponent {
                 $this->contactPerson2Name,
                 $this->contactPerson2Email,
                 $this->contactPerson2Phone,
-                $this->isActive
+                '1'
             );
 
             if (mysqli_stmt_execute($stmt)) {
@@ -205,7 +204,7 @@ class OrganisationComponent {
                     $createUserQuery = "INSERT INTO tblUser (userName, userPhone, userPassword, sectionID, isActive, role, organisationID) VALUES (?, ?, ?, ?, ?, ?, ?)";
                     $userStmt = mysqli_prepare($connect_var, $createUserQuery);
                     if ($userStmt) {
-                        $userName = $this->organisationName;
+                        $userName = $this->contactPerson1Name;
                         $userPhone = $this->contactPerson1Phone;
                         $userPassword = password_hash('Password#1', PASSWORD_DEFAULT);
                         $isActive = 1;
