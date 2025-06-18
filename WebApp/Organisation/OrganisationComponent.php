@@ -197,7 +197,7 @@ class OrganisationComponent {
                     if ($userStmt) {
                         $userName = $this->contactPerson1Name;
                         $userPhone = $this->contactPerson1Phone;
-                        $userPassword = password_hash('Password#1', PASSWORD_DEFAULT);
+                        $userPassword = md5('Password#1');
                         $isActive = 1;
                         $role = 'Admin';
 
