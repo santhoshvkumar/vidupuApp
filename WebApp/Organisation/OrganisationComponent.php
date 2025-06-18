@@ -153,8 +153,8 @@ class OrganisationComponent {
                 $latestOrganisationCreatedID = mysqli_insert_id($connect_var);
                 
                 
-                if (strpos($this->organisationLogo, 'uploads/organisation_logos/temp/') === 0) {
-                    $baseUploadDir = dirname(__FILE__) . '/../../uploads/organisation_logos/';
+                if (strpos($this->organisationLogo, 'uploads/Organisation/temp/') === 0) {
+                    $baseUploadDir = dirname(__FILE__) . '/../../uploads/Organisation/';
                     $tempFilePath = $baseUploadDir . 'temp/' . basename($this->organisationLogo);
                     $newFolderPath = $baseUploadDir . $latestOrganisationCreatedID . '/';
                     $newFilePath = $newFolderPath . basename($this->organisationLogo);
@@ -167,7 +167,7 @@ class OrganisationComponent {
                     // Move file from temp to organisation folder
                     if (file_exists($tempFilePath)) {
                         if (rename($tempFilePath, $newFilePath)) {
-                            $this->organisationLogo = 'uploads/organisation_logos/' . $latestOrganisationCreatedID . '/' . basename($this->organisationLogo);
+                            $this->organisationLogo = 'uploads/Organisation/' . $latestOrganisationCreatedID . '/' . basename($this->organisationLogo);
                             
                             // Update the database with the correct path
                             $updateQuery = "UPDATE tblOrganisation SET organisationLogo = ? WHERE organisationID = ?";
