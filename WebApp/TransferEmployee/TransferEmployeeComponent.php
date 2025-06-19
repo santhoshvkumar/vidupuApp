@@ -63,7 +63,7 @@ class TransferEmployeeComponent{
             
             
             $queryStatement = mysqli_prepare($connect_var, $queryInsertTransferHistory);
-            mysqli_stmt_bind_param($stmt, "sssssssssss",
+            mysqli_stmt_bind_param($queryStatement, "sssssssssss",
                 $this->employeeID,
                 $this->fromBranch,
                 $this->toBranch,
