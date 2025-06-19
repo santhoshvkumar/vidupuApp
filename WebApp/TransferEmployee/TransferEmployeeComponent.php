@@ -1,21 +1,28 @@
 <?php
 class TransferEmployeeComponent{
-    public $empID;   
-    public $branchID;    
-    public $branchName;
-    public $createdOn;
+    public $employeeID;   
+    public $fromBranch;    
+    public $toBranch;
+    public $fromDate;
+    public $toDate;
+    public $isPermanentTransfer;
+    public $organisationID;    
     public $createdBy;
-    public $AssignedDate;
-    public $transferMethod;
-    public $managerID;
-    public $userName;
+    public $isActive;
+    public $isImmediate;
     public function loadTransferEmployeeDetails(array $data){       
-        if (isset($data['empID']) && isset($data['branchID']) && isset($data['createdOn']) && isset($data['createdBy']) && isset($data['AssignedDate']) && isset($data['transferMethod'])) {
-            $this->empID = $data['empID'];
-            $this->branchID = $data['branchID'];
-            $this->createdOn = $data['createdOn'];
+        if (isset($data['employeeID']) && isset($data['fromBranch']) && isset($data['toBranch']) && isset($data['fromDate']) && isset($data['toDate']) && isset($data['isPermanentTransfer']) && isset($data['organisationID']) && isset($data['createdBy']) && isset($data['isActive']) && isset($data['isImmediate'])) {
+            $this->employeeID = $data['employeeID'];
+            $this->fromBranch = $data['fromBranch'];
+            $this->toBranch = $data['toBranch'];
+            $this->fromDate = $data['fromDate'];
+            $this->toDate = $data['toDate'];        
+            $this->isPermanentTransfer = $data['isPermanentTransfer'];
+            $this->organisationID = $data['organisationID'];    
             $this->createdBy = $data['createdBy'];
-            $this->AssignedDate = $data['AssignedDate'];                       
+            $this->isActive = $data['isActive'];
+            $this->isImmediate = $data['isImmediate'];        
+            
             return true;
         } else {
             return false;
@@ -62,6 +69,24 @@ class TransferEmployeeComponent{
                 $this->createdOn,
                 $this->createdBy,
                 $this->AssignedDate
+            );
+
+            $currentDate = date('Y-m-d');
+            $queryInsertTransferHistory = "INSERT INTO tblTransferHistory ( fromBranch, toBranch, fromDate, toDate, isPermanentTransfer, organisationID, createdOn, createdBy, isActive, isImmediateTransfer) VALUES (?,?,?,?,?,?,?,?,?,?);";
+            
+            
+            $queryStatement = mysqli_prepare($connect_var, $queryInsertTransferHistory);
+            mysqli_stmt_bind_param($stmt, "ssssssssss",
+                $this->fromBranch,
+                $this->toBranch,
+                $this->fromDate,
+                $this->toDate,
+                $this->isPermanentTransfer,
+                $this->organisationID,
+                $currentDate,
+                $this->createdBy,
+                $this->isActive,
+                $this->isImmediate,
             );
 
             if (mysqli_stmt_execute($stmt)) {
