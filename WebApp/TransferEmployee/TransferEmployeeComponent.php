@@ -59,11 +59,12 @@ class TransferEmployeeComponent{
         try {
             $data = [];
             $currentDate = date('Y-m-d');
-            $queryInsertTransferHistory = "INSERT INTO tblTransferHistory ( fromBranch, toBranch, fromDate, toDate, isPermanentTransfer, organisationID, createdOn, createdBy, isActive, isImmediateTransfer) VALUES (?,?,?,?,?,?,?,?,?,?);";
+            $queryInsertTransferHistory = "INSERT INTO tblTransferHistory ( employeeID, fromBranch, toBranch, fromDate, toDate, isPermanentTransfer, organisationID, createdOn, createdBy, isActive, isImmediateTransfer) VALUES (?,?,?,?,?,?,?,?,?,?);";
             
             
             $queryStatement = mysqli_prepare($connect_var, $queryInsertTransferHistory);
-            mysqli_stmt_bind_param($stmt, "ssssssssss",
+            mysqli_stmt_bind_param($stmt, "sssssssssss",
+                $this->employeeID,
                 $this->fromBranch,
                 $this->toBranch,
                 $this->fromDate,
@@ -76,7 +77,7 @@ class TransferEmployeeComponent{
                 $this->isImmediate
             );
 
-            if (mysqli_stmt_execute($stmt)) {
+            if (mysqli_stmt_execute($queryStatement)) {
                 echo json_encode(array(
                     "status" => "success",
                     "message" => "Employee added successfully"
