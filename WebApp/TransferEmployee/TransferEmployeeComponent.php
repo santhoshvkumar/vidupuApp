@@ -21,8 +21,7 @@ class TransferEmployeeComponent{
             $this->organisationID = $data['organisationID'];    
             $this->createdBy = $data['createdBy'];
             $this->isActive = $data['isActive'];
-            $this->isImmediate = $data['isImmediate'];        
-            
+            $this->isImmediate = $data['isImmediate'];
             return true;
         } else {
             return false;
@@ -59,18 +58,6 @@ class TransferEmployeeComponent{
     
         try {
             $data = [];
-    
-            // 1. Get all active employees Name, ID and BranchID
-            $queryTransferEmployeeDetails = "INSERT INTO tblBranchInterChange (empID, branchID, createdOn, createdBy, AssignedDate) VALUES (?, ?, ?, ?, ?);";
-            $stmt = mysqli_prepare($connect_var, $queryTransferEmployeeDetails);
-            mysqli_stmt_bind_param($stmt, "sssss",
-                $this->empID,
-                $this->branchID,
-                $this->createdOn,
-                $this->createdBy,
-                $this->AssignedDate
-            );
-
             $currentDate = date('Y-m-d');
             $queryInsertTransferHistory = "INSERT INTO tblTransferHistory ( fromBranch, toBranch, fromDate, toDate, isPermanentTransfer, organisationID, createdOn, createdBy, isActive, isImmediateTransfer) VALUES (?,?,?,?,?,?,?,?,?,?);";
             
@@ -86,7 +73,7 @@ class TransferEmployeeComponent{
                 $currentDate,
                 $this->createdBy,
                 $this->isActive,
-                $this->isImmediate,
+                $this->isImmediate
             );
 
             if (mysqli_stmt_execute($stmt)) {
@@ -305,7 +292,7 @@ class TransferEmployeeComponent{
 function TransferEmployeeDetails($decoded_items) {
     $EmployeeObject = new TransferEmployeeComponent();
     if ($EmployeeObject->loadTransferEmployeeDetails($decoded_items)) {
-        $EmployeeObject->TransferEmployeeDetails($decoded_items);
+        $EmployeeObject->TransferEmployeeDetails();
     } else {
         echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
     }
