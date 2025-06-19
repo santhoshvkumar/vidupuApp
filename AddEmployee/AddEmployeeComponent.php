@@ -13,6 +13,7 @@ class AddEmployeeComponent{
     public $branchName;
     public $employeeBloodGroup;
     public $employeeDOB;
+    public $organisationID;
     public function loadAddEmployeeDetails(array $data){
         if (isset($data['empID']) && isset($data['employeeName']) && isset($data['employeePhone']) && isset($data['employeeGender']) && isset($data['Designation']) && isset($data['employeePassword']) && isset($data['employeeBloodGroup']) && isset($data['employeeDOB']) && isset($data['organisationID'])) {
             $this->empID = $data['empID'];
