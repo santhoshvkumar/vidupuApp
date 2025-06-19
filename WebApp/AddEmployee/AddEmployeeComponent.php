@@ -21,10 +21,11 @@ class AddEmployeeComponent{
     public $isTemporary;
     public $isActive;
     public $deviceFingerprint;
+    public $organisationID;
     public function loadAddEmployeeDetails(array $data){
         if (isset($data['empID']) && isset($data['employeeName']) && isset($data['employeePhone']) && 
             isset($data['employeeGender']) && isset($data['Designation']) && 
-            isset($data['employeeBloodGroup']) && isset($data['employeeDOB']) && isset($data['branchID'])) {
+            isset($data['employeeBloodGroup']) && isset($data['employeeDOB']) && isset($data['branchID']) && isset($data['organisationID'])) {
             
             $this->empID = $data['empID'];
             $this->employeeName = $data['employeeName'];
@@ -41,6 +42,7 @@ class AddEmployeeComponent{
             $this->casualLeave = $data['casualLeave'] ?? 0;
             $this->privilegeLeave = $data['privilegeLeave'] ?? 0;
             $this->medicalLeave = $data['medicalLeave'] ?? 0;
+            $this->organisationID = $data['organisationID'];
             return true;
         } else {
             return false;
@@ -83,8 +85,8 @@ class AddEmployeeComponent{
             $queryEmployee = "INSERT INTO tblEmployee (
                 empID, employeeName, employeePhone, employeeGender, Designation, 
                 employeePassword, employeeBloodGroup, employeeDOB, isManager, 
-                joiningDate, retirementDate, isActive, deviceFingerprint
-            ) VALUES (?, ?, ?, ?, ?, MD5('Password#1'), ?, ?, ?, ?, ?, 1, '')";
+                joiningDate, retirementDate, isActive, deviceFingerprint, organisationID
+            ) VALUES (?, ?, ?, ?, ?, MD5('Password#1'), ?, ?, ?, ?, ?, 1, '', ?)";
             
             $stmt = mysqli_prepare($connect_var, $queryEmployee);
             mysqli_stmt_bind_param($stmt, "ssssssssss",
@@ -97,7 +99,8 @@ class AddEmployeeComponent{
                 $this->employeeDOB,
                 $this->isManager,
                 $this->joiningDate,
-                $this->retirementDate
+                $this->retirementDate,
+                $this->organisationID,
             );
 
             if (!mysqli_stmt_execute($stmt)) {

@@ -25,7 +25,7 @@ class AddEmployeeComponent{
             $this->employeeBloodGroup = $data['employeeBloodGroup'];
             $this->employeeDOB = $data['employeeDOB'];
             $this->isManager = $data['isManager'];
-            $this->organisationID = $data['organisationID']
+            $this->organisationID = $data['organisationID'];
             return true;
         } else {
             return false;
@@ -56,7 +56,7 @@ class AddEmployeeComponent{
                 $this->organisationID
             ]);
 
-            
+
             mysqli_stmt_bind_param($stmt, "sssssssss",
                 $this->empID,
                 $this->employeeName,
