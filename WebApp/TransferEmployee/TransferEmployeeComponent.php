@@ -10,7 +10,7 @@ class TransferEmployeeComponent{
     public $createdBy;
     public $isImmediate;
     public function loadTransferEmployeeDetails(array $data){       
-        if (isset($data['employeeID']) && isset($data['fromBranch']) && isset($data['toBranch']) && isset($data['fromDate']) && isset($data['toDate']) && isset($data['isPermanentTransfer']) && isset($data['organisationID']) && isset($data['createdBy']) && isset($data['isActive']) && isset($data['isImmediate'])) {
+        if (isset($data['employeeID']) && isset($data['fromBranch']) && isset($data['toBranch']) && isset($data['fromDate']) && isset($data['toDate']) && isset($data['isPermanentTransfer']) && isset($data['organisationID']) && isset($data['createdBy']) && isset($data['isImmediate'])) {
             $this->employeeID = $data['employeeID'];
             $this->fromBranch = $data['fromBranch'];
             $this->toBranch = $data['toBranch'];
