@@ -89,7 +89,7 @@ class AddEmployeeComponent{
             ) VALUES (?, ?, ?, ?, ?, MD5('Password#1'), ?, ?, ?, ?, ?, 1, '', ?)";
             
             $stmt = mysqli_prepare($connect_var, $queryEmployee);
-            mysqli_stmt_bind_param($stmt, "ssssssssss",
+            mysqli_stmt_bind_param($stmt, "sssssssssss",
                 $this->empID,
                 $this->employeeName,
                 $this->employeePhone,
@@ -100,7 +100,7 @@ class AddEmployeeComponent{
                 $this->isManager,
                 $this->joiningDate,
                 $this->retirementDate,
-                $this->organisationID,
+                $this->organisationID
             );
 
             if (!mysqli_stmt_execute($stmt)) {
