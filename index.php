@@ -81,6 +81,9 @@ require 'WebApp/Organisation/OrganisationComponent.php';
 require 'Branch/BranchRouter.php';
 require 'Branch/BranchComponent.php';
 
+require 'section/sectionRouter.php';
+require 'section/sectionComponent.php';
+
 // Register all routers
 \EmployeePaySlip\EmployeePaySlipRouter::register($f3);
 
