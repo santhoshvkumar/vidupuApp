@@ -42,6 +42,21 @@ class AddEmployeeComponent{
             // 1. Get all active employees Name, ID and BranchID
             $queryAllEmployeeDetails = "INSERT INTO tblEmployee (empID, employeeName, employeePhone, employeeGender, Designation, employeePassword, employeeBloodGroup, employeeDOB, isManager, organisationID) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
             $stmt = mysqli_prepare($connect_var, $queryAllEmployeeDetails);
+            echo "Query: $queryAllEmployeeDetails\n";
+            echo "Values: " . implode(', ', [
+                $this->empID,
+                $this->employeeName,
+                $this->employeePhone,
+                $this->employeeGender,
+                $this->employeeDesignation,
+                $this->employeePassword,
+                $this->employeeBloodGroup,
+                $this->employeeDOB,
+                $this->isManager,
+                $this->organisationID
+            ]);
+
+            
             mysqli_stmt_bind_param($stmt, "sssssssss",
                 $this->empID,
                 $this->employeeName,
