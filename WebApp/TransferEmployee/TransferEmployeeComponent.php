@@ -64,6 +64,15 @@ class TransferEmployeeComponent{
                 mysqli_stmt_bind_param($queryUpdateMapStatement, "ssss", $this->toBranch, $lastInsertId, $this->employeeID, $this->organisationID);
                 mysqli_stmt_execute($queryUpdateMapStatement);
                 mysqli_stmt_close($queryUpdateMapStatement);
+
+                $debugQuery = sprintf(
+                    "UPDATE tblmapEmp SET branchID='%s', transferHistoryID='%s' WHERE employeeID='%s' and organisationID='%s'",
+                    $this->toBranch,
+                    $lastInsertId,
+                    $this->employeeID,
+                    $this->organisationID
+                );
+                echo "Debug Query: $debugQuery\n";
             }
 
             if (mysqli_stmt_execute($queryStatement)) {
