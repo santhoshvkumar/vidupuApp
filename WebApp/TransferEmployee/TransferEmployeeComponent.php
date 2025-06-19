@@ -32,11 +32,10 @@ class TransferEmployeeComponent{
         try {
             $data = [];
             $currentDate = date('Y-m-d');
-            $isActive = 0;
+            $isActive = 1;
             $getIsImmediateTransfer = $this->isImmediate;
-            if($getIsImmediateTransfer === "0") {
-                $isActive = 1;
-               
+            if($getIsImmediateTransfer === "1") {
+                $isActive = 0;           
             }
 
             // select * tblTransfer => employeeID, fromDate, toDate -> Error command 
@@ -59,7 +58,7 @@ class TransferEmployeeComponent{
                 $lastInsertId = mysqli_insert_id($connect_var);
             }
             echo "Last Inserted ID" . $lastInsertId." ---.".$getIsImmediateTransfer;
-            if($getIsImmediateTransfer === "0") {
+            if($getIsImmediateTransfer === "1") {
                 echo "INside the IF COndition";
                 $queryUpdateMapEmployee = "UPDATE tblmapEmp SET branchID=?, transferHistoryID=? WHERE employeeID=? and organisationID=? ";
                 $queryUpdateMapStatement = mysqli_prepare($connect_var, $queryUpdateMapEmployee);
