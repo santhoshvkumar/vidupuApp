@@ -24,6 +24,16 @@ class EmployeeComponent{
     public $employeeName;
     public $deviceFingerprint;
     public $employeeBloodGroup;
+    public $organisationID;
+
+    public function loadAllEmployeeList(array $data){
+        if(isset($data['OrganisationID'])) {
+            $this->OrganisationID = $data['OrganisationID'];
+            return true;
+        } else {
+            return false;
+        }
+    }
 
     public function loadResetPassword(array $data){ 
         if (isset($data['empID'])) {  
@@ -359,38 +369,38 @@ class EmployeeComponent{
     
             // 1. Get all active employees Name, ID and BranchID
             $queryGetEmployeeDetails = "SELECT DISTINCT
-    tblE.employeeID,
-    tblE.empID, 
-    tblE.employeeName, 
-    tblE.employeePhone,
-    tblE.employeeGender, 
-    tblE.Designation, 
-    tblE.employeeBloodGroup,
-    CASE 
-        WHEN tblE.isManager = 1 THEN 'Yes'
-        ELSE 'No'
-    END AS HasApprovalAuthority,
-    tblE.employeeDOB AS DateOfBirth,
-    tblE.joiningDate,
-    tblE.retirementDate,
-    tblB.branchID, 
-    tblB.branchName,   
-    tblS.sectionName,
-    tblL.casualLeave,
-    tblL.privilegeLeave,
-    tblL.medicalLeave,
-    tblE.deviceFingerprint,
-    tblE.employeePassword
-FROM 
-    tblEmployee tblE
-JOIN tblmapEmp tblM ON tblE.employeeID = tblM.employeeID
-JOIN tblBranch tblB ON tblM.branchID = tblB.branchID
-LEFT JOIN tblAssignedSection tblA 
-       ON tblE.employeeID = tblA.employeeID AND tblA.isActive = 1
-LEFT JOIN tblSection tblS ON tblA.sectionID = tblS.sectionID
-LEFT JOIN tblLeaveBalance tblL ON tblE.employeeID = tblL.employeeID
-WHERE tblE.isTemporary = 0 and tblE.isActive = 1;
-";
+                tblE.employeeID,
+                tblE.empID, 
+                tblE.employeeName, 
+                tblE.employeePhone,
+                tblE.employeeGender, 
+                tblE.Designation, 
+                tblE.employeeBloodGroup,
+                CASE 
+                    WHEN tblE.isManager = 1 THEN 'Yes'
+                    ELSE 'No'
+                END AS HasApprovalAuthority,
+                tblE.employeeDOB AS DateOfBirth,
+                tblE.joiningDate,
+                tblE.retirementDate,
+                tblB.branchID, 
+                tblB.branchName,   
+                tblS.sectionName,
+                tblL.casualLeave,
+                tblL.privilegeLeave,
+                tblL.medicalLeave,
+                tblE.deviceFingerprint,
+                tblE.employeePassword
+            FROM 
+                tblEmployee tblE
+            JOIN tblmapEmp tblM ON tblE.employeeID = tblM.employeeID
+            JOIN tblBranch tblB ON tblM.branchID = tblB.branchID
+            LEFT JOIN tblAssignedSection tblA 
+                ON tblE.employeeID = tblA.employeeID AND tblA.isActive = 1
+            LEFT JOIN tblSection tblS ON tblA.sectionID = tblS.sectionID
+            LEFT JOIN tblLeaveBalance tblL ON tblE.employeeID = tblL.employeeID
+            WHERE tblE.isTemporary = 0 and tblE.organisationID=$this->OrganisationID;
+            ";
             $result = mysqli_query($connect_var, $queryGetEmployeeDetails);            
 
             // Initialize an array to hold all employee details
@@ -419,86 +429,86 @@ WHERE tblE.isTemporary = 0 and tblE.isActive = 1;
     
             // 1. Get all active employees Name, ID and BranchID
             $queryGetEmployeeDetails = "SELECT 
-    tblE.empID, 
-    tblE.employeeName, 
-    tblE.employeePhone,
-    tblE.employeeGender, 
-    tblE.Designation, 
-    tblE.employeeBloodGroup,
-    CASE 
-        WHEN tblE.isManager = 1 THEN 'Yes'
-        ELSE 'No'
-    END AS HasApprovalAuthority,
-    tblE.employeeDOB AS DateOfBirth,
-    tblE.joiningDate,
-    tblE.retirementDate,
-    tblB.branchID, 
-    tblB.branchName,   
-    tblS.sectionName,
-    tblL.casualLeave,
-    tblL.privilegeLeave,
-    tblL.medicalLeave
-FROM 
-    tblEmployee tblE
-JOIN 
-    tblmapEmp tblM ON tblE.employeeID = tblM.employeeID
-JOIN 
-    tblBranch tblB ON tblM.branchID = tblB.branchID
-LEFT JOIN 
-    tblAssignedSection tblA ON tblE.employeeID = tblA.employeeID AND tblA.isActive = 1
-LEFT JOIN 
-    tblSection tblS ON tblA.sectionID = tblS.sectionID
-LEFT JOIN 
-    tblLeaveBalance tblL ON tblE.employeeID = tblL.employeeID
-WHERE 
-    tblE.isTemporary = 0 AND tblE.empID = ?";
-    $debug_query = str_replace(
-        ['?'],
-        [
-        "'" . $this->empID. "'",
-        ],
-    $queryGetEmployeeDetails
-);
-    error_log("Debug Query: " . $debug_query);
+            tblE.empID, 
+            tblE.employeeName, 
+            tblE.employeePhone,
+            tblE.employeeGender, 
+            tblE.Designation, 
+            tblE.employeeBloodGroup,
+            CASE 
+                WHEN tblE.isManager = 1 THEN 'Yes'
+                ELSE 'No'
+            END AS HasApprovalAuthority,
+            tblE.employeeDOB AS DateOfBirth,
+            tblE.joiningDate,
+            tblE.retirementDate,
+            tblB.branchID, 
+            tblB.branchName,   
+            tblS.sectionName,
+            tblL.casualLeave,
+            tblL.privilegeLeave,
+            tblL.medicalLeave
+        FROM 
+            tblEmployee tblE
+        JOIN 
+            tblmapEmp tblM ON tblE.employeeID = tblM.employeeID
+        JOIN 
+            tblBranch tblB ON tblM.branchID = tblB.branchID
+        LEFT JOIN 
+            tblAssignedSection tblA ON tblE.employeeID = tblA.employeeID AND tblA.isActive = 1
+        LEFT JOIN 
+            tblSection tblS ON tblA.sectionID = tblS.sectionID
+        LEFT JOIN 
+            tblLeaveBalance tblL ON tblE.employeeID = tblL.employeeID
+        WHERE 
+            tblE.isTemporary = 0 AND tblE.empID = ?";
+            $debug_query = str_replace(
+                ['?'],
+                [
+                "'" . $this->empID. "'",
+                ],
+            $queryGetEmployeeDetails
+        );
+        error_log("Debug Query: " . $debug_query);
 
-    $stmt = mysqli_prepare($connect_var, $queryGetEmployeeDetails);
-    if (!$stmt) {           
-    throw new Exception("Database prepare failed");
-    }
+        $stmt = mysqli_prepare($connect_var, $queryGetEmployeeDetails);
+        if (!$stmt) {           
+        throw new Exception("Database prepare failed");
+        }
 
-    mysqli_stmt_bind_param($stmt, "s", $this->empID);
+        mysqli_stmt_bind_param($stmt, "s", $this->empID);
 
-    if (!mysqli_stmt_execute($stmt)) {  
-        throw new Exception("Database execute failed");
-    }
+        if (!mysqli_stmt_execute($stmt)) {  
+            throw new Exception("Database execute failed");
+        }
 
-    $result = mysqli_stmt_get_result($stmt);
-    $countEmployee = 0;
-    while ($row = mysqli_fetch_assoc($result)) {
-    $countEmployee++;   
-    $data[] = $row;
-    }
+        $result = mysqli_stmt_get_result($stmt);
+        $countEmployee = 0;
+        while ($row = mysqli_fetch_assoc($result)) {
+        $countEmployee++;   
+        $data[] = $row;
+        }
 
-    if ($countEmployee > 0) {
-    echo json_encode([
-        "status" => "success",          
-        "data" => $data
-    ]);
-    } else {
-    echo json_encode([
+        if ($countEmployee > 0) {
+        echo json_encode([
+            "status" => "success",          
+            "data" => $data
+        ]);
+        } else {
+        echo json_encode([
+            "status" => "error",
+            "message_text" => "No data found for any employee"
+        ], JSON_FORCE_OBJECT);  
+        }
+        mysqli_stmt_close($stmt);
+        mysqli_close($connect_var);
+        } catch (Exception $e) {
+        error_log("Error in GetEmployeeDetailsBasedOnID: " . $e->getMessage());
+        echo json_encode([
         "status" => "error",
-        "message_text" => "No data found for any employee"
-    ], JSON_FORCE_OBJECT);  
-    }
-    mysqli_stmt_close($stmt);
-    mysqli_close($connect_var);
-    } catch (Exception $e) {
-    error_log("Error in GetEmployeeDetailsBasedOnID: " . $e->getMessage());
-    echo json_encode([
-    "status" => "error",
-    "message_text" => $e->getMessage()
-    ], JSON_FORCE_OBJECT);
-    }
+        "message_text" => $e->getMessage()
+        ], JSON_FORCE_OBJECT);
+        }
     }
     public function UpdateEmployeeDetailsBasedOnID($decoded_items) {
         include('config.inc');
@@ -670,9 +680,13 @@ function EmployeeDetails() {
     $EmployeeComponent->AllEmployeeDetails();
 }
 
-function GetAllEmployeeDetails() {
+function GetAllEmployees($decoded_items) {
     $EmployeeComponent = new EmployeeComponent();
-    $EmployeeComponent->GetAllEmployeeDetails();
+    if($EmployeeComponent-> loadAllEmployeeList($decoded_items)) {
+        $EmployeeComponent->GetAllEmployeeDetails();
+    } else {
+        echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
+    }
 }
 
 function UpdateEmployeeDetails($decoded_items) {

@@ -369,6 +369,8 @@ class AttendanceOperationMaster{
         header('Content-Type: application/json');
         
         try {
+            error_log("Starting getEmployeeAttendanceHistory for employee: $employeeID, year: $getYear, month: $getMonth");
+            
             $query = "SELECT 
                 attendanceDate,
                 attendanceID,
@@ -425,35 +427,6 @@ class AttendanceOperationMaster{
 
                 UNION ALL
 
-                -- Leave records
-                SELECT 
-                    l.fromDate as attendanceDate,
-                    NULL as attendanceID,
-                    l.employeeID,
-                    NULL as checkInTime,
-                    NULL as checkOutTime,
-                    NULL as TotalWorkingHour,
-                    NULL as isAutoCheckout,
-                    0 as isLateCheckIn,
-                    0 as isEarlyCheckOut,
-                    0 as isHoliday,
-                    NULL as holidayDescription,
-                    1 as isLeave,
-                    0 as isAbsent
-                FROM tblApplyLeave l
-                WHERE l.employeeID = ?
-                AND l.status = 'Approved'
-                AND YEAR(l.fromDate) = ?
-                AND MONTH(l.fromDate) = ?
-                AND (YEAR(l.fromDate) < YEAR(CURRENT_DATE) 
-                     OR (YEAR(l.fromDate) = YEAR(CURRENT_DATE) 
-                         AND MONTH(l.fromDate) < MONTH(CURRENT_DATE))
-                     OR (YEAR(l.fromDate) = YEAR(CURRENT_DATE) 
-                         AND MONTH(l.fromDate) = MONTH(CURRENT_DATE) 
-                         AND l.fromDate <= CURRENT_DATE))
-
-                UNION ALL
-
                 -- Holiday records
                 SELECT 
                     h.date as attendanceDate,
@@ -481,19 +454,28 @@ class AttendanceOperationMaster{
             ) combined
             ORDER BY attendanceDate DESC";
             
+            error_log("Executing main attendance query");
             $stmt = mysqli_prepare($connect_var, $query);
-            mysqli_stmt_bind_param($stmt, "siiisiii", 
+            if (!$stmt) {
+                throw new Exception("Failed to prepare main query: " . mysqli_error($connect_var));
+            }
+            
+            mysqli_stmt_bind_param($stmt, "siiii", 
                 $employeeID,  // for attendance
                 $getYear,     // for attendance
                 $getMonth,    // for attendance
-                $employeeID,  // for leave
-                $getYear,     // for leave
-                $getMonth,    // for leave
                 $getYear,     // for holiday
                 $getMonth     // for holiday
             );
-            mysqli_stmt_execute($stmt);
+            
+            if (!mysqli_stmt_execute($stmt)) {
+                throw new Exception("Failed to execute main query: " . mysqli_stmt_error($stmt));
+            }
+            
             $result = mysqli_stmt_get_result($stmt);
+            if (!$result) {
+                throw new Exception("Failed to get main result: " . mysqli_error($connect_var));
+            }
             
             $attendanceRecords = [];
             $lateCheckInCount = 0;
@@ -521,40 +503,169 @@ class AttendanceOperationMaster{
                 $attendanceRecords[] = $row;
             }
             
+            error_log("Found " . count($attendanceRecords) . " attendance/holiday records");
+            
+            // Create a date-indexed array to handle duplicates and prioritize leave over holiday
+            $dateIndexedRecords = [];
+            
+            // First, add all existing records (attendance and holiday)
+            foreach ($attendanceRecords as $record) {
+                $dateKey = $record['attendanceDate'];
+                $dateIndexedRecords[$dateKey] = $record;
+            }
+            
+            // Now fetch leave records and generate individual day records
+            $leaveQuery = "SELECT fromDate, toDate, employeeID 
+                          FROM tblApplyLeave 
+                          WHERE employeeID = ? 
+                          AND status = 'Approved'
+                          AND (
+                              (YEAR(fromDate) = ? AND MONTH(fromDate) = ?) OR
+                              (YEAR(toDate) = ? AND MONTH(toDate) = ?) OR
+                              (fromDate <= ? AND toDate >= ?)
+                          )
+                          AND (YEAR(fromDate) < YEAR(CURRENT_DATE) 
+                               OR (YEAR(fromDate) = YEAR(CURRENT_DATE) 
+                                   AND MONTH(fromDate) < MONTH(CURRENT_DATE))
+                               OR (YEAR(fromDate) = YEAR(CURRENT_DATE) 
+                                   AND MONTH(fromDate) = MONTH(CURRENT_DATE) 
+                                   AND fromDate <= CURRENT_DATE))";
+            
+            // Create date strings for the month boundaries
+            $monthStartDate = sprintf('%04d-%02d-01', $getYear, $getMonth);
+            $monthEndDate = date('Y-m-t', strtotime($monthStartDate)); // Last day of month
+            
+            error_log("Executing leave query with month range: $monthStartDate to $monthEndDate");
+            
+            $leaveStmt = mysqli_prepare($connect_var, $leaveQuery);
+            mysqli_stmt_bind_param($leaveStmt, "siiisss", 
+                $employeeID, 
+                $getYear, $getMonth,  // fromDate conditions
+                $getYear, $getMonth,  // toDate conditions  
+                $monthEndDate, $monthStartDate  // span conditions
+            );
+            
+            if (!$leaveStmt) {
+                throw new Exception("Failed to prepare leave query: " . mysqli_error($connect_var));
+            }
+            
+            if (!mysqli_stmt_execute($leaveStmt)) {
+                throw new Exception("Failed to execute leave query: " . mysqli_stmt_error($leaveStmt));
+            }
+            
+            $leaveResult = mysqli_stmt_get_result($leaveStmt);
+            
+            if (!$leaveResult) {
+                throw new Exception("Failed to get leave result: " . mysqli_error($connect_var));
+            }
+            
+            $leaveRecordsFound = 0;
+            
+            // Generate individual day records for each leave period
+            while ($leaveRow = mysqli_fetch_assoc($leaveResult)) {
+                try {
+                    $leaveRecordsFound++;
+                    error_log("Processing leave record $leaveRecordsFound: fromDate=" . $leaveRow['fromDate'] . ", toDate=" . $leaveRow['toDate']);
+                    
+                    $fromDate = new DateTime($leaveRow['fromDate']);
+                    $toDate = new DateTime($leaveRow['toDate']);
+                    
+                    // Generate records for each day from fromDate to toDate
+                    $currentDate = clone $fromDate;
+                    $daysAdded = 0;
+                    
+                    while ($currentDate <= $toDate) {
+                        $currentDateStr = $currentDate->format('Y-m-d');
+                        
+                        // Only add if it's in the requested month/year
+                        if ($currentDate->format('Y') == $getYear && $currentDate->format('n') == $getMonth) {
+                            $leaveRecord = [
+                                'attendanceDate' => $currentDateStr,
+                                'attendanceID' => NULL,
+                                'employeeID' => $leaveRow['employeeID'],
+                                'checkInTime' => NULL,
+                                'checkOutTime' => NULL,
+                                'TotalWorkingHour' => NULL,
+                                'isAutoCheckout' => NULL,
+                                'isLateCheckIn' => 0,
+                                'isEarlyCheckOut' => 0,
+                                'isHoliday' => 0,
+                                'holidayDescription' => NULL,
+                                'isLeave' => 1,
+                                'isAbsent' => 0
+                            ];
+                            
+                            // Always override existing records with leave records (leave takes priority)
+                            $dateIndexedRecords[$currentDateStr] = $leaveRecord;
+                            $daysAdded++;
+                        }
+                        
+                        $currentDate->add(new DateInterval('P1D')); // Add 1 day
+                    }
+                    
+                    error_log("Added $daysAdded leave days for this leave period");
+                    
+                } catch (Exception $dateException) {
+                    error_log("Error processing leave dates: " . $dateException->getMessage());
+                    // Continue with other records
+                }
+            }
+            
+            error_log("Found $leaveRecordsFound leave records");
+            
+            // Convert back to indexed array
+            $attendanceRecords = array_values($dateIndexedRecords);
+            
             mysqli_close($connect_var);
             
-            // Double check counts against actual records
-            $actualAbsentCount = count(array_filter($attendanceRecords, function($record) {
-                return $record['isAbsent'] == 1 && $record['isHoliday'] != 1;
-            }));
+            // Sort records by date (newest first)
+            usort($attendanceRecords, function($a, $b) {
+                return strcmp($b['attendanceDate'], $a['attendanceDate']);
+            });
             
-            $actualLeaveCount = count(array_filter($attendanceRecords, function($record) {
-                return $record['isLeave'] == 1 && $record['isHoliday'] != 1;
-            }));
+            error_log("Total records after processing: " . count($attendanceRecords));
             
-            $actualLateCheckInCount = count(array_filter($attendanceRecords, function($record) {
-                return $record['isLateCheckIn'] == 1 && $record['isHoliday'] != 1;
-            }));
+            // Recalculate counts after deduplication
+            $lateCheckInCount = 0;
+            $earlyCheckOutCount = 0;
+            $leaveCount = 0;
+            $absentCount = 0;
             
-            $actualEarlyCheckOutCount = count(array_filter($attendanceRecords, function($record) {
-                return $record['isEarlyCheckOut'] == 1 && $record['isHoliday'] != 1;
-            }));
+            foreach ($attendanceRecords as $record) {
+                // Only count if it's a working day (not a holiday)
+                if($record['isHoliday'] != 1) {
+                    if($record['isLateCheckIn'] == 1) {
+                        $lateCheckInCount++;
+                    }
+                    if($record['isEarlyCheckOut'] == 1) {
+                        $earlyCheckOutCount++;
+                    }
+                    if($record['isLeave'] == 1) {
+                        $leaveCount++;
+                    }
+                    if($record['isAbsent'] == 1) {
+                        $absentCount++;
+                    }
+                }
+            }
             
             $response = array(
                 "status" => "success",
                 "data" => $attendanceRecords,
                 "counts" => array(
-                    "lateCheckIn" => $actualLateCheckInCount,
-                    "earlyCheckOut" => $actualEarlyCheckOutCount,
-                    "leave" => $actualLeaveCount,
-                    "absent" => $actualAbsentCount
+                    "lateCheckIn" => $lateCheckInCount,
+                    "earlyCheckOut" => $earlyCheckOutCount,
+                    "leave" => $leaveCount,
+                    "absent" => $absentCount
                 )
             );
             
+            error_log("Successfully returning response with " . count($attendanceRecords) . " records");
             echo json_encode($response);
             exit;
         } catch(Exception $e) {
             error_log("Error in getEmployeeAttendanceHistory: " . $e->getMessage());
+            error_log("Stack trace: " . $e->getTraceAsString());
             $errorResponse = array(
                 "status" => "error",
                 "message_text" => "Error Retrieving Attendance History: " . $e->getMessage()

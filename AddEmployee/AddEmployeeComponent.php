@@ -13,8 +13,9 @@ class AddEmployeeComponent{
     public $branchName;
     public $employeeBloodGroup;
     public $employeeDOB;
+    public $organisationID;
     public function loadAddEmployeeDetails(array $data){
-        if (isset($data['empID']) && isset($data['employeeName']) && isset($data['employeePhone']) && isset($data['employeeGender']) && isset($data['Designation']) && isset($data['employeePassword']) && isset($data['employeeBloodGroup']) && isset($data['employeeDOB'])) {
+        if (isset($data['empID']) && isset($data['employeeName']) && isset($data['employeePhone']) && isset($data['employeeGender']) && isset($data['Designation']) && isset($data['employeePassword']) && isset($data['employeeBloodGroup']) && isset($data['employeeDOB']) && isset($data['organisationID'])) {
             $this->empID = $data['empID'];
             $this->employeeName = $data['employeeName'];
             $this->employeePhone = $data['employeePhone'];
@@ -24,6 +25,7 @@ class AddEmployeeComponent{
             $this->employeeBloodGroup = $data['employeeBloodGroup'];
             $this->employeeDOB = $data['employeeDOB'];
             $this->isManager = $data['isManager'];
+            $this->organisationID = $data['organisationID'];
             return true;
         } else {
             return false;
@@ -38,8 +40,23 @@ class AddEmployeeComponent{
             $data = [];
     
             // 1. Get all active employees Name, ID and BranchID
-            $queryAllEmployeeDetails = "INSERT INTO tblEmployee (empID, employeeName, employeePhone, employeeGender, Designation, employeePassword, employeeBloodGroup, employeeDOB, isManager) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);";
+            $queryAllEmployeeDetails = "INSERT INTO tblEmployee (empID, employeeName, employeePhone, employeeGender, Designation, employeePassword, employeeBloodGroup, employeeDOB, isManager, organisationID) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
             $stmt = mysqli_prepare($connect_var, $queryAllEmployeeDetails);
+            echo "Query: $queryAllEmployeeDetails\n";
+            echo "Values: " . implode(', ', [
+                $this->empID,
+                $this->employeeName,
+                $this->employeePhone,
+                $this->employeeGender,
+                $this->employeeDesignation,
+                $this->employeePassword,
+                $this->employeeBloodGroup,
+                $this->employeeDOB,
+                $this->isManager,
+                $this->organisationID
+            ]);
+
+
             mysqli_stmt_bind_param($stmt, "sssssssss",
                 $this->empID,
                 $this->employeeName,
@@ -49,7 +66,8 @@ class AddEmployeeComponent{
                 $this->employeePassword,
                 $this->employeeBloodGroup,
                 $this->employeeDOB,
-                $this->isManager
+                $this->isManager,
+                $this->organisationID
             );
 
             if (mysqli_stmt_execute($stmt)) {

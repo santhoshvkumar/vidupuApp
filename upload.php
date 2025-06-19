@@ -70,6 +70,54 @@ try {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // --- PROFILE PHOTO UPLOAD HANDLING FIRST ---
+    $profilePhotoField = isset($_FILES['profilePhoto']) ? $_FILES['profilePhoto'] : null;
+    $profileEmployeeID = isset($_POST['employeeID']) ? $_POST['employeeID'] : null;
+    if ($profilePhotoField && $profileEmployeeID) {
+        $file = $profilePhotoField;
+        if ($file['error'] === UPLOAD_ERR_OK) {
+            $fileTmpPath = $file['tmp_name'];
+            $fileName = $file['name'];
+            $fileNameCmps = explode('.', $fileName);
+            $fileExtension = strtolower(end($fileNameCmps));
+            $profileDir = $targetDir . 'profile_photos/' . $profileEmployeeID . '/';
+            if (!is_dir($profileDir)) {
+                mkdir($profileDir, 0755, true);
+            }
+            $newFileName = md5(time() . $fileName) . '.' . $fileExtension;
+            $destPath = $profileDir . $newFileName;
+            $dbPath = 'uploads/profile_photos/' . $profileEmployeeID . '/' . $newFileName;
+            $allowedExtensions = array('jpg', 'jpeg', 'png');
+            if (in_array($fileExtension, $allowedExtensions)) {
+                if (move_uploaded_file($fileTmpPath, $destPath)) {
+                    echo json_encode([
+                        'status' => 'success',
+                        'filePath' => $dbPath
+                    ]);
+                    exit;
+                } else {
+                    echo json_encode([
+                        'status' => 'error',
+                        'message' => 'Failed to move uploaded profile photo'
+                    ]);
+                    exit;
+                }
+            } else {
+                echo json_encode([
+                    'status' => 'error',
+                    'message' => 'Invalid file type for profile photo. Allowed: jpg,jpeg,png'
+                ]);
+                exit;
+            }
+        } else {
+            echo json_encode([
+                'status' => 'error',
+                'message' => 'Profile photo upload error: ' . $file['error']
+            ]);
+            exit;
+        }
+    }
+    // --- OTHER FILE UPLOAD LOGIC (medical, fitness, etc) ---
     if (!empty($_FILES)) {
         if (isset($_FILES['file'])) {
             $file = $_FILES['file'];

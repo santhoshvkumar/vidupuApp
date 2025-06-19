@@ -29,10 +29,15 @@ class LoginComponent{
 
             $queryLoginDetails = "
                 SELECT 
-                    userID, 
-                    userName, 
-                    sectionID 
-                FROM tblUser 
+                    tblU.userID, 
+                    tblU.userName, 
+                    tblU.sectionID,
+                    tblU.role,
+                    tblU.organisationID,
+                    tblO.organisationName,
+                    tblO.organisationLogo
+                FROM tblUser tblU 
+                INNER JOIN tblOrganisation tblO on tblO.organisationID = tblU.organisationID
                 WHERE userPhone = ? 
                 AND userPassword = MD5(?);";
 
@@ -46,7 +51,7 @@ class LoginComponent{
                 $queryLoginDetails
             );
             error_log("Debug Query: " . $debug_query);
-
+            
             $stmt = mysqli_prepare($connect_var, $queryLoginDetails);
             if (!$stmt) {
                 error_log("Prepare failed: " . mysqli_error($connect_var));
@@ -73,7 +78,10 @@ class LoginComponent{
                 $data['userID'] = $row['userID'];
                 $data['userName'] = $row['userName'];
                 $data['sectionID'] = $row['sectionID'];
-                
+                $data['role'] = $row['role'];
+                $data['organisationID'] = $row['organisationID'];
+                $data['organisationName'] = $row['organisationName'];
+                $data['organisationLogo'] = $row['organisationLogo'];
                 // Debug final data
                 error_log("Final Data: " . print_r($data, true));
                 
