@@ -34,9 +34,9 @@ class TransferEmployeeComponent{
         try {
             $data = [];
             $currentDate = date('Y-m-d');
+
+            // select * tblTransfer => employeeID, fromDate, toDate -> Error command 
             $queryInsertTransferHistory = "INSERT INTO tblTransferHistory ( employeeID, fromBranch, toBranch, fromDate, toDate, isPermanentTransfer, organisationID, createdOn, createdBy, isActive, isImmediateTransfer) VALUES (?,?,?,?,?,?,?,?,?,?,?);";
-            
-            
             $queryStatement = mysqli_prepare($connect_var, $queryInsertTransferHistory);
             mysqli_stmt_bind_param($queryStatement, "sssssssssss",
                 $this->employeeID,
