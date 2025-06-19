@@ -135,7 +135,11 @@ class SectionComponent {
         try {
             $data = [];
     
-            $queryGetSectionsByOrg = "SELECT * FROM tblSection WHERE organisationID = ? ORDER BY sectionID DESC";
+            $queryGetSectionsByOrg = "SELECT s.*, e.employeeName as sectionHeadName 
+                                     FROM tblSection s 
+                                     LEFT JOIN tblEmployee e ON s.sectionHeadID = e.employeeID 
+                                     WHERE s.organisationID = ? 
+                                     ORDER BY s.sectionID DESC";
             $stmt = mysqli_prepare($connect_var, $queryGetSectionsByOrg);
             mysqli_stmt_bind_param($stmt, "i", $this->organisationID);
 
