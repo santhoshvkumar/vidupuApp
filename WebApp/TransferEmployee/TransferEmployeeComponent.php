@@ -9,6 +9,7 @@ class TransferEmployeeComponent{
     public $organisationID;    
     public $createdBy;
     public $isImmediate;
+    public $dataOfTransfer;
     public function loadTransferEmployeeDetails(array $data){       
         if (isset($data['employeeID']) && isset($data['fromBranch']) && isset($data['toBranch']) && isset($data['fromDate']) && isset($data['toDate']) && isset($data['isPermanentTransfer']) && isset($data['organisationID']) && isset($data['createdBy']) && isset($data['isImmediate'])) {
             $this->employeeID = $data['employeeID'];
@@ -25,6 +26,12 @@ class TransferEmployeeComponent{
             return false;
         }
     }
+    public function loadAutoTransfer(array $data) {
+        $this->dataOfTransfer = $decoded_items['dataOfTransfer'];
+        return true;
+    }
+
+   
     public function TransferEmployeeDetails() {
         include('config.inc');
         header('Content-Type: application/json');
@@ -87,7 +94,46 @@ class TransferEmployeeComponent{
         }
     }
 
-} // End of 
+    public function autoTransferProcess() {
+        include('config.inc');
+        header('Content-Type: application/json');
+    
+        try {
+            $data = [];
+            $systemDate = $this->dataOfTransfer;
+
+            $querySystemTransfer = "SELECT transferHistoryID, fromBranch, toBranch, employeeID 
+                FROM tblTransferHistory 
+                WHERE ? BETWEEN fromDate AND toDate 
+                AND isActive = 1";
+            $stmt = mysqli_prepare($connect_var, $querySystemTransfer);
+            mysqli_stmt_bind_param($stmt, "s", $systemDate);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+            $data = mysqli_fetch_all($result, MYSQLI_ASSOC);
+            mysqli_stmt_close($stmt);
+            mysqli_close($connect_var);
+
+            if (count($data) > 0) {
+                echo json_encode(array(
+                    "status" => "success",
+                    "data" => $data
+                ));
+            } else {
+                echo json_encode(array(
+                    "status" => "error",
+                    "message" => "No records found."
+                ));
+            }
+        } catch (Exception $e) {
+            echo json_encode([
+                "status" => "error", 
+                "message_text" => $e->getMessage()
+            ], JSON_FORCE_OBJECT);
+        }
+    }
+
+} // End of Class
 function TransferEmployeeDetails($decoded_items) {
     $EmployeeObject = new TransferEmployeeComponent();
     if ($EmployeeObject->loadTransferEmployeeDetails($decoded_items)) {
@@ -96,4 +142,22 @@ function TransferEmployeeDetails($decoded_items) {
         echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
     }
 }
+
+function AutoTransfer($decoded_items) {
+    try {
+        $transferObject = new TransferEmployeeComponent();
+        if($transferObject->loadAutoTransfer($decoded_items)){
+            $transferObject->autoTransferProcess();
+        }
+        else{
+            echo json_encode(array("status"=>"error","message_text"=>"Invalid Input Parameters"),JSON_FORCE_OBJECT);
+        }
+    } catch(Exception $e) {
+        echo json_encode(array(
+            "status" => "error",
+            "message_text" => "Failed to process auto checkout: " . $e->getMessage()
+        ), JSON_FORCE_OBJECT);
+    }
+}
+
 ?>
