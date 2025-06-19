@@ -134,7 +134,7 @@ class SectionComponent {
     
         try {
             $data = [];
-    //ADDED SECTION HEAD NAME
+    //ADDED SECTION HEAD NAME in the query
             $queryGetSectionsByOrg = "SELECT s.*, e.employeeName as sectionHeadName 
                                      FROM tblSection s 
                                      LEFT JOIN tblEmployee e ON s.sectionHeadID = e.employeeID 
