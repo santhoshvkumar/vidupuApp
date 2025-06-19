@@ -102,7 +102,7 @@ class TransferEmployeeComponent{
             $data = [];
             $systemDate = $this->dataOfTransfer;
 
-            $querySystemTransfer = "SELECT transferHistoryID, fromBranch, toBranch, employeeID, toDate 
+            $querySystemTransfer = "SELECT transferHistoryID, fromBranch, toBranch, employeeID, toDate, isPermanentTransfer 
                 FROM tblTransferHistory 
                 WHERE ? BETWEEN fromDate AND toDate 
                 AND isActive = 1";
@@ -128,6 +128,13 @@ class TransferEmployeeComponent{
                     mysqli_stmt_execute($updateStmt);
                     mysqli_stmt_close($updateStmt);
                 }
+                if($row['isPermanentTransfer']){
+                    $updateTransferHistory = "UPDATE tblTransferHistory SET isActive=0 WHERE transferHistoryID=?";
+                    $stmtUpdateHistory = mysqli_prepare($connect_var, $updateTransferHistory);
+                    mysqli_stmt_bind_param($stmtUpdateHistory, "s", $row['transferHistoryID']);
+                    mysqli_stmt_execute($stmtUpdateHistory);
+                    mysqli_stmt_close($stmtUpdateHistory);
+                }
                 // 1. Find all transfers where systemDate is past toDate and still active
                 $queryPastTransfers = "SELECT transferHistoryID, fromBranch, employeeID 
                 FROM tblTransferHistory 
@@ -138,7 +145,6 @@ class TransferEmployeeComponent{
                 $resultPast = mysqli_stmt_get_result($stmtPast);
                 $pastTransfers = mysqli_fetch_all($resultPast, MYSQLI_ASSOC);
                 mysqli_stmt_close($stmtPast);
-
                 // 2. For each, update tblmapEmp and tblTransferHistory
                 foreach ($pastTransfers as $row) {
                     // Update tblmapEmp: set branchID to fromBranch
