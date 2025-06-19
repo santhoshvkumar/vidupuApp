@@ -8,7 +8,6 @@ class TransferEmployeeComponent{
     public $isPermanentTransfer;
     public $organisationID;    
     public $createdBy;
-    public $isActive;
     public $isImmediate;
     public function loadTransferEmployeeDetails(array $data){       
         if (isset($data['employeeID']) && isset($data['fromBranch']) && isset($data['toBranch']) && isset($data['fromDate']) && isset($data['toDate']) && isset($data['isPermanentTransfer']) && isset($data['organisationID']) && isset($data['createdBy']) && isset($data['isActive']) && isset($data['isImmediate'])) {
@@ -20,7 +19,6 @@ class TransferEmployeeComponent{
             $this->isPermanentTransfer = $data['isPermanentTransfer'];
             $this->organisationID = $data['organisationID'];    
             $this->createdBy = $data['createdBy'];
-            $this->isActive = $data['isActive'];
             $this->isImmediate = $data['isImmediate'];
             return true;
         } else {
@@ -34,6 +32,11 @@ class TransferEmployeeComponent{
         try {
             $data = [];
             $currentDate = date('Y-m-d');
+            $isActive = 0;
+            if($this->isImmediate === "0") {
+                $isActive = 1;
+               
+            }
 
             // select * tblTransfer => employeeID, fromDate, toDate -> Error command 
             $queryInsertTransferHistory = "INSERT INTO tblTransferHistory ( employeeID, fromBranch, toBranch, fromDate, toDate, isPermanentTransfer, organisationID, createdOn, createdBy, isActive, isImmediateTransfer) VALUES (?,?,?,?,?,?,?,?,?,?,?);";
@@ -48,9 +51,20 @@ class TransferEmployeeComponent{
                 $this->organisationID,
                 $currentDate,
                 $this->createdBy,
-                $this->isActive,
+                $isActive,
                 $this->isImmediate
             );
+            if (mysqli_stmt_execute($queryStatement)) {
+                $lastInsertId = mysqli_insert_id($connect_var);
+            }
+
+            if($this->isImmediate === "0") {
+                $queryUpdateMapEmployee = "UPDATE tblmapEmp SET branchID=?, transferHistoryID=? WHERE employeeID=? and organisationID=? ";
+                $queryUpdateMapStatement = mysqli_prepare($connect_var, $queryUpdateMapEmployee);
+                mysqli_stmt_bind_param($queryUpdateMapStatement, "ssss", $this->toBranch, $lastInsertId, $this->employeeID, $this->organisationID);
+                mysqli_stmt_execute($queryUpdateMapStatement);
+                mysqli_stmt_close($queryUpdateMapStatement);
+            }
 
             if (mysqli_stmt_execute($queryStatement)) {
                 echo json_encode(array(
