@@ -57,9 +57,7 @@ class TransferEmployeeComponent{
             if (mysqli_stmt_execute($queryStatement)) {
                 $lastInsertId = mysqli_insert_id($connect_var);
             }
-            echo "Last Inserted ID" . $lastInsertId." ---.".$getIsImmediateTransfer;
-            if($getIsImmediateTransfer === "1") {
-                echo "INside the IF COndition";
+           if($getIsImmediateTransfer === "1") {
                 $queryUpdateMapEmployee = "UPDATE tblmapEmp SET branchID=?, transferHistoryID=? WHERE employeeID=? and organisationID=? ";
                 $queryUpdateMapStatement = mysqli_prepare($connect_var, $queryUpdateMapEmployee);
                 mysqli_stmt_bind_param($queryUpdateMapStatement, "ssss", $this->toBranch, $lastInsertId, $this->employeeID, $this->organisationID);
