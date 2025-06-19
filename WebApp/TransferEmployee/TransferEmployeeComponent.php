@@ -59,7 +59,7 @@ class TransferEmployeeComponent{
         try {
             $data = [];
             $currentDate = date('Y-m-d');
-            $queryInsertTransferHistory = "INSERT INTO tblTransferHistory ( employeeID, fromBranch, toBranch, fromDate, toDate, isPermanentTransfer, organisationID, createdOn, createdBy, isActive, isImmediateTransfer) VALUES (?,?,?,?,?,?,?,?,?,?);";
+            $queryInsertTransferHistory = "INSERT INTO tblTransferHistory ( employeeID, fromBranch, toBranch, fromDate, toDate, isPermanentTransfer, organisationID, createdOn, createdBy, isActive, isImmediateTransfer) VALUES (?,?,?,?,?,?,?,?,?,?,?);";
             
             
             $queryStatement = mysqli_prepare($connect_var, $queryInsertTransferHistory);
