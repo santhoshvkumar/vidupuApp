@@ -134,7 +134,7 @@ class SectionComponent {
     
         try {
             $data = [];
-    
+    //ADDED SECTION HEAD NAME
             $queryGetSectionsByOrg = "SELECT s.*, e.employeeName as sectionHeadName 
                                      FROM tblSection s 
                                      LEFT JOIN tblEmployee e ON s.sectionHeadID = e.employeeID 
@@ -172,7 +172,6 @@ class SectionComponent {
     }
 }
 
-// Helper functions 
 function CreateSection($decoded_items) {
     if (isset($_SERVER['CONTENT_TYPE']) && strpos($_SERVER['CONTENT_TYPE'], 'multipart/form-data') !== false) {
         // For FormData, use $_POST instead of decoded JSON
