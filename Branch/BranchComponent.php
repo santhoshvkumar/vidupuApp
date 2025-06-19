@@ -155,97 +155,6 @@ class BranchComponent {
         }
     }
 
-    public function GetBranch() {
-        include('config.inc');
-        header('Content-Type: application/json');
-    
-        try {
-            $data = [];
-    
-            $queryGetBranch = "SELECT * FROM tblBranch WHERE branchID = ?";
-            $stmt = mysqli_prepare($connect_var, $queryGetBranch);
-            mysqli_stmt_bind_param($stmt, "i", $this->branchID);
-
-            if (mysqli_stmt_execute($stmt)) {
-                $result = mysqli_stmt_get_result($stmt);
-                $row = mysqli_fetch_assoc($result);
-                
-                if ($row) {
-                    echo json_encode(array(
-                        "status" => "success",
-                        "data" => $row
-                    ));
-                } else {
-                    echo json_encode(array(
-                        "status" => "error",
-                        "message" => "Branch not found"
-                    ));
-                }
-            } else {
-                echo json_encode(array(
-                    "status" => "error",
-                    "message" => "Error fetching branch"
-                ));
-            }
-            mysqli_stmt_close($stmt);
-            mysqli_close($connect_var);
-        } catch (Exception $e) {
-            echo json_encode([
-                "status" => "error", 
-                "message_text" => $e->getMessage()
-            ], JSON_FORCE_OBJECT);
-        }
-    }
-
-    public function GetAllBranches() {
-        include('config.inc');
-        header('Content-Type: application/json');
-    
-        try {
-            $data = [];
-            
-            // Debug: Check if database connection is working
-            if (!$connect_var) {
-                echo json_encode(array(
-                    "status" => "error",
-                    "message" => "Database connection failed"
-                ));
-                return;
-            }
-    
-            $queryGetAllBranches = "SELECT * FROM tblBranch ORDER BY branchID DESC";
-            
-            $result = mysqli_query($connect_var, $queryGetAllBranches);
-            
-            if ($result) {
-                $branches = array();
-                $count = 0;
-                while ($row = mysqli_fetch_assoc($result)) {
-                    $branches[] = $row;
-                    $count++;
-                }
-                
-                echo json_encode(array(
-                    "status" => "success",
-                    "data" => $branches,
-                    "count" => count($branches)
-                ));
-            } else {
-                echo json_encode(array(
-                    "status" => "error",
-                    "message" => "Error fetching branches",
-                    "mysql_error" => mysqli_error($connect_var)
-                ));
-            }
-            mysqli_close($connect_var);
-        } catch (Exception $e) {
-            echo json_encode([
-                "status" => "error", 
-                "message_text" => $e->getMessage()
-            ], JSON_FORCE_OBJECT);
-        }
-    }
-
     public function GetBranchesByOrganisation() {
         include('config.inc');
         header('Content-Type: application/json');
@@ -328,21 +237,6 @@ function UpdateBranch($decoded_items) {
             echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
         }
     }
-}
-
-function GetBranch($decoded_items) {
-    $BranchObject = new BranchComponent();
-    if (isset($decoded_items['branchID'])) {
-        $BranchObject->branchID = $decoded_items['branchID'];
-        $BranchObject->GetBranch();
-    } else {
-        echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
-    }
-}
-
-function GetAllBranches() {
-    $BranchObject = new BranchComponent();
-    $BranchObject->GetAllBranches();
 }
 
 function GetBranchesByOrganisation($decoded_items) {
