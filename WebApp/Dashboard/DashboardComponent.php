@@ -100,7 +100,9 @@ class DashboardComponent{
     (SELECT COUNT(DISTINCT emp.employeeID)
      FROM tblEmployee AS emp
      JOIN tblmapEmp AS map ON emp.employeeID = map.employeeID
-     WHERE map.branchID IN (?)) AS totalEmployees,
+     WHERE map.branchID IN (?)
+       AND emp.isTemporary = 0
+       AND emp.isActive = 1) AS totalEmployees,//added isTemporary and isActive
 
     -- Checked-in today
     (SELECT COUNT(*)
@@ -241,7 +243,9 @@ FROM (SELECT 1) AS dummy;
     -- Total employees
     (SELECT COUNT(DISTINCT emp.employeeID)
      FROM tblEmployee AS emp
-     JOIN tblmapEmp AS map ON emp.employeeID = map.employeeID) AS totalEmployees,
+     JOIN tblmapEmp AS map ON emp.employeeID = map.employeeID
+     WHERE emp.isTemporary = 0
+       AND emp.isActive = 1) AS totalEmployees,
 
     -- Checked-in today
     (SELECT COUNT(*)
@@ -372,7 +376,9 @@ FROM (SELECT 1) AS dummy;";
                      JOIN tblAssignedSection a ON e.employeeID = a.employeeID
                      JOIN tblSection s ON a.sectionID = s.sectionID
                      WHERE a.isActive = 1
-                     AND s.sectionName = ?) AS totalactiveemployeesinsection,
+                     AND s.sectionName = ?
+                     AND e.isTemporary = 0
+                     AND e.isActive = 1) AS totalactiveemployeesinsection,
 
                     (SELECT COUNT(DISTINCT att.employeeID) 
                      FROM tblAttendance att
