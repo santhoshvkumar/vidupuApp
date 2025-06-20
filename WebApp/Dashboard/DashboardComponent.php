@@ -52,6 +52,7 @@ class DashboardComponent{
     }
     public function loadDashboardAttendanceDetailsforAll(array $data) {
         $this->currentDate = $data['currentDate'];
+        $this->organisationID = $data['OrganisationID'];
         return true;
     }
     public function loadDashboardDetails(array $data){                  
@@ -100,20 +101,21 @@ class DashboardComponent{
     (SELECT COUNT(DISTINCT emp.employeeID)
      FROM tblEmployee AS emp
      JOIN tblmapEmp AS map ON emp.employeeID = map.employeeID
-     WHERE map.branchID IN (?)) AS totalEmployees,
+     WHERE map.branchID IN (?) AND organisationID = ?) AS totalEmployees,
 
     -- Checked-in today
     (SELECT COUNT(*)
      FROM tblAttendance AS a
      JOIN tblmapEmp AS map ON a.employeeID = map.employeeID
      WHERE a.attendanceDate = ?
-       AND map.branchID IN (?)) AS checkedInToday,
+       AND map.branchID IN (?)  AND organisationID = ? ) AS checkedInToday,
 
     -- Late check-in
     (SELECT COUNT(*)
      FROM tblAttendance AS a
      JOIN tblmapEmp AS map ON a.employeeID = map.employeeID
      WHERE a.attendanceDate = ?
+        AND organisationID = ?
        AND map.branchID IN (?)
        AND (
          (a.employeeID IN (72, 73, 75) AND a.checkInTime > '08:10:00') OR
@@ -127,6 +129,7 @@ class DashboardComponent{
      FROM tblAttendance AS a
      JOIN tblmapEmp AS map ON a.employeeID = map.employeeID
      WHERE a.attendanceDate = ?
+       AND organisationID = ?
        AND map.branchID IN (?)
        AND (
          (a.employeeID IN (72, 73, 75) AND a.checkOutTime < '15:00:00') OR
@@ -141,6 +144,7 @@ class DashboardComponent{
      JOIN tblmapEmp AS map ON l.employeeID = map.employeeID
      WHERE ? BETWEEN l.fromDate AND l.toDate
        AND l.status = 'Approved'
+       AND organisationID = ?
        AND map.branchID IN (?)) AS onLeave,
 
     -- Logged-in devices
@@ -149,21 +153,28 @@ class DashboardComponent{
      JOIN tblmapEmp AS map ON emp.employeeID = map.employeeID
      WHERE emp.deviceFingerprint IS NOT NULL 
        AND emp.deviceFingerprint <> ''
+       AND organisationID = ?
        AND map.branchID IN (?)) AS loginnedDevices
 FROM (SELECT 1) AS dummy;
 ";
             $debug_query = str_replace(
-                ['?', '?', '?', '?', '?', '?', '?', '?', '?', '?'],
+                ['?', '?', '?', '?', '?', '?','?', '?', '?', '?',  '?', '?', '?','?', '?', '?'],
                 [   
                     "'" . $this->branchID . "'",
+                    "'" . $this->organisationID . "'",
                     "'" . $this->currentDate . "'",
                     "'" . $this->branchID . "'",
+                    "'" . $this->organisationID . "'",
                     "'" . $this->currentDate . "'",
+                    "'" . $this->organisationID . "'",
                     "'" . $this->branchID . "'",
                     "'" . $this->currentDate . "'",
+                    "'" . $this->organisationID . "'",
                     "'" . $this->branchID . "'",
+                    "'" . $this->organisationID . "'",
                     "'" . $this->currentDate . "'",
-                    "'" . $this->branchID . "'",                    
+                    "'" . $this->branchID . "'", 
+                    "'" . $this->organisationID . "'",                   
                     "'" . $this->branchID . "'",
                 ],
                 $queryActiveEmployeeDetails
@@ -176,16 +187,22 @@ FROM (SELECT 1) AS dummy;
                 throw new Exception("Database prepare failed");
             }
 
-            mysqli_stmt_bind_param($stmt, "ssssssssss", 
+            mysqli_stmt_bind_param($stmt, "ssssssssssssssss", 
                 $this->branchID,  // for totalEmployees
+                $this->organisationID,
                 $this->currentDate,  // for checkedInToday
                 $this->branchID, // for checkedInToday
+                $this->organisationID,
                 $this->currentDate,  // for lateCheckin
+                $this->organisationID,
                 $this->branchID, // for lateCheckin
                 $this->currentDate, // for earlyCheckout
+                $this->organisationID,
                 $this->branchID, // for earlyCheckout
+                $this->organisationID,
                 $this->currentDate, // for onLeave
                 $this->branchID, // for onLeave
+                $this->organisationID,
                 $this->branchID, // for loginnedDevices
             );            
             if (!mysqli_stmt_execute($stmt)) {
