@@ -482,6 +482,7 @@ class SectionWiseFetchDetailsComponent{
             ], JSON_FORCE_OBJECT);
         }
     } 
+    ////// Check this and Remove this ./.....
     public function BranchWiseAttendanceForToday() {
         include('config.inc');
         header('Content-Type: application/json');
