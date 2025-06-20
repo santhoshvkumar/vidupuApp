@@ -30,6 +30,7 @@ class SectionWiseFetchDetailsComponent{
     public function loadSectionWiseAttendanceForToday(array $data){ 
         if (isset($data['currentDate'])) {  
             $this->currentDate = $data['currentDate'];
+            $this->organisationID = $data['OrganisationID'];
             return true;
         } else {
             return false;
@@ -389,18 +390,19 @@ class SectionWiseFetchDetailsComponent{
                      AND a.sectionID = s.sectionID
                      AND l.fromDate = ? AND l.status = 'Approved') AS on_leave
                 FROM tblSection s
-                WHERE s.sectionID <> 35
+                WHERE s.organisationID = ?
                 ORDER BY s.sectionName ASC;";
 
 
             // Debug the query with actual values
             $debug_query = str_replace(
-                ['?', '?', '?', '?'],
+                ['?', '?', '?', '?', '?'],
                 [
                     $this->currentDate,
                     $this->currentDate,
                     $this->currentDate,
                     $this->currentDate,
+                    $this->organisationID,
                 ],
                 $queryHOEmployeeAttendanceSectionWiseForToday
             );
@@ -412,11 +414,12 @@ class SectionWiseFetchDetailsComponent{
                 throw new Exception("Database prepare failed");
             }
 
-            mysqli_stmt_bind_param($stmt, "ssss", 
+            mysqli_stmt_bind_param($stmt, "sssss", 
                 $this->currentDate,  // for total_checkins
                 $this->currentDate, // for late_checkin
                 $this->currentDate, // for early_checkout
                 $this->currentDate, // for on_leave
+                $this->organisationID
             );
             
             if (!mysqli_stmt_execute($stmt)) {
