@@ -39,6 +39,7 @@ class SectionWiseFetchDetailsComponent{
     public function loadBranchWiseAttendanceForToday(array $data){ 
         if (isset($data['currentDate'])) {  
             $this->currentDate = $data['currentDate'];
+            $this->organisationID = $data['OrganisationID'];
             return true;
         } else {
             return false;
@@ -534,16 +535,18 @@ class SectionWiseFetchDetailsComponent{
                      AND m.branchID = b.branchID
                      AND l.fromDate = ?) AS on_leave
                 FROM tblBranch b
+                WHERE b.organisationID = ?
                 ORDER BY b.branchName ASC;";
     
             // Debug the query with actual values
             $debug_query = str_replace(
-                ['?', '?', '?', '?'],
+                ['?', '?', '?', '?', '?'],
                 [
                     $this->currentDate,
                     $this->currentDate,
                     $this->currentDate,
                     $this->currentDate,
+                    $this->organisationID,
                 ],
                 $queryBranchWiseAttendanceForToday
             );
@@ -555,11 +558,12 @@ class SectionWiseFetchDetailsComponent{
                 throw new Exception("Database prepare failed");
             }
 
-            mysqli_stmt_bind_param($stmt, "ssss", 
+            mysqli_stmt_bind_param($stmt, "sssss", 
                 $this->currentDate,  // for total_checkins
                 $this->currentDate, // for late_checkin
                 $this->currentDate, // for early_checkout
                 $this->currentDate, // for on_leave
+                $this->organisationID,
             );
             
             if (!mysqli_stmt_execute($stmt)) {
