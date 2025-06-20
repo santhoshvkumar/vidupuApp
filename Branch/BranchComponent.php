@@ -9,6 +9,8 @@ class BranchComponent {
     public $branchLongitude;
     public $branchRadius;
     public $organisationID;
+    public $checkInTime;
+    public $checkOutTime;
 
     public function loadBranchDetails(array $data) {
         // Check if required fields exist
@@ -21,6 +23,8 @@ class BranchComponent {
             $this->organisationID = intval($data['organisationID']);
             
             // Optional fields
+            $this->checkInTime = isset($data['checkInTime']) ? $data['checkInTime'] : '';
+            $this->checkOutTime = isset($data['checkOutTime']) ? $data['checkOutTime'] : '';
             $this->branchUniqueID = isset($data['branchUniqueID']) ? $data['branchUniqueID'] : '';
             $this->branchLatitude = isset($data['branchLatitude']) ? $data['branchLatitude'] : '';
             $this->branchLongitude = isset($data['branchLongitude']) ? $data['branchLongitude'] : '';
@@ -36,6 +40,11 @@ class BranchComponent {
             return false;
         }
     }
+    public function loadBranchDetailsByBranchID(array $data) {
+        $this->branchID = intval($data['branchID']);
+        $this->organisationID = intval($data['organisationID']);
+        return true;
+    }
 
     public function CreateBranch() {
         include('config.inc');
@@ -45,9 +54,9 @@ class BranchComponent {
             $data = [];
     
             $queryCreateBranch = "INSERT INTO tblBranch (
-                branchUniqueID, branchName, branchHeadID, branchAddress, 
+                branchUniqueID, branchName, branchHeadID, branchAddress, checkInTime, checkOutTime,
                 branchLatitude, branchLongitude, branchRadius, organisationID
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
             $stmt = mysqli_prepare($connect_var, $queryCreateBranch);
             if (!$stmt) {
@@ -58,11 +67,13 @@ class BranchComponent {
                 return;
             }
             
-            mysqli_stmt_bind_param($stmt, "ssissssi",
+            mysqli_stmt_bind_param($stmt, "ssissssssi",
                 $this->branchUniqueID,
                 $this->branchName,
                 $this->branchHeadID,
                 $this->branchAddress,
+                $this->checkInTime,
+                $this->checkOutTime,
                 $this->branchLatitude,
                 $this->branchLongitude,
                 $this->branchRadius,
@@ -105,6 +116,8 @@ class BranchComponent {
                 branchName = ?,
                 branchHeadID = ?,
                 branchAddress = ?,
+                checkInTime = ?,
+                checkOutTime = ?,
                 branchLatitude = ?,
                 branchLongitude = ?,
                 branchRadius = ?,
@@ -120,11 +133,13 @@ class BranchComponent {
                 return;
             }
             
-            mysqli_stmt_bind_param($stmt, "ssissssii",
+            mysqli_stmt_bind_param($stmt, "ssissssssii",
                 $this->branchUniqueID,
                 $this->branchName,
                 $this->branchHeadID,
                 $this->branchAddress,
+                $this->checkInTime,
+                $this->checkOutTime,
                 $this->branchLatitude,
                 $this->branchLongitude,
                 $this->branchRadius,
@@ -193,6 +208,44 @@ class BranchComponent {
             ], JSON_FORCE_OBJECT);
         }
     }
+    public function GetBranchDetailsByBranchID() {
+        include('config.inc');
+        header('Content-Type: application/json');
+    
+        try {
+            $data = [];
+    
+            $queryGetBranchDetailsByBranchID = "SELECT * FROM tblBranch WHERE branchID = ? and organisationID = ?";
+            $stmt = mysqli_prepare($connect_var, $queryGetBranchDetailsByBranchID);
+            mysqli_stmt_bind_param($stmt, "ii", $this->branchID, $this->organisationID);
+
+            if (mysqli_stmt_execute($stmt)) {
+                $result = mysqli_stmt_get_result($stmt);
+                $branchDetails = array();
+                while ($row = mysqli_fetch_assoc($result)) {
+                    $branchDetails[] = $row;
+                }
+                
+                echo json_encode(array(
+                    "status" => "success",
+                    "data" => $branchDetails,
+                    "count" => count($branchDetails)
+                ));
+            } else {
+                echo json_encode(array(
+                    "status" => "error",
+                    "message" => "Error fetching branches by organisation"
+                ));
+            }
+            mysqli_stmt_close($stmt);
+            mysqli_close($connect_var);
+        } catch (Exception $e) {
+            echo json_encode([
+                "status" => "error", 
+                "message_text" => $e->getMessage()
+            ], JSON_FORCE_OBJECT);
+        }
+    }
 }
 
 // Helper functions to create instances and call methods
@@ -233,6 +286,24 @@ function UpdateBranch($decoded_items) {
         $BranchObject = new BranchComponent();
         if ($BranchObject->loadBranchDetails($decoded_items)) {
             $BranchObject->UpdateBranch();
+        } else {
+            echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
+        }
+    }
+}
+function GetBranchDetailsByBranchID($decoded_items) {
+    if (isset($_SERVER['CONTENT_TYPE']) && strpos($_SERVER['CONTENT_TYPE'], 'multipart/form-data') !== false) {
+        $BranchObject = new BranchComponent();
+        if ($BranchObject->loadBranchDetailsByBranchID($_POST)) {
+            $BranchObject->GetBranchDetailsByBranchID();
+        } else {
+            echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
+        }
+    } else {
+        // For JSON requests, use the decoded items
+        $BranchObject = new BranchComponent();
+        if ($BranchObject->loadBranchDetailsByBranchID($decoded_items)) {
+            $BranchObject->GetBranchDetailsByBranchID();
         } else {
             echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
         }
