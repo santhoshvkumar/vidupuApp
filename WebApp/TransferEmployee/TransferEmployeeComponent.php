@@ -256,10 +256,10 @@ class TransferEmployeeComponent{
                         th.isActive,
                         th.isImmediateTransfer
                     FROM tblTransferHistory th
-                    LEFT JOIN tblEmployee e ON th.employeeID = e.empID
-                    LEFT JOIN tblBranch fb ON th.fromBranch = fb.branchID
-                    LEFT JOIN tblBranch tb ON th.toBranch = tb.branchID
-                    LEFT JOIN tblUser u ON th.createdBy = u.userID
+                    INNER JOIN tblEmployee e ON th.employeeID = e.empID
+                    INNER JOIN tblBranch fb ON th.fromBranch = fb.branchID
+                    INNER JOIN tblBranch tb ON th.toBranch = tb.branchID
+                    INNER JOIN tblUser u ON th.createdBy = u.userID
                     WHERE th.isActive = 1 AND th.organisationID = ?
                     ORDER BY th.createdOn DESC";
             
