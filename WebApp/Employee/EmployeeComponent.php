@@ -27,8 +27,8 @@ class EmployeeComponent{
     public $organisationID;
 
     public function loadAllEmployeeList(array $data){
-        if(isset($data['OrganisationID'])) {
-            $this->OrganisationID = $data['OrganisationID'];
+        if(isset($data['organisationID'])) {
+            $this->organisationID = $data['organisationID'];
             return true;
         } else {
             return false;
@@ -399,15 +399,34 @@ class EmployeeComponent{
                 ON tblE.employeeID = tblA.employeeID AND tblA.isActive = 1
             LEFT JOIN tblSection tblS ON tblA.sectionID = tblS.sectionID
             LEFT JOIN tblLeaveBalance tblL ON tblE.employeeID = tblL.employeeID
-            WHERE tblE.isTemporary = 0 and tblE.organisationID=$this->OrganisationID;
-            ";
-            $result = mysqli_query($connect_var, $queryGetEmployeeDetails);            
-
-            // Initialize an array to hold all employee details
-            $employees = [];
-            while ($row = mysqli_fetch_assoc($result)) {
-                $data[] = $row; // Add each row to the employees array
+            WHERE tblE.isTemporary = 0 and tblE.organisationID = ?";
+            
+            $debug_query = str_replace(
+                ['?'],
+                ["'" . $this->organisationID . "'"],
+                $queryGetEmployeeDetails
+            );
+            error_log("Debug Query: " . $debug_query);
+            
+            $stmt = mysqli_prepare($connect_var, $queryGetEmployeeDetails);
+            if (!$stmt) {
+                throw new Exception("Database prepare failed: " . mysqli_error($connect_var));
             }
+            
+            mysqli_stmt_bind_param($stmt, "s", $this->organisationID);
+            
+            if (!mysqli_stmt_execute($stmt)) {
+                throw new Exception("Database execute failed: " . mysqli_stmt_error($stmt));
+            }
+            
+            $result = mysqli_stmt_get_result($stmt);
+            $data = [];
+            while ($row = mysqli_fetch_assoc($result)) {
+                $data[] = $row;
+            }
+            
+            mysqli_stmt_close($stmt);
+            
             echo json_encode([
                 "status" => "success",
                 "data" => $data
@@ -418,6 +437,10 @@ class EmployeeComponent{
                 "status" => "error",
                 "message_text" => $e->getMessage()
             ], JSON_FORCE_OBJECT);
+        } finally {
+            if (isset($connect_var)) {
+                mysqli_close($connect_var);
+            }
         }
     }
     public function GetEmployeeDetailsBasedOnID($decoded_items) {
