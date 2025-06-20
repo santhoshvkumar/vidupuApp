@@ -18,6 +18,7 @@ class ApplyLeaveMaster {
     public $noOfDaysExtend;
     public $reasonForExtend;
     public $employeeID;
+    public $organisationID;
     
     public function loadEmployeeDetails(array $data) {
         $this->empID = $data['empID'];
@@ -31,6 +32,7 @@ class ApplyLeaveMaster {
         $this->leaveType = $data['leaveType'];
         $this->leaveDuration = $data['leaveDuration'];
         $this->leaveReason = $data['leaveReason'];
+        $this->organisationID = $data['organisationID'];
         if (isset($data['MedicalCertificatePath'])) {
             $this->MedicalCertificatePath = $data['MedicalCertificatePath'];
         } 
@@ -638,6 +640,7 @@ class ApplyLeaveMaster {
             if ($this->MedicalCertificatePath !== null && $this->MedicalCertificatePath !== 'null') {
                 $queryApplyLeave = "INSERT INTO tblApplyLeave (
                     employeeID, 
+                    organisationID,
                     fromDate, 
                     toDate, 
                     leaveDuration, 
@@ -647,11 +650,12 @@ class ApplyLeaveMaster {
                     status,
                     MedicalCertificatePath,
                     MedicalCertificateUploadDate
-                ) VALUES (?, ?, ?, ?, ?, ?, CURRENT_DATE(), 'Yet To Be Approved', ?, CURRENT_DATE())";
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_DATE(), 'Yet To Be Approved', ?, CURRENT_DATE())";
                 
                 $stmt = mysqli_prepare($connect_var, $queryApplyLeave);
-                mysqli_stmt_bind_param($stmt, "sssssss",
+                mysqli_stmt_bind_param($stmt, "sissssss",
                     $this->empID,
+                    $this->organisationID,
                     $this->fromDate,
                     $this->toDate,
                     $this->leaveDuration,
@@ -662,6 +666,7 @@ class ApplyLeaveMaster {
             } else {
                 $queryApplyLeave = "INSERT INTO tblApplyLeave (
                     employeeID, 
+                    organisationID,
                     fromDate, 
                     toDate, 
                     leaveDuration, 
@@ -669,11 +674,12 @@ class ApplyLeaveMaster {
                     reason, 
                     createdOn, 
                     status
-                ) VALUES (?, ?, ?, ?, ?, ?, CURRENT_DATE(), 'Yet To Be Approved')";
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_DATE(), 'Yet To Be Approved')";
                 
                 $stmt = mysqli_prepare($connect_var, $queryApplyLeave);
-                mysqli_stmt_bind_param($stmt, "ssssss",
+                mysqli_stmt_bind_param($stmt, "sisssss",
                     $this->empID,
+                    $this->organisationID,
                     $this->fromDate,
                     $this->toDate,
                     $this->leaveDuration,
