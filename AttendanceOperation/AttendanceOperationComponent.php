@@ -824,11 +824,12 @@ class AttendanceOperationMaster{
         
         try {
             $query = "SELECT 
-                        m.branchID,
-                        b.branchLatitude as latitude,
-                        b.branchLongitude as longitude,
-                        b.checkInTime,
-                        b.checkOutTime
+                        m.branchID as branchID,
+                        b.branchLatitude as branchLatitude,
+                        b.branchLongitude as branchLongitude,
+                        b.branchName as branchName,
+                        b.checkInTime as checkInTime,
+                        b.checkOutTime as checkOutTime
                     FROM tblmapEmp m
                     JOIN tblBranch b ON m.branchID = b.branchID
                     WHERE m.employeeID = ?
