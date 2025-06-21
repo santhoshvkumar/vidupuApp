@@ -174,15 +174,15 @@ FROM (SELECT 1) AS dummy;
                     "'" . $this->currentDate . "'",
                     "'" . $this->branchID . "'",
                     "'" . $this->organisationID . "'",
-                    "'" . $this->currentDate . "'",
-                    "'" . $this->branchID . "'",
+                    "'" . $this->currentDate . "'",//for checkedInToday
                     "'" . $this->organisationID . "'",
-                    "'" . $this->currentDate . "'",
-                    "'" . $this->branchID . "'",
-                    "'" . $this->organisationID . "'",
+                    "'" . $this->branchID . "'",//for lateCheckin
                     "'" . $this->currentDate . "'",
                     "'" . $this->organisationID . "'",
-                    "'" . $this->branchID . "'",
+                    "'" . $this->branchID . "'",//for lateCheckin
+                    "'" . $this->currentDate . "'",
+                    "'" . $this->organisationID . "'",
+                    "'" . $this->branchID . "'",//for earlyCheckout
                     "'" . $this->organisationID . "'",                                    
                     "'" . $this->branchID . "'",
                 ],
@@ -203,11 +203,11 @@ FROM (SELECT 1) AS dummy;
                     $this->branchID, // for checkedInToday
                     $this->organisationID,
                     $this->currentDate,
-                    $this->branchID,
                     $this->organisationID,
+                    $this->branchID,
                     $this->currentDate,
-                    $this->branchID,
                     $this->organisationID,
+                    $this->branchID,
                     $this->currentDate,
                     $this->organisationID,
                     $this->branchID,
