@@ -3,53 +3,64 @@ class GetValueDashboardComponent {
     public $currentDate;    
     public $branchID;
     public $employeeID;
+    public $organisationID;
     public function loadGetValueDashboard(array $data) { 
-        if (!isset($data['currentDate']) || !isset($data['branchID'])) {
+        if (!isset($data['currentDate']) || !isset($data['branchID']) || !isset($data['organisationID'])) {
             return false;
         }
         $this->currentDate = $data['currentDate'];
         $this->branchID = $data['branchID'];
+        $this->organisationID = $data['organisationID'];
         return true;
     }
     public function loadResetMiskenlyEarlyCheckout(array $data) {    
         $this->currentDate = $data['currentDate'];
         $this->employeeID = $data['employeeID'];
+        $this->organisationID = $data['organisationID'];
         return true;
     }
     public function loadGetAllActiveEmployees(array $data) {    
         $this->branchID = $data['branchID'];
+        $this->organisationID = $data['organisationID'];
         return true;
     }
     public function loadGetAllActiveEmployeesforAll(array $data) {    
         $this->currentDate = $data['currentDate'];
+        $this->organisationID = $data['organisationID'];
         return true;
     }
     public function loadGetAllAbesentEmployees(array $data) {    
-        if (!isset($data['currentDate']) || !isset($data['branchID'])) {
+        if (!isset($data['currentDate']) || !isset($data['branchID']) || !isset($data['organisationID'])) {
             return false;
         }
         $this->currentDate = $data['currentDate'];
         $this->branchID = $data['branchID'];
+        $this->organisationID = $data['organisationID'];
         return true;
     }
     public function loadGetAllCheckInMembersforAll(array $data) {    
         $this->currentDate = $data['currentDate'];
+        $this->organisationID = $data['organisationID'];
         return true;
     }
     public function loadGetAllEarlyCheckOutMembersforAll(array $data) {    
         $this->currentDate = $data['currentDate'];
+        $this->organisationID = $data['organisationID'];
         return true;
     }
     public function loadGetAllOnLeaveMembersforAll(array $data) {    
         $this->currentDate = $data['currentDate'];
+        $this->organisationID = $data['organisationID'];
         return true;
     }
     public function loadGetAllLateCheckInMembersforAll(array $data) {    
         $this->currentDate = $data['currentDate'];
+        $this->organisationID = $data['organisationID'];
         return true;
     }
     public function loadGetAllAbesentEmployeesforAll(array $data) {    
         $this->currentDate = $data['currentDate'];
+        $this->organisationID = $data['organisationID'];
         return true;
     }
     public function GetAllActiveEmployeesDetails() {    
@@ -67,14 +78,15 @@ LEFT JOIN tblBranch AS b ON m.branchID = b.branchID AND b.branchID <> 1
 LEFT JOIN tblAssignedSection AS assign ON emp.employeeID = assign.employeeID
 LEFT JOIN tblSection AS sec ON assign.sectionID = sec.sectionID 
 WHERE emp.isActive = 1
-  AND m.branchID = ?
+  AND m.branchID = ? AND m.organisationID = ?
   AND emp.employeeID <> 888
 ;";
 
             $debug_query = str_replace(
-                ['?'],
+                ['?', '?'],
                 [
                     "'" . $this->branchID . "'",
+                    "'" . $this->organisationID . "'",
                 ],
                 $queryIndividualNoOfCheckinsInHeadOffice
             );
@@ -85,7 +97,7 @@ WHERE emp.isActive = 1
                 throw new Exception("Database prepare failed");
             }
 
-            mysqli_stmt_bind_param($stmt, "s", $this->branchID);
+            mysqli_stmt_bind_param($stmt, "ss", $this->branchID, $this->organisationID);
 
             if (!mysqli_stmt_execute($stmt)) {
                 throw new Exception("Database execute failed");
@@ -137,7 +149,7 @@ LEFT JOIN tblSection AS sec ON assign.sectionID = sec.sectionID
 LEFT JOIN tblAttendance AS att 
     ON emp.employeeID = att.employeeID 
     AND DATE(att.attendanceDate) = ?
-WHERE emp.isActive = 1
+WHERE emp.isActive = 1 AND m.organisationID = ?
   AND emp.employeeID <> 888
   AND att.checkInTime IS NULL  GROUP BY 
                 emp.employeeName, 
@@ -145,9 +157,10 @@ WHERE emp.isActive = 1
                 emp.employeePhone;";
 
             $debug_query = str_replace(
-                ['?'],
+                ['?', '?'],
                 [
                     "'" . $this->currentDate . "'",
+                    "'" . $this->organisationID . "'",
                 ],
                 $queryIndividualNoOfCheckinsInHeadOffice
             );
@@ -158,7 +171,7 @@ WHERE emp.isActive = 1
                 throw new Exception("Database prepare failed");
             }
 
-            mysqli_stmt_bind_param($stmt, "s", $this->currentDate);
+            mysqli_stmt_bind_param($stmt, "ss", $this->currentDate, $this->organisationID);
 
             if (!mysqli_stmt_execute($stmt)) {  
                 throw new Exception("Database execute failed");
@@ -210,7 +223,7 @@ LEFT JOIN tblAttendance AS att
     ON emp.employeeID = att.employeeID 
     AND DATE(att.attendanceDate) = ?
 WHERE emp.isActive = 1
-  AND m.branchID = ?
+  AND m.branchID = ? AND m.organisationID = ?
   AND att.checkInTime IS NULL
   AND emp.employeeID NOT IN (
       SELECT employeeID
@@ -222,10 +235,11 @@ WHERE emp.isActive = 1
 ";
 
             $debug_query = str_replace(
-                ['?', '?', '?'],
+                ['?', '?', '?', '?'],
                 [
                     "'" . $this->currentDate . "'",
                     "'" . $this->branchID . "'",
+                    "'" . $this->organisationID . "'",
                     "'" . $this->currentDate . "'",
                 ],
                 $queryIndividualNoOfCheckinsInHeadOffice
@@ -237,7 +251,7 @@ WHERE emp.isActive = 1
                 throw new Exception("Database prepare failed");
             }
 
-            mysqli_stmt_bind_param($stmt, "sss", $this->currentDate, $this->branchID, $this->currentDate);
+            mysqli_stmt_bind_param($stmt, "ssss", $this->currentDate, $this->branchID, $this->organisationID, $this->currentDate);
 
             if (!mysqli_stmt_execute($stmt)) {  
                 throw new Exception("Database execute failed");
@@ -290,6 +304,7 @@ LEFT JOIN tblAttendance AS att
     ON emp.employeeID = att.employeeID 
     AND DATE(att.attendanceDate) = ?
 WHERE emp.isActive = 1
+  AND m.organisationID = ?
   AND att.checkInTime IS NULL
   AND emp.employeeID NOT IN (
       SELECT employeeID
@@ -300,9 +315,10 @@ WHERE emp.isActive = 1
 ";
 
             $debug_query = str_replace(
-                ['?', '?'],
+                ['?', '?', '?'],
                 [
                     "'" . $this->currentDate . "'",
+                    "'" . $this->organisationID . "'",
                     "'" . $this->currentDate . "'",
                 ],
                 $queryIndividualNoOfCheckinsInHeadOffice
@@ -314,7 +330,7 @@ WHERE emp.isActive = 1
                 throw new Exception("Database prepare failed");
             }
 
-            mysqli_stmt_bind_param($stmt, "ss", $this->currentDate, $this->currentDate);
+            mysqli_stmt_bind_param($stmt, "sss", $this->currentDate, $this->organisationID, $this->currentDate);
 
             if (!mysqli_stmt_execute($stmt)) {  
                 throw new Exception("Database execute failed");
@@ -368,13 +384,14 @@ WHERE emp.isActive = 1
                 INNER JOIN tblAttendance AS att ON emp.employeeID = att.employeeID 
                     AND DATE(att.attendanceDate) = ?
                     AND m.branchID IN (?)
+                    AND m.organisationID = ?
                     AND emp.employeeID <> 888
             GROUP BY 
                 emp.employeeName, 
                 locationName, 
                 emp.employeePhone;";
 
-            $debug_query = str_replace(['?', '?'], ["'" . $this->currentDate . "'", "'" . $this->branchID . "'"], $queryIndividualNoOfCheckinsInHeadOffice);
+            $debug_query = str_replace(['?', '?', '?'], ["'" . $this->currentDate . "'", "'" . $this->branchID . "'", "'" . $this->organisationID . "'"], $queryIndividualNoOfCheckinsInHeadOffice);
             error_log("Debug Query: " . $debug_query);
 
             $stmt = mysqli_prepare($connect_var, $queryIndividualNoOfCheckinsInHeadOffice);
@@ -382,7 +399,7 @@ WHERE emp.isActive = 1
                 throw new Exception("Database prepare failed");
             }
 
-            mysqli_stmt_bind_param($stmt, "ss", $this->currentDate, $this->branchID);
+            mysqli_stmt_bind_param($stmt, "sss", $this->currentDate, $this->branchID, $this->organisationID);
             
             if (!mysqli_stmt_execute($stmt)) {
                 throw new Exception("Database execute failed");
@@ -435,13 +452,14 @@ WHERE emp.isActive = 1
                 LEFT JOIN tblSection AS sec ON assign.sectionID = sec.sectionID
                 INNER JOIN tblAttendance AS att ON emp.employeeID = att.employeeID 
                     AND DATE(att.attendanceDate) = ?                    
+                    AND m.organisationID = ?
                     AND emp.employeeID <> 888
             GROUP BY 
                 emp.employeeName, 
                 locationName, 
                 emp.employeePhone;";
 
-            $debug_query = str_replace(['?'], ["'" . $this->currentDate . "'"], $queryIndividualNoOfCheckinsInHeadOffice);
+            $debug_query = str_replace(['?', '?'], ["'" . $this->currentDate . "'", "'" . $this->organisationID . "'"], $queryIndividualNoOfCheckinsInHeadOffice);
             error_log("Debug Query: " . $debug_query);
 
             $stmt = mysqli_prepare($connect_var, $queryIndividualNoOfCheckinsInHeadOffice);
@@ -449,7 +467,7 @@ WHERE emp.isActive = 1
                 throw new Exception("Database prepare failed");
             }
 
-            mysqli_stmt_bind_param($stmt, "s", $this->currentDate);
+            mysqli_stmt_bind_param($stmt, "ss", $this->currentDate, $this->organisationID);
             
             if (!mysqli_stmt_execute($stmt)) {
                 throw new Exception("Database execute failed");
@@ -503,11 +521,11 @@ WHERE emp.isActive = 1
                     -- Early checkout rule for employeeIDs 24, 27
                     WHEN emp.employeeID IN (24, 27) AND att.checkOutTime < '18:00:00' THEN 1
         
-                    -- Early checkout rule for branches 1 and 52
-                    WHEN m.branchID IN (1, 52) AND att.checkOutTime < '17:00:00' THEN 1
+                    -- Early checkout rule for branches 1 
+                    WHEN m.branchID IN (1) AND att.checkOutTime < '17:00:00' THEN 1
         
-                    -- Early checkout rule for branches 2 to 51
-                    WHEN m.branchID BETWEEN 2 AND 51 AND att.checkOutTime < '16:30:00' THEN 1
+                    -- Early checkout rule for branches 2 to 52
+                    WHEN m.branchID BETWEEN 2 AND 52 AND att.checkOutTime < '16:30:00' THEN 1
         
                     ELSE NULL
                 END
@@ -520,16 +538,18 @@ WHERE emp.isActive = 1
         JOIN tblAttendance AS att ON emp.employeeID = att.employeeID
         WHERE DATE(att.attendanceDate) = ?
           AND m.branchID IN (?) 
+          AND m.organisationID = ?
           AND emp.employeeID <> 888
         GROUP BY emp.employeeName, locationName, emp.employeePhone, emp.employeeID
         HAVING early_checkout > 0;";
         
     
             $debug_query = str_replace(
-                ['?'],  
+                ['?', '?', '?'],  
                 [
                     "'" . $this->currentDate . "'",
-                    "'" . $this->branchID . "'",                    
+                    "'" . $this->branchID . "'",   
+                    "'" . $this->organisationID . "'",
                 ],
                 $queryIndividualNoOfCheckinsInHeadOffice
             );
@@ -541,7 +561,7 @@ WHERE emp.isActive = 1
                 throw new Exception("Database prepare failed");
             }
 
-            mysqli_stmt_bind_param($stmt, "ss", $this->currentDate, $this->branchID);
+            mysqli_stmt_bind_param($stmt, "sss", $this->currentDate, $this->branchID, $this->organisationID);
             
             if (!mysqli_stmt_execute($stmt)) {
                 error_log("Execute failed: " . mysqli_stmt_error($stmt));
@@ -594,11 +614,11 @@ WHERE emp.isActive = 1
                     -- Early checkout rule for employeeIDs 24, 27
                     WHEN emp.employeeID IN (24, 27) AND att.checkOutTime < '18:00:00' THEN 1
         
-                    -- Early checkout rule for branches 1 and 52
-                    WHEN m.branchID IN (1, 52) AND att.checkOutTime < '17:00:00' THEN 1
+                    -- Early checkout rule for branches 1 
+                    WHEN m.branchID IN (1) AND att.checkOutTime < '17:00:00' THEN 1
         
-                    -- Early checkout rule for branches 2 to 51
-                    WHEN m.branchID BETWEEN 2 AND 51 AND att.checkOutTime < '16:30:00' THEN 1
+                    -- Early checkout rule for branches 2 to 52
+                    WHEN m.branchID BETWEEN 2 AND 52 AND att.checkOutTime < '16:30:00' THEN 1
         
                     ELSE NULL
                 END
@@ -609,15 +629,16 @@ WHERE emp.isActive = 1
         LEFT JOIN tblSection AS sec ON assign.sectionID = sec.sectionID AND m.branchID = 1
         LEFT JOIN tblBranch AS b ON m.branchID = b.branchID AND m.branchID <> 1
         JOIN tblAttendance AS att ON emp.employeeID = att.employeeID
-        WHERE DATE(att.attendanceDate) = ? AND emp.employeeID <> 888
+        WHERE DATE(att.attendanceDate) = ? AND m.organisationID = ? AND emp.employeeID <> 888
         GROUP BY emp.employeeName, locationName, emp.employeePhone, emp.employeeID
         HAVING early_checkout > 0;";
         
     
             $debug_query = str_replace(
-                ['?'],  
+                ['?', '?'],  
                 [
-                    "'" . $this->currentDate . "'",                    
+                    "'" . $this->currentDate . "'",
+                    "'" . $this->organisationID . "'",
                 ],
                 $queryIndividualNoOfCheckinsInHeadOffice
             );
@@ -629,7 +650,7 @@ WHERE emp.isActive = 1
                 throw new Exception("Database prepare failed");
             }
 
-            mysqli_stmt_bind_param($stmt, "s", $this->currentDate);
+            mysqli_stmt_bind_param($stmt, "ss", $this->currentDate, $this->organisationID);
             
             if (!mysqli_stmt_execute($stmt)) {
                 error_log("Execute failed: " . mysqli_stmt_error($stmt));
@@ -686,16 +707,17 @@ LEFT JOIN tblSection AS sec ON assign.sectionID = sec.sectionID AND m.branchID =
 LEFT JOIN tblBranch AS b ON m.branchID = b.branchID AND m.branchID <> 1
 JOIN tblApplyLeave AS lv ON emp.employeeID = lv.employeeID
 WHERE lv.status = 'Approved'
-  AND m.branchID IN (?) AND emp.employeeID <> 888
+  AND m.branchID IN (?) AND m.organisationID = ? AND emp.employeeID <> 888
 GROUP BY emp.employeeName, locationName, emp.employeePhone
 HAVING on_leave > 0;
 ";
 
             $debug_query = str_replace(
-                ['?'],
+                ['?', '?', '?'],
                 [
                     "'" . $this->currentDate . "'",
-                    "'" . $this->branchID . "'",                   
+                    "'" . $this->branchID . "'",
+                    "'" . $this->organisationID . "'",
                 ],
                 $queryIndividualNoOfCheckinsInHeadOffice
             );
@@ -707,7 +729,7 @@ HAVING on_leave > 0;
                 throw new Exception("Database prepare failed");
             }
 
-            mysqli_stmt_bind_param($stmt, "ss", $this->currentDate, $this->branchID);
+            mysqli_stmt_bind_param($stmt, "sss", $this->currentDate, $this->branchID, $this->organisationID);
 
             if (!mysqli_stmt_execute($stmt)) {
                 error_log("Execute failed: " . mysqli_stmt_error($stmt));
@@ -763,15 +785,16 @@ LEFT JOIN tblAssignedSection AS assign ON emp.employeeID = assign.employeeID
 LEFT JOIN tblSection AS sec ON assign.sectionID = sec.sectionID AND m.branchID = 1
 LEFT JOIN tblBranch AS b ON m.branchID = b.branchID AND m.branchID <> 1
 JOIN tblApplyLeave AS lv ON emp.employeeID = lv.employeeID
-WHERE lv.status = 'Approved' AND emp.employeeID <> 888
+WHERE lv.status = 'Approved' AND m.organisationID = ? AND emp.employeeID <> 888
 GROUP BY emp.employeeName, locationName, emp.employeePhone
 HAVING on_leave > 0;
 ";
 
             $debug_query = str_replace(
-                ['?'],
+                ['?', '?'],
                 [
                     "'" . $this->currentDate . "'",
+                    "'" . $this->organisationID . "'",
                 ],
                 $queryIndividualNoOfCheckinsInHeadOffice
             );
@@ -783,7 +806,7 @@ HAVING on_leave > 0;
                 throw new Exception("Database prepare failed");
             }
 
-            mysqli_stmt_bind_param($stmt, "s", $this->currentDate);
+            mysqli_stmt_bind_param($stmt, "ss", $this->currentDate, $this->organisationID);
 
             if (!mysqli_stmt_execute($stmt)) {
                 error_log("Execute failed: " . mysqli_stmt_error($stmt));
@@ -836,11 +859,11 @@ HAVING on_leave > 0;
                     -- Custom late rule for employeeIDs 24, 27
                     WHEN emp.employeeID IN (24, 27) AND att.checkInTime > '11:10:00' THEN 1
         
-                    -- Late rule for branches 1 and 52
-                    WHEN m.branchID IN (1, 52) AND att.checkInTime > '10:10:00' THEN 1
+                    -- Late rule for branches 1
+                    WHEN m.branchID IN (1) AND att.checkInTime > '10:10:00' THEN 1
         
-                    -- Late rule for branches 2 to 51
-                    WHEN m.branchID BETWEEN 2 AND 51 AND att.checkInTime > '09:25:00' THEN 1
+                    -- Late rule for branches 2 to 52
+                    WHEN m.branchID BETWEEN 2 AND 52 AND att.checkInTime > '09:25:00' THEN 1
         
                     ELSE NULL
                 END
@@ -852,16 +875,17 @@ HAVING on_leave > 0;
         LEFT JOIN tblBranch AS b ON m.branchID = b.branchID AND m.branchID <> 1
         JOIN tblAttendance AS att ON emp.employeeID = att.employeeID
         WHERE DATE(att.attendanceDate) = ?
-          AND m.branchID IN (?) AND emp.employeeID <> 888
+          AND m.branchID IN (?) AND m.organisationID = ? AND emp.employeeID <> 888
         GROUP BY emp.employeeName, locationName, emp.employeePhone
         HAVING late_checkin > 0;";
         
 
             $debug_query = str_replace(
-                ['?'],
+                ['?', '?', '?'],
                 [
                     "'" . $this->currentDate . "'", 
-                    "'" . $this->branchID . "'",                   
+                    "'" . $this->branchID . "'",           
+                    "'" . $this->organisationID . "'",
                 ],
                 $queryIndividualNoOfCheckinsInHeadOffice
             );
@@ -873,7 +897,7 @@ HAVING on_leave > 0;
                 throw new Exception("Database prepare failed");
             }
 
-            mysqli_stmt_bind_param($stmt, "ss", $this->currentDate, $this->branchID);
+            mysqli_stmt_bind_param($stmt, "sss", $this->currentDate, $this->branchID, $this->organisationID);
             
             if (!mysqli_stmt_execute($stmt)) {
                 error_log("Execute failed: " . mysqli_stmt_error($stmt));
@@ -926,11 +950,11 @@ HAVING on_leave > 0;
                     -- Custom late rule for employeeIDs 24, 27
                     WHEN emp.employeeID IN (24, 27) AND att.checkInTime > '11:10:00' THEN 1
         
-                    -- Late rule for branches 1 and 52
-                    WHEN m.branchID IN (1, 52) AND att.checkInTime > '10:10:00' THEN 1
+                    -- Late rule for branches 1
+                    WHEN m.branchID IN (1) AND att.checkInTime > '10:10:00' THEN 1
         
-                    -- Late rule for branches 2 to 51
-                    WHEN m.branchID BETWEEN 2 AND 51 AND att.checkInTime > '09:25:00' THEN 1
+                    -- Late rule for branches 2 to 52
+                    WHEN m.branchID BETWEEN 2 AND 52 AND att.checkInTime > '09:25:00' THEN 1
         
                     ELSE NULL
                 END
@@ -941,15 +965,16 @@ HAVING on_leave > 0;
         LEFT JOIN tblSection AS sec ON assign.sectionID = sec.sectionID AND m.branchID = 1
         LEFT JOIN tblBranch AS b ON m.branchID = b.branchID AND m.branchID <> 1
         JOIN tblAttendance AS att ON emp.employeeID = att.employeeID
-        WHERE DATE(att.attendanceDate) = ? AND emp.employeeID <> 888
+        WHERE DATE(att.attendanceDate) = ? AND m.organisationID = ? AND emp.employeeID <> 888
         GROUP BY emp.employeeName, locationName, emp.employeePhone
         HAVING late_checkin > 0;";
         
 
             $debug_query = str_replace(
-                ['?'],
+                ['?', '?'],
                 [
-                    "'" . $this->currentDate . "'",   
+                    "'" . $this->currentDate . "'",
+                    "'" . $this->organisationID . "'",
                 ],
                 $queryIndividualNoOfCheckinsInHeadOffice
             );
@@ -961,7 +986,7 @@ HAVING on_leave > 0;
                 throw new Exception("Database prepare failed");
             }
 
-            mysqli_stmt_bind_param($stmt, "s", $this->currentDate);
+            mysqli_stmt_bind_param($stmt, "ss", $this->currentDate, $this->organisationID);
             
             if (!mysqli_stmt_execute($stmt)) {
                 error_log("Execute failed: " . mysqli_stmt_error($stmt));
@@ -1002,16 +1027,20 @@ HAVING on_leave > 0;
     
         try {
             $data = [];
-            $queryResetMiskenlyEarlyCheckout = "UPDATE tblAttendance
-                SET checkOutTime = NULL,
-                    TotalWorkingHour = NULL
-                WHERE attendanceDate = ?
-                AND employeeID = ?;";
+            $queryResetMiskenlyEarlyCheckout = "UPDATE tblAttendance AS a
+JOIN tblEmployee AS e ON a.employeeID = e.employeeID
+SET a.checkOutTime = NULL,
+    a.TotalWorkingHour = NULL
+WHERE a.attendanceDate = ?
+  AND a.employeeID = ?
+  AND e.organisationID = ?;
+";
             
             $stmt = mysqli_prepare($connect_var, $queryResetMiskenlyEarlyCheckout);
-            mysqli_stmt_bind_param($stmt, "ss",
+            mysqli_stmt_bind_param($stmt, "sss",
                 $this->currentDate,
-                $this->employeeID
+                $this->employeeID,
+                $this->organisationID
             );  
 
             if (mysqli_stmt_execute($stmt)) {

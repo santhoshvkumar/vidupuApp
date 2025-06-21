@@ -128,7 +128,8 @@ class DashboardComponent{
        AND (
          (a.employeeID IN (72, 73, 75) AND a.checkInTime > '08:10:00') OR
          (a.employeeID IN (24, 27) AND a.checkInTime > '11:10:00') OR
-         (a.checkInTime > '10:10:00')  -- Already within branchID 1
+         (map.branchID IN (1) AND a.checkInTime > '10:10:00') OR
+         (map.branchID BETWEEN 2 AND 52 AND a.checkInTime > '09:25:00')
        )) AS lateCheckin,
 
     -- Early check-out
@@ -141,7 +142,8 @@ class DashboardComponent{
        AND (
          (a.employeeID IN (72, 73, 75) AND a.checkOutTime < '15:00:00') OR
          (a.employeeID IN (24, 27) AND a.checkOutTime < '18:00:00') OR
-         (a.checkOutTime < '17:00:00')  -- Already within branchID 1
+         (map.branchID IN (1) AND a.checkOutTime < '17:00:00') OR
+         (map.branchID BETWEEN 2 AND 52 AND a.checkOutTime < '16:30:00')
        )) AS earlyCheckout,
 
     -- On leave
@@ -173,15 +175,15 @@ FROM (SELECT 1) AS dummy;
                     "'" . $this->branchID . "'",
                     "'" . $this->organisationID . "'",
                     "'" . $this->currentDate . "'",
-                    "'" . $this->organisationID . "'",
-                    "'" . $this->branchID . "'",
-                    "'" . $this->currentDate . "'",
-                    "'" . $this->organisationID . "'",
                     "'" . $this->branchID . "'",
                     "'" . $this->organisationID . "'",
                     "'" . $this->currentDate . "'",
-                    "'" . $this->branchID . "'", 
-                    "'" . $this->organisationID . "'",                   
+                    "'" . $this->branchID . "'",
+                    "'" . $this->organisationID . "'",
+                    "'" . $this->currentDate . "'",
+                    "'" . $this->organisationID . "'",
+                    "'" . $this->branchID . "'",
+                    "'" . $this->organisationID . "'",                                    
                     "'" . $this->branchID . "'",
                 ],
                 $queryActiveEmployeeDetails
@@ -195,22 +197,22 @@ FROM (SELECT 1) AS dummy;
             }
 
             mysqli_stmt_bind_param($stmt, "ssssssssssssssss", 
-                $this->branchID,  // for totalEmployees
-                $this->organisationID,
-                $this->currentDate,  // for checkedInToday
-                $this->branchID, // for checkedInToday
-                $this->organisationID,
-                $this->currentDate,  // for lateCheckin
-                $this->organisationID,
-                $this->branchID, // for lateCheckin
-                $this->currentDate, // for earlyCheckout
-                $this->organisationID,
-                $this->branchID, // for earlyCheckout
-                $this->organisationID,
-                $this->currentDate, // for onLeave
-                $this->branchID, // for onLeave
-                $this->organisationID,
-                $this->branchID, // for loginnedDevices
+                    $this->branchID, // for totalEmployees
+                    $this->organisationID, // for totalEmployees
+                    $this->currentDate, // for checkedInToday
+                    $this->branchID, // for checkedInToday
+                    $this->organisationID,
+                    $this->currentDate,
+                    $this->branchID,
+                    $this->organisationID,
+                    $this->currentDate,
+                    $this->branchID,
+                    $this->organisationID,
+                    $this->currentDate,
+                    $this->organisationID,
+                    $this->branchID,
+                    $this->organisationID,                                    
+                    $this->branchID,
             );            
             if (!mysqli_stmt_execute($stmt)) {
                 error_log("Execute failed: " . mysqli_stmt_error($stmt));
