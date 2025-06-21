@@ -431,7 +431,7 @@ class EmployeeComponent{
             }
             
             mysqli_stmt_close($stmt);
-            mysqli_close($connect_var);
+           //  mysqli_close($connect_var);
             
             // Debug: Log the number of employees found
             error_log("GetAllEmployeeDetails: Found " . count($data) . " employees");
