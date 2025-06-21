@@ -865,7 +865,7 @@ class AttendanceOperationMaster{
             
             $response = array(
                 "status" => "success",
-                "data" => $result
+                "data" => $row
             );
             
             mysqli_close($connect_var);
