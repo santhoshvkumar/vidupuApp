@@ -12,8 +12,6 @@ class AttendanceOperationMaster{
     }
     public function loadCheckIn($decoded_items){
         $this->empID = $decoded_items['employeeID'];
-        $this->branchID = $decoded_items['branchID'];
-        $this->organisationID = $decoded_items['organisationID'];
         return true;
     }
     public function loadCheckOut($decoded_items){
