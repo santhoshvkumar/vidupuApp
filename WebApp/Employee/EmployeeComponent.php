@@ -107,7 +107,7 @@ class EmployeeComponent{
         }
 
         try {
-            // Set the properties
+            // Set the properties for update employee details
             $this->empID = trim($data['empID']);
             $this->employeeName = trim($data['employeeName']);
             $this->employeePhone = trim($data['employeePhone']);
@@ -399,21 +399,40 @@ class EmployeeComponent{
                 ON tblE.employeeID = tblA.employeeID AND tblA.isActive = 1
             LEFT JOIN tblSection tblS ON tblA.sectionID = tblS.sectionID
             LEFT JOIN tblLeaveBalance tblL ON tblE.employeeID = tblL.employeeID
-            WHERE tblE.isTemporary = 0 and tblE.organisationID=$this->OrganisationID;
-            ";
-            $result = mysqli_query($connect_var, $queryGetEmployeeDetails);            
+            WHERE tblE.isTemporary = 0 AND tblE.organisationID = ?";
+            
+            $stmt = mysqli_prepare($connect_var, $queryGetEmployeeDetails);
+            if (!$stmt) {
+                throw new Exception("Database prepare failed: " . mysqli_error($connect_var));
+            }
+            
+            mysqli_stmt_bind_param($stmt, "s", $this->OrganisationID);
+            
+            if (!mysqli_stmt_execute($stmt)) {
+                throw new Exception("Database execute failed: " . mysqli_error($connect_var));
+            }
+            
+            $result = mysqli_stmt_get_result($stmt);
+            if (!$result) {
+                throw new Exception("Failed to get result: " . mysqli_error($connect_var));
+            }
 
             // Initialize an array to hold all employee details
             $employees = [];
             while ($row = mysqli_fetch_assoc($result)) {
                 $data[] = $row; // Add each row to the employees array
             }
+            
+            mysqli_stmt_close($stmt);
+            mysqli_close($connect_var);
+            
             echo json_encode([
                 "status" => "success",
                 "data" => $data
             ]);
     
         } catch (Exception $e) {
+            error_log("Error in GetAllEmployeeDetails: " . $e->getMessage());
             echo json_encode([
                 "status" => "error",
                 "message_text" => $e->getMessage()
