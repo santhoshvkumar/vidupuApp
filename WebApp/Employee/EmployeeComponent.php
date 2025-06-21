@@ -107,7 +107,7 @@ class EmployeeComponent{
         }
 
         try {
-            // Set the properties
+            // Set the properties for update employee details
             $this->empID = trim($data['empID']);
             $this->employeeName = trim($data['employeeName']);
             $this->employeePhone = trim($data['employeePhone']);
@@ -158,7 +158,7 @@ class EmployeeComponent{
     }
 
     public function EmployeeDetails() {
-        include('config.inc');
+        include(dirname(__FILE__) . '/../../config.inc');
         header('Content-Type: application/json');
     
         try {
@@ -188,7 +188,7 @@ class EmployeeComponent{
         }
     } 
     public function ResetPassword() {
-        include('config.inc');
+        include(dirname(__FILE__) . '/../../config.inc');
         header('Content-Type: application/json');    
         try {       
             $data = [];                       
@@ -227,11 +227,17 @@ class EmployeeComponent{
         }
     }
     public function ResetDeviceFingerprint() {
-        include('config.inc');
+        include(dirname(__FILE__) . '/../../config.inc');
         header('Content-Type: application/json');
         try {
-            $data = [];
-            $ResetDeviceFingerprintQuery = "UPDATE tblEmployee SET deviceFingerprint = '' WHERE empID = ?";
+            $data = [];                       
+
+            $ResetDeviceFingerprintQuery = "
+               UPDATE tblEmployee 
+               SET deviceFingerprint = NULL 
+               WHERE empID = ?;";
+
+
             $stmt = mysqli_prepare($connect_var, $ResetDeviceFingerprintQuery);
             if (!$stmt) {
                 throw new Exception("Database prepare failed");
@@ -248,22 +254,29 @@ class EmployeeComponent{
             $result = mysqli_stmt_get_result($stmt);    
             $ResetDeviceFingerprintResult = [];    
             $ResetDeviceFingerprintResult['status'] = "success";
-            $ResetDeviceFingerprintResult['message_text'] = "Device fingerprint reset successfully";            
+            $ResetDeviceFingerprintResult['message_text'] = "Device fingerprint reset successfully";
+            
             echo json_encode($ResetDeviceFingerprintResult, JSON_FORCE_OBJECT);
-
+            
         } catch (Exception $e) {
             echo json_encode([
                 "status" => "error",
                 "message_text" => $e->getMessage()
             ], JSON_FORCE_OBJECT);
-        }   
+        }
     }
     public function ResetEmployeeActiveStatus() {
-        include('config.inc');
+        include(dirname(__FILE__) . '/../../config.inc');
         header('Content-Type: application/json');
         try {
-            $data = [];
-            $ResetEmployeeActiveStatusQuery = "UPDATE tblEmployee SET isActive = 0 WHERE empID = ?";
+            $data = [];                       
+
+            $ResetEmployeeActiveStatusQuery = "
+               UPDATE tblEmployee 
+               SET isActive = 1 
+               WHERE empID = ?;";
+
+
             $stmt = mysqli_prepare($connect_var, $ResetEmployeeActiveStatusQuery);
             if (!$stmt) {
                 throw new Exception("Database prepare failed");
@@ -280,33 +293,35 @@ class EmployeeComponent{
             $result = mysqli_stmt_get_result($stmt);    
             $ResetEmployeeActiveStatusResult = [];    
             $ResetEmployeeActiveStatusResult['status'] = "success";
-            $ResetEmployeeActiveStatusResult['message_text'] = "Employee active status reset successfully";            
+            $ResetEmployeeActiveStatusResult['message_text'] = "Employee active status reset successfully";
+            
             echo json_encode($ResetEmployeeActiveStatusResult, JSON_FORCE_OBJECT);
-
+            
         } catch (Exception $e) {
             echo json_encode([
                 "status" => "error",
                 "message_text" => $e->getMessage()
             ], JSON_FORCE_OBJECT);
-        }   
+        }
     }
     public function AllEmployeeDetails() {
-        include('config.inc');
+        include(dirname(__FILE__) . '/../../config.inc');
         header('Content-Type: application/json');
     
         try {
+            // Initialize an array to hold the results
             $data = [];
     
-            // 1. Get all active employees Name, ID and BranchID
-            $queryAllEmployeeDetails = "SELECT tblE.employeeID, tblE.employeeName, tblME.branchID FROM 
-            tblEmployee tblE JOIN tblmapEmp tblME ON tblE.employeeID = tblME.employeeID";
-            $result = mysqli_query($connect_var, $queryAllEmployeeDetails);            
-
-            // Initialize an array to hold all employee details
-            $employees = [];
-            while ($row = mysqli_fetch_assoc($result)) {
-                $data[] = $row; // Add each row to the employees array
+            // 1. Fetch all dashboard details
+            $queryEmployeeDetails = "SELECT * FROM tblDashboardDetails";
+            $rsd = mysqli_query($connect_var, $queryEmployeeDetails);
+            $EmployeeDetails = [];
+            while ($row = mysqli_fetch_assoc($rsd)) {
+                $EmployeeDetails[] = $row;
             }
+            $data['EmployeeDetails'] = $EmployeeDetails;    
+            
+    
             echo json_encode([
                 "status" => "success",
                 "data" => $data
@@ -320,38 +335,27 @@ class EmployeeComponent{
         }
     }
     public function GetEmployeeDetails($decoded_items) {
-        include('config.inc');
+        include(dirname(__FILE__) . '/../../config.inc');
         header('Content-Type: application/json');
     
         try {
-        
+            // Initialize an array to hold the results
+            $data = [];
     
-            // Prepare the SQL query
-            $queryGetEmployeeDetails = "SELECT tblE.empID, tblE.employeeName, tblE.employeePhone,
-            tblE.employeeGender, tblE.Designation, tblB.branchID, tblB.branchName FROM 
-            tblEmployee tblE JOIN tblMapEmp tblM ON tblE.employeeID = tblM.employeeID
-            JOIN tblBranch tblB ON tblM.branchID = tblB.branchID WHERE tblE.employeeID = ?;";
-            
-            $stmt = mysqli_prepare($connect_var, $queryGetEmployeeDetails);
-            mysqli_stmt_bind_param($stmt, "s", $this->employeeID);
-            mysqli_stmt_execute($stmt);
-            
-            // Fetch the result
-            $result = mysqli_stmt_get_result($stmt);
-            $data = mysqli_fetch_assoc($result); // Fetch the associative array
-    
-            // Check if data was fetched
-            if ($data) {
-                echo json_encode([
-                    "status" => "success",
-                    "data" => $data // Return the fetched data
-                ]);
-            } else {
-                echo json_encode([
-                    "status" => "error",
-                    "message_text" => "Unable to get the data of Employee, please check the Employee ID."
-                ], JSON_FORCE_OBJECT);
+            // 1. Fetch all dashboard details
+            $queryEmployeeDetails = "SELECT * FROM tblDashboardDetails";
+            $rsd = mysqli_query($connect_var, $queryEmployeeDetails);
+            $EmployeeDetails = [];
+            while ($row = mysqli_fetch_assoc($rsd)) {
+                $EmployeeDetails[] = $row;
             }
+            $data['EmployeeDetails'] = $EmployeeDetails;    
+            
+    
+            echo json_encode([
+                "status" => "success",
+                "data" => $data
+            ]);
     
         } catch (Exception $e) {
             echo json_encode([
@@ -361,10 +365,13 @@ class EmployeeComponent{
         }
     }
     public function GetAllEmployeeDetails() {
-        include('config.inc');
+        include(dirname(__FILE__) . '/../../config.inc');
         header('Content-Type: application/json');
     
         try {
+            // Debug: Log the organisationID being used
+            error_log("GetAllEmployeeDetails: organisationID = " . $this->organisationID);
+            
             $data = [];
     
             // 1. Get all active employees Name, ID and BranchID
@@ -399,14 +406,7 @@ class EmployeeComponent{
                 ON tblE.employeeID = tblA.employeeID AND tblA.isActive = 1
             LEFT JOIN tblSection tblS ON tblA.sectionID = tblS.sectionID
             LEFT JOIN tblLeaveBalance tblL ON tblE.employeeID = tblL.employeeID
-            WHERE tblE.isTemporary = 0 and tblE.organisationID = ?";
-            
-            $debug_query = str_replace(
-                ['?'],
-                ["'" . $this->organisationID . "'"],
-                $queryGetEmployeeDetails
-            );
-            error_log("Debug Query: " . $debug_query);
+            WHERE tblE.isTemporary = 0 AND tblE.organisationID = ?";
             
             $stmt = mysqli_prepare($connect_var, $queryGetEmployeeDetails);
             if (!$stmt) {
@@ -416,16 +416,25 @@ class EmployeeComponent{
             mysqli_stmt_bind_param($stmt, "s", $this->organisationID);
             
             if (!mysqli_stmt_execute($stmt)) {
-                throw new Exception("Database execute failed: " . mysqli_stmt_error($stmt));
+                throw new Exception("Database execute failed: " . mysqli_error($connect_var));
             }
             
             $result = mysqli_stmt_get_result($stmt);
-            $data = [];
+            if (!$result) {
+                throw new Exception("Failed to get result: " . mysqli_error($connect_var));
+            }
+
+            // Initialize an array to hold all employee details
+            $employees = [];
             while ($row = mysqli_fetch_assoc($result)) {
                 $data[] = $row;
             }
             
             mysqli_stmt_close($stmt);
+            mysqli_close($connect_var);
+            
+            // Debug: Log the number of employees found
+            error_log("GetAllEmployeeDetails: Found " . count($data) . " employees");
             
             echo json_encode([
                 "status" => "success",
@@ -433,6 +442,7 @@ class EmployeeComponent{
             ]);
     
         } catch (Exception $e) {
+            error_log("Error in GetAllEmployeeDetails: " . $e->getMessage());
             echo json_encode([
                 "status" => "error",
                 "message_text" => $e->getMessage()
@@ -444,7 +454,7 @@ class EmployeeComponent{
         }
     }
     public function GetEmployeeDetailsBasedOnID($decoded_items) {
-        include('config.inc');
+        include(dirname(__FILE__) . '/../../config.inc');
         header('Content-Type: application/json');
     
         try {
@@ -534,7 +544,7 @@ class EmployeeComponent{
         }
     }
     public function UpdateEmployeeDetailsBasedOnID($decoded_items) {
-        include('config.inc');
+        include(dirname(__FILE__) . '/../../config.inc');
         header('Content-Type: application/json');
     
         try {
