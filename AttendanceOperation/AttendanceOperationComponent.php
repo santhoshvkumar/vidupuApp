@@ -865,13 +865,7 @@ class AttendanceOperationMaster{
             
             $response = array(
                 "status" => "success",
-                "data" => array(
-                    "branchID" => $row['branchID'],
-                    "latitude" => $row['latitude'],
-                    "longitude" => $row['longitude'],
-                    "checkInTime" => $row['checkInTime'],
-                    "checkOutTime" => $row['checkOutTime']
-                )
+                "data" => $result
             );
             
             mysqli_close($connect_var);
