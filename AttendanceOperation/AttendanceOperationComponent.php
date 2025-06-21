@@ -1010,9 +1010,13 @@ function getEmployeesUnderManager($f3) {
 
 function getTodayCheckIn($decoded_items) {
     try {
-        if (isset($decoded_items['employeeID']) && isset($decoded_items['organisationID'])) {
+        if (isset($decoded_items['employeeID'])) {
             $attendanceOperationObject = new AttendanceOperationMaster();
-            $attendanceOperationObject->getTodayCheckIn($decoded_items['employeeID'], $decoded_items['organisationID']);
+            $organisationID = 1;
+            if(isset($decoded_items['organisationID'])) {
+                $organisationID = $decoded_items['organisationID'];
+            }
+            $attendanceOperationObject->getTodayCheckIn($decoded_items['employeeID'], $organisationID);
         } else {
             echo json_encode(array(
                 "status" => "error",
