@@ -27,8 +27,8 @@ class EmployeeComponent{
     public $organisationID;
 
     public function loadAllEmployeeList(array $data){
-        if(isset($data['OrganisationID'])) {
-            $this->OrganisationID = $data['OrganisationID'];
+        if(isset($data['organisationID'])) {
+            $this->organisationID = $data['organisationID'];
             return true;
         } else {
             return false;
@@ -420,7 +420,7 @@ class EmployeeComponent{
             // Initialize an array to hold all employee details
             $employees = [];
             while ($row = mysqli_fetch_assoc($result)) {
-                $data[] = $row; // Add each row to the employees array
+                $data[] = $row;
             }
             
             mysqli_stmt_close($stmt);
@@ -437,6 +437,10 @@ class EmployeeComponent{
                 "status" => "error",
                 "message_text" => $e->getMessage()
             ], JSON_FORCE_OBJECT);
+        } finally {
+            if (isset($connect_var)) {
+                mysqli_close($connect_var);
+            }
         }
     }
     public function GetEmployeeDetailsBasedOnID($decoded_items) {

@@ -14,6 +14,7 @@ class DashboardComponent{
     public $branchID;
     public $branchName;
     public $currentDate;
+    public $organisationID;
 
     public function loadDashboardAttendanceForHeadOffice(array $data) {
         error_log("Loading dashboard data with input: " . print_r($data, true));        
@@ -46,13 +47,19 @@ class DashboardComponent{
         return true;
     }
     public function loadDashboardAttendanceDetails(array $data) {
-        $this->branchID = $data['branchID'];
-        $this->currentDate = $data['currentDate'];
-        return true;
+        if (isset($data['branchID']) && isset($data['currentDate']) && isset($data['organisationID'])) {
+            $this->branchID = $data['branchID'];
+            $this->currentDate = $data['currentDate'];
+            $this->organisationID = $data['organisationID'];
+            return true;
+        } else {
+            error_log("Missing required parameters in loadDashboardAttendanceDetails: " . print_r($data, true));
+            return false;
+        }
     }
     public function loadDashboardAttendanceDetailsforAll(array $data) {
         $this->currentDate = $data['currentDate'];
-        $this->organisationID = $data['OrganisationID'];
+        $this->organisationID = $data['organisationID'];
         return true;
     }
     public function loadDashboardDetails(array $data){                  
@@ -97,31 +104,31 @@ class DashboardComponent{
     
             // 1. Total active employees
             $queryActiveEmployeeDetails =   "SELECT
+
     -- Total employees
     (SELECT COUNT(DISTINCT emp.employeeID)
      FROM tblEmployee AS emp
      JOIN tblmapEmp AS map ON emp.employeeID = map.employeeID
-     WHERE map.branchID IN (?) AND organisationID = ?) AS totalEmployees,
+     WHERE map.branchID IN (?) AND map.organisationID = ?) AS totalEmployees,
 
     -- Checked-in today
     (SELECT COUNT(*)
      FROM tblAttendance AS a
      JOIN tblmapEmp AS map ON a.employeeID = map.employeeID
      WHERE a.attendanceDate = ?
-       AND map.branchID IN (?)  AND organisationID = ? ) AS checkedInToday,
+       AND map.branchID IN (?) AND map.organisationID = ?) AS checkedInToday,
 
     -- Late check-in
     (SELECT COUNT(*)
      FROM tblAttendance AS a
      JOIN tblmapEmp AS map ON a.employeeID = map.employeeID
      WHERE a.attendanceDate = ?
-        AND organisationID = ?
+       AND map.organisationID = ?
        AND map.branchID IN (?)
        AND (
          (a.employeeID IN (72, 73, 75) AND a.checkInTime > '08:10:00') OR
          (a.employeeID IN (24, 27) AND a.checkInTime > '11:10:00') OR
-         (map.branchID IN (1, 52) AND a.checkInTime > '10:10:00') OR
-         (map.branchID BETWEEN 2 AND 51 AND a.checkInTime > '09:25:00')
+         (a.checkInTime > '10:10:00')  -- Already within branchID 1
        )) AS lateCheckin,
 
     -- Early check-out
@@ -129,13 +136,12 @@ class DashboardComponent{
      FROM tblAttendance AS a
      JOIN tblmapEmp AS map ON a.employeeID = map.employeeID
      WHERE a.attendanceDate = ?
-       AND organisationID = ?
+       AND map.organisationID = ?
        AND map.branchID IN (?)
        AND (
          (a.employeeID IN (72, 73, 75) AND a.checkOutTime < '15:00:00') OR
          (a.employeeID IN (24, 27) AND a.checkOutTime < '18:00:00') OR
-         (map.branchID IN (1, 52) AND a.checkOutTime < '17:00:00') OR
-         (map.branchID BETWEEN 2 AND 51 AND a.checkOutTime < '16:30:00')
+         (a.checkOutTime < '17:00:00')  -- Already within branchID 1
        )) AS earlyCheckout,
 
     -- On leave
@@ -144,7 +150,7 @@ class DashboardComponent{
      JOIN tblmapEmp AS map ON l.employeeID = map.employeeID
      WHERE ? BETWEEN l.fromDate AND l.toDate
        AND l.status = 'Approved'
-       AND organisationID = ?
+       AND map.organisationID = ?
        AND map.branchID IN (?)) AS onLeave,
 
     -- Logged-in devices
@@ -153,8 +159,9 @@ class DashboardComponent{
      JOIN tblmapEmp AS map ON emp.employeeID = map.employeeID
      WHERE emp.deviceFingerprint IS NOT NULL 
        AND emp.deviceFingerprint <> ''
-       AND organisationID = ?
+       AND map.organisationID = ?
        AND map.branchID IN (?)) AS loginnedDevices
+
 FROM (SELECT 1) AS dummy;
 ";
             $debug_query = str_replace(
@@ -258,43 +265,43 @@ FROM (SELECT 1) AS dummy;
     -- Total employees
     (SELECT COUNT(DISTINCT emp.employeeID)
      FROM tblEmployee AS emp
-     JOIN tblmapEmp AS map ON emp.employeeID = map.employeeID) AS totalEmployees,
+     JOIN tblmapEmp AS map ON emp.employeeID = map.employeeID WHERE map.organisationID = ?) AS totalEmployees,
 
     -- Checked-in today
     (SELECT COUNT(*)
      FROM tblAttendance AS a
      JOIN tblmapEmp AS map ON a.employeeID = map.employeeID
-     WHERE a.attendanceDate = ? ) AS checkedInToday,
+     WHERE a.attendanceDate = ? AND map.organisationID = ?) AS checkedInToday,
 
     -- Late check-in
     (SELECT COUNT(*)
      FROM tblAttendance AS a
      JOIN tblmapEmp AS map ON a.employeeID = map.employeeID
-     WHERE a.attendanceDate = ?
+     WHERE a.attendanceDate = ? AND map.organisationID = ?
        AND (
          (a.employeeID IN (72, 73, 75) AND a.checkInTime > '08:10:00') OR
          (a.employeeID IN (24, 27) AND a.checkInTime > '11:10:00') OR
-         (map.branchID IN (1, 52) AND a.checkInTime > '10:10:00') OR
-         (map.branchID BETWEEN 2 AND 51 AND a.checkInTime > '09:25:00')
+         (map.branchID IN (1) AND a.checkInTime > '10:10:00') OR
+         (map.branchID BETWEEN 2 AND 52 AND a.checkInTime > '09:25:00')
        )) AS lateCheckin,
 
     -- Early check-out
     (SELECT COUNT(*)
      FROM tblAttendance AS a
      JOIN tblmapEmp AS map ON a.employeeID = map.employeeID
-     WHERE a.attendanceDate = ?
+     WHERE a.attendanceDate = ? AND map.organisationID = ?
        AND (
          (a.employeeID IN (72, 73, 75) AND a.checkOutTime < '15:00:00') OR
          (a.employeeID IN (24, 27) AND a.checkOutTime < '18:00:00') OR
-         (map.branchID IN (1, 52) AND a.checkOutTime < '17:00:00') OR
-         (map.branchID BETWEEN 2 AND 51 AND a.checkOutTime < '16:30:00')
+         (map.branchID IN (1) AND a.checkOutTime < '17:00:00') OR
+         (map.branchID BETWEEN 2 AND 52 AND a.checkOutTime < '16:30:00')
        )) AS earlyCheckout,
 
     -- On leave
     (SELECT COUNT(*)
      FROM tblApplyLeave AS l
      JOIN tblmapEmp AS map ON l.employeeID = map.employeeID
-     WHERE ? BETWEEN l.fromDate AND l.toDate
+     WHERE ? BETWEEN l.fromDate AND l.toDate AND map.organisationID = ?
        AND l.status = 'Approved') AS onLeave,
 
     -- Logged-in devices
@@ -302,15 +309,21 @@ FROM (SELECT 1) AS dummy;
      FROM tblEmployee AS emp
      JOIN tblmapEmp AS map ON emp.employeeID = map.employeeID
      WHERE emp.deviceFingerprint IS NOT NULL 
-       AND emp.deviceFingerprint <> '') AS loginnedDevices
+       AND emp.deviceFingerprint <> '' AND map.organisationID = ?) AS loginnedDevices
 FROM (SELECT 1) AS dummy;";
             $debug_query = str_replace(
-                ['?', '?', '?', '?'],
+                ['?', '?', '?', '?', '?', '?', '?', '?', '?', '?'],
                 [   
+                    "'" . $this->organisationID . "'",
                     "'" . $this->currentDate . "'",
+                    "'" . $this->organisationID . "'",
                     "'" . $this->currentDate . "'",
+                    "'" . $this->organisationID . "'",
                     "'" . $this->currentDate . "'",
-                    "'" . $this->currentDate . "'",                    
+                    "'" . $this->organisationID . "'",
+                    "'" . $this->currentDate . "'",
+                    "'" . $this->organisationID . "'",
+                    "'" . $this->organisationID . "'",
                 ],
                 $queryActiveEmployeeDetails
             );
@@ -322,12 +335,19 @@ FROM (SELECT 1) AS dummy;";
                 throw new Exception("Database prepare failed");
             }
 
-            mysqli_stmt_bind_param($stmt, "ssss", 
-                $this->currentDate,  // for checkedInToday
+            mysqli_stmt_bind_param($stmt, "ssssssssss", 
+                $this->organisationID,  // for checkedInToday
+                $this->currentDate, // for checkedInToday
+                $this->organisationID, // for lateCheckin
+                $this->currentDate, // for lateCheckin
+                $this->organisationID, // for earlyCheckout
                 $this->currentDate, // for earlyCheckout
+                $this->organisationID, // for onLeave
                 $this->currentDate, // for onLeave
-                $this->currentDate, // for loginnedDevices
-            );            
+                $this->organisationID, // for loginnedDevices
+                $this->organisationID, // for loginnedDevices
+            );
+                
             if (!mysqli_stmt_execute($stmt)) {
                 error_log("Execute failed: " . mysqli_stmt_error($stmt));
                 throw new Exception("Database execute failed");
