@@ -828,6 +828,7 @@ class AttendanceOperationMaster{
                         b.branchLatitude as branchLatitude,
                         b.branchLongitude as branchLongitude,
                         b.branchName as branchName,
+                        b.branchAddress as branchAddress,
                         b.checkInTime as checkInTime,
                         b.checkOutTime as checkOutTime
                     FROM tblmapEmp m
