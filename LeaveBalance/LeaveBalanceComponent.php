@@ -26,13 +26,22 @@ class ApplyLeaveMaster {
     }
 
     public function loadApplyLeaveDetails(array $data) {
+        // Log the incoming data for debugging
+        error_log("loadApplyLeaveDetails: Received data: " . json_encode($data));
+        
         $this->empID = $data['empID'];
         $this->fromDate = $data['fromDate'];
         $this->toDate = $data['toDate'];
         $this->leaveType = $data['leaveType'];
         $this->leaveDuration = $data['leaveDuration'];
         $this->leaveReason = $data['leaveReason'];
-        $this->organisationID = $data['organisationID'];
+        $this->organisationID = $data['organisationID'] ?? null; // Make organisationID optional
+        
+        // Log if organisationID is missing
+        if (empty($this->organisationID)) {
+            error_log("loadApplyLeaveDetails: organisationID not provided, will fetch from database for employee: " . $this->empID);
+        }
+        
         if (isset($data['MedicalCertificatePath'])) {
             $this->MedicalCertificatePath = $data['MedicalCertificatePath'];
         } 
@@ -190,6 +199,29 @@ class ApplyLeaveMaster {
         include('config.inc');
         header('Content-Type: application/json');
         try {
+            // If organisationID is not provided, get it from employee mapping
+            if (empty($this->organisationID)) {
+                error_log("applyForLeave: organisationID not provided, fetching from database for employee: " . $this->empID);
+                
+                $orgQuery = "SELECT organisationID FROM tblmapEmp WHERE employeeID = ? LIMIT 1";
+                $orgStmt = mysqli_prepare($connect_var, $orgQuery);
+                mysqli_stmt_bind_param($orgStmt, "s", $this->empID);
+                mysqli_stmt_execute($orgStmt);
+                $orgResult = mysqli_stmt_get_result($orgStmt);
+                
+                if ($orgRow = mysqli_fetch_assoc($orgResult)) {
+                    $this->organisationID = $orgRow['organisationID'];
+                    error_log("applyForLeave: Found organisationID: " . $this->organisationID . " for employee: " . $this->empID);
+                } else {
+                    // Default to organisation ID 1 if not found
+                    $this->organisationID = 1;
+                    error_log("applyForLeave: No organisationID found in database, using default: 1 for employee: " . $this->empID);
+                }
+                mysqli_stmt_close($orgStmt);
+            } else {
+                error_log("applyForLeave: Using provided organisationID: " . $this->organisationID . " for employee: " . $this->empID);
+            }
+            
             // Map leave types to their balance columns
             $leaveTypeBalanceMap = array(
                 'Medical Leave' => 'MedicalLeave',
