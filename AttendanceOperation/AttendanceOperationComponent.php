@@ -3,14 +3,48 @@ class AttendanceOperationMaster{
     public $applyLeaveID;
     public $status; 
     public $empID;
+    public $branchID;
+    public $organisationID;
 
     public function loadCancelLeave($decoded_items){
         $this->applyLeaveID = $decoded_items['applyLeaveID'];
         return true;
     }
     public function loadCheckIn($decoded_items){
+        if (!isset($decoded_items['employeeID'])) {
+            error_log("loadCheckIn: employeeID not provided in request");
+            return false;
+        }
         $this->empID = $decoded_items['employeeID'];
-        return true;
+        error_log("loadCheckIn: Looking up branch info for employeeID: " . $this->empID);
+        
+        // Get branchID and organisationID from database using employeeID
+        include('config.inc');
+        $query = "SELECT branchID, organisationID FROM tblmapEmp WHERE employeeID = ? LIMIT 1";
+        error_log("loadCheckIn: Executing query: " . $query . " with employeeID: " . $this->empID);
+        
+        $stmt = mysqli_prepare($connect_var, $query);
+        if (!$stmt) {
+            error_log("loadCheckIn: Failed to prepare statement: " . mysqli_error($connect_var));
+            return false;
+        }
+        
+        mysqli_stmt_bind_param($stmt, "s", $this->empID);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
+        
+        if (mysqli_num_rows($result) > 0) {
+            $row = mysqli_fetch_assoc($result);
+            $this->branchID = $row['branchID'];
+            $this->organisationID = $row['organisationID'];
+            error_log("loadCheckIn: Found branch info - BranchID: " . $this->branchID . ", OrganisationID: " . $this->organisationID);
+            mysqli_close($connect_var);
+            return true;
+        } else {
+            error_log("loadCheckIn: No branch mapping found for employeeID: " . $this->empID);
+            mysqli_close($connect_var);
+            return false;
+        }
     }
     public function loadCheckOut($decoded_items){
         $this->empID = $decoded_items['employeeID'];
@@ -25,6 +59,8 @@ class AttendanceOperationMaster{
         include('config.inc');  
         header('Content-Type: application/json');
         try{
+            
+            error_log("Starting checkInOnGivenDate - EmployeeID: $this->empID, BranchID: $this->branchID, OrganisationID: $this->organisationID");
             
             $currentDate = date('Y-m-d');
             $currentTime = date('H:i:s');
@@ -79,11 +115,59 @@ class AttendanceOperationMaster{
                 ), JSON_FORCE_OBJECT);
                 return;
             }
+            
+            // Get employee's branch and determine if they're late
+            $branchQuery = "SELECT b.checkInTime FROM tblBranch b 
+                           WHERE b.branchID = '$this->branchID' LIMIT 1";
+            $branchResult = mysqli_query($connect_var, $branchQuery);
+            $isLateCheckIn = 0; // Default to not late
+            
+            if ($branchResult && mysqli_num_rows($branchResult) > 0) {
+                // Get branch details and check-in time
+                $branchRow = mysqli_fetch_assoc($branchResult);
+                $branchCheckInTime = $branchRow['checkInTime']; // Get branch's specific check-in time
+                $currentTime = date('H:i:s'); // Get current system time
+                
+                // Debug logging
+                error_log("Employee $this->empID - BranchID: $this->branchID, BranchCheckInTime: $branchCheckInTime, CurrentTime: $currentTime");
+                
+                // Check if employee is late based on their branch's check-in time
+                if ($currentTime > $branchCheckInTime) {
+                    $isLateCheckIn = 1; // Mark 1 if late
+                }
+            } else {
+                error_log("No branch found for branchID $this->branchID");
+                echo json_encode(array(
+                    "status" => "error", 
+                    "message_text" => "No branch found for branchID $this->branchID",
+                    "debug" => "Employee ID: $this->empID, BranchID: $this->branchID, OrganisationID: $this->organisationID"
+                ), JSON_FORCE_OBJECT);
+                return;
+            }
+            
             $date = date('Y-m-d');
-            // No existing attendance, create new record
-            $queryCheckIn = "INSERT INTO tblAttendance (employeeID, attendanceDate, checkInTime) 
-                           VALUES ('$this->empID', '$date', CURRENT_TIME())";
+            // No existing attendance, create new record with late check-in status
+            $branchIDValue = $this->branchID ? "'$this->branchID'" : 'NULL';
+            $queryCheckIn = "INSERT INTO tblAttendance (employeeID, attendanceDate, checkInTime, isLateCheckIn, checkInBranchID) 
+                           VALUES ('$this->empID', '$date', CURRENT_TIME(), '$isLateCheckIn', $branchIDValue)";
             $rsd = mysqli_query($connect_var, $queryCheckIn);
+            
+            if(!$rsd){
+                error_log("Check-in failed for employee $this->empID: " . mysqli_error($connect_var));
+                error_log("isLateCheckIn: $isLateCheckIn");
+                mysqli_close($connect_var);
+                echo json_encode(array(
+                    "status" => "error", 
+                    "message_text" => "Error during check-in: " . mysqli_error($connect_var),
+                    "debug" => array(
+                        "employeeID" => $this->empID,
+                        "isLateCheckIn" => $isLateCheckIn,
+                        "date" => $date,
+                        "query" => $queryCheckIn
+                    )
+                ), JSON_FORCE_OBJECT);
+                return;
+            }
             
             // Get the actual inserted values
             $getInsertedValues = "SELECT attendanceDate, checkInTime 
@@ -106,7 +190,17 @@ class AttendanceOperationMaster{
             ), JSON_FORCE_OBJECT);
         }
         catch(Exception $e){
-            echo json_encode(array("status" => "error", "message_text" => "Error Checking In"), JSON_FORCE_OBJECT);
+            error_log("Error in checkInOnGivenDate: " . $e->getMessage());
+            error_log("Stack trace: " . $e->getTraceAsString());
+            echo json_encode(array(
+                "status" => "error", 
+                "message_text" => "Error Checking In: " . $e->getMessage(),
+                "debug" => array(
+                    "employeeID" => $this->empID,
+                    "branchID" => $this->branchID,
+                    "organisationID" => $this->organisationID
+                )
+            ), JSON_FORCE_OBJECT);
         }
     }
     public function checkOutOnGivenDate(){
@@ -246,11 +340,12 @@ class AttendanceOperationMaster{
             if (mysqli_num_rows($absenceResult) > 0) {
                 // Insert absence records
                 $insertAbsenceQuery = "INSERT INTO tblAttendance 
-                                     (employeeID, attendanceDate, isAbsent) 
-                                     SELECT employeeID, ?, 1 
-                                     FROM tblEmployee 
-                                     WHERE isActive = 1 
-                                     AND employeeID NOT IN (
+                                     (employeeID, attendanceDate, isAbsent, organisationID) 
+                                     SELECT e.employeeID, ?, 1, m.organisationID
+                                     FROM tblEmployee e
+                                     JOIN tblmapEmp m ON e.employeeID = m.employeeID
+                                     WHERE e.isActive = 1 
+                                     AND e.employeeID NOT IN (
                                          SELECT employeeID 
                                          FROM tblAttendance 
                                          WHERE attendanceDate = ?
@@ -765,6 +860,68 @@ class AttendanceOperationMaster{
             exit;
         }
     }
+
+    public function getTodayCheckIn($employeeID, $organisationID) {
+        include('config.inc');
+        header('Content-Type: application/json');
+        
+        try {
+            $query = "SELECT 
+                        m.branchID as branchID,
+                        b.branchLatitude as branchLatitude,
+                        b.branchLongitude as branchLongitude,
+                        b.branchName as branchName,
+                        b.branchAddress as branchAddress,
+                        b.checkInTime as checkInTime,
+                        b.checkOutTime as checkOutTime
+                    FROM tblmapEmp m
+                    JOIN tblBranch b ON m.branchID = b.branchID
+                    WHERE m.employeeID = ?
+                    AND m.organisationID = ?
+                    LIMIT 1";
+            
+            $stmt = mysqli_prepare($connect_var, $query);
+            if (!$stmt) {
+                throw new Exception("Failed to prepare query: " . mysqli_error($connect_var));
+            }
+            
+            mysqli_stmt_bind_param($stmt, "ss", $employeeID, $organisationID);
+            
+            if (!mysqli_stmt_execute($stmt)) {
+                throw new Exception("Failed to execute query: " . mysqli_stmt_error($stmt));
+            }
+            
+            $result = mysqli_stmt_get_result($stmt);
+            if (!$result) {
+                throw new Exception("Failed to get result: " . mysqli_error($connect_var));
+            }
+            
+            if (mysqli_num_rows($result) == 0) {
+                echo json_encode(array(
+                    "status" => "error",
+                    "message_text" => "No branch information found for this employee and organisation"
+                ), JSON_FORCE_OBJECT);
+                return;
+            }
+            
+            $row = mysqli_fetch_assoc($result);
+            
+            $response = array(
+                "status" => "success",
+                "data" => $row
+            );
+            
+            mysqli_close($connect_var);
+            echo json_encode($response, JSON_FORCE_OBJECT);
+            
+        } catch(Exception $e) {
+            error_log("Error in getTodayCheckIn: " . $e->getMessage());
+            echo json_encode(array(
+                "status" => "error",
+                "message_text" => "Error retrieving check-in information: " . $e->getMessage()
+            ), JSON_FORCE_OBJECT);
+        }
+    }
 }
 
 function updatePrivilageCount($f3){
@@ -826,11 +983,16 @@ function cancelLeave($decoded_items){
 
 function checkIn($decoded_items){
     $attendanceOperationObject = new AttendanceOperationMaster;
-    if($attendanceOperationObject->loadCheckIn($decoded_items)){
+    $loadResult = $attendanceOperationObject->loadCheckIn($decoded_items);
+    
+    if($loadResult){
         $attendanceOperationObject->checkInOnGivenDate();
     }
     else{
-        echo json_encode(array("status"=>"error","message_text"=>"Invalid Input Parameters"),JSON_FORCE_OBJECT);
+        echo json_encode(array(
+            "status" => "error",
+            "message_text" => "Employee not found or not mapped to any branch. Please provide valid employeeID."
+        ), JSON_FORCE_OBJECT);
     }
 }
 
@@ -880,6 +1042,29 @@ function getEmployeesUnderManager($f3) {
     try {
         $attendanceOperationObject = new AttendanceOperationMaster();
         $attendanceOperationObject->getEmployeesUnderManager($managerID);
+    } catch(Exception $e) {
+        echo json_encode(array(
+            "status" => "error",
+            "message_text" => $e->getMessage()
+        ), JSON_FORCE_OBJECT);
+    }
+}
+
+function getTodayCheckIn($decoded_items) {
+    try {
+        if (isset($decoded_items['employeeID'])) {
+            $attendanceOperationObject = new AttendanceOperationMaster();
+            $organisationID = 1;
+            if(isset($decoded_items['organisationID'])) {
+                $organisationID = $decoded_items['organisationID'];
+            }
+            $attendanceOperationObject->getTodayCheckIn($decoded_items['employeeID'], $organisationID);
+        } else {
+            echo json_encode(array(
+                "status" => "error",
+                "message_text" => "Missing required parameters (employeeID, organisationID)"
+            ), JSON_FORCE_OBJECT);
+        }
     } catch(Exception $e) {
         echo json_encode(array(
             "status" => "error",

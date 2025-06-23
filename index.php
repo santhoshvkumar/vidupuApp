@@ -87,6 +87,9 @@ require 'Branch/BranchComponent.php';
 require 'section/sectionRouter.php';
 require 'section/sectionComponent.php';
 
+require 'WebApp/TemporaryAttendance/TemporaryAttendanceRouter.php';
+require 'WebApp/TemporaryAttendance/TemporaryAttendanceComponent.php';
+
 // Register all routers
 \EmployeePaySlip\EmployeePaySlipRouter::register($f3);
 

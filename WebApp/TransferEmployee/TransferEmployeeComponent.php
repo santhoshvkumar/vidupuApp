@@ -13,13 +13,13 @@ class TransferEmployeeComponent{
     public $transferHistoryID;
     
     public function loadTransferEmployeeDetails(array $data){       
-        if (isset($data['employeeID']) && isset($data['fromBranch']) && isset($data['toBranch']) && isset($data['fromDate']) && isset($data['toDate']) && isset($data['isPermanentTransfer']) && isset($data['organisationID']) && isset($data['createdBy']) && isset($data['isActive']) && isset($data['isImmediate'])) {
+        if (isset($data['employeeID']) && isset($data['fromBranch']) && isset($data['toBranch']) && isset($data['fromDate']) && isset($data['toDate']) && isset($data['transferType']) && isset($data['organisationID']) && isset($data['createdBy']) && isset($data['isActive']) && isset($data['isImmediate'])) {
             $this->employeeID = $data['employeeID'];
             $this->fromBranch = $data['fromBranch'];
             $this->toBranch = $data['toBranch'];
             $this->fromDate = $data['fromDate'];
             $this->toDate = $data['toDate'];        
-            $this->isPermanentTransfer = $data['isPermanentTransfer'];
+            $this->isPermanentTransfer = $data['transferType'];
             $this->organisationID = $data['organisationID'];    
             $this->createdBy = $data['createdBy'];
             $this->isActive = $data['isActive'];
@@ -69,7 +69,7 @@ class TransferEmployeeComponent{
                     return;
                 }
 //insert transfer history
-                $queryInsertTransferHistory = "INSERT INTO tblTransferHistory ( employeeID, fromBranch, toBranch, fromDate, toDate, isPermanentTransfer, organisationID, createdOn, createdBy, isActive, isImmediateTransfer) VALUES (?,?,?,?,?,?,?,?,?,?,?);";
+                $queryInsertTransferHistory = "INSERT INTO tblTransferHistory ( employeeID, fromBranch, toBranch, fromDate, toDate, transferType, organisationID, createdOn, createdBy, isActive, isImmediateTransfer) VALUES (?,?,?,?,?,?,?,?,?,?,?);";
                 $queryStatement = mysqli_prepare($connect_var, $queryInsertTransferHistory);
                 mysqli_stmt_bind_param($queryStatement, "sssssssssss",
                     $this->employeeID,
@@ -124,7 +124,7 @@ class TransferEmployeeComponent{
                 $data = [];
                 $systemDate = $this->dataOfTransfer;
     
-                $querySystemTransfer = "SELECT transferHistoryID, fromBranch, toBranch, employeeID, toDate, isPermanentTransfer 
+                $querySystemTransfer = "SELECT transferHistoryID, fromBranch, toBranch, employeeID, toDate, transferType 
                     FROM tblTransferHistory 
                     WHERE ? BETWEEN fromDate AND toDate 
                     AND isActive = 1";
@@ -150,7 +150,7 @@ class TransferEmployeeComponent{
                         mysqli_stmt_execute($updateStmt);
                         mysqli_stmt_close($updateStmt);
                     }
-                    if($row['isPermanentTransfer']){
+                    if($row['transferType'] === 'Permanent'){
                         $updateTransferHistory = "UPDATE tblTransferHistory SET isActive=0 WHERE transferHistoryID=?";
                         $stmtUpdateHistory = mysqli_prepare($connect_var, $updateTransferHistory);
                         mysqli_stmt_bind_param($stmtUpdateHistory, "s", $row['transferHistoryID']);
@@ -248,7 +248,7 @@ class TransferEmployeeComponent{
                         tb.branchName as toBranchName,
                         th.fromDate,
                         th.toDate,
-                        th.isPermanentTransfer,
+                        th.transferType,
                         th.organisationID,
                         th.createdOn,
                         th.createdBy,

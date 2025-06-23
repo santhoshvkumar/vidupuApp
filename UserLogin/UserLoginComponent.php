@@ -37,7 +37,7 @@ class UserMaster{
                 tblLB.SpecialCasualLeave, tblLB.CompensatoryOff, tblLB.SpecialLeaveBloodDonation, 
                 tblLB.LeaveOnPrivateAffairs, tblB.branchUniqueID, tblB.branchName, 
                 tblB.branchAddress, tblB.branchLatitude, tblB.branchLongitude, tblB.branchRadius,
-                tblE.isManager
+                tblE.isManager, tblM.organisationID
                 FROM tblEmployee tblE 
                 INNER JOIN tblLeaveBalance tblLB ON tblLB.employeeID = tblE.employeeID
                 INNER JOIN tblmapEmp tblM ON tblM.employeeID = tblE.employeeID
@@ -79,11 +79,12 @@ class UserMaster{
                     $resultArr['branchLongitude'] = $rs['branchLongitude'];
                     $resultArr['branchRadius'] = $rs['branchRadius'];
                     $resultArr['IsManager'] = $rs['isManager'];
+                    $resultArr['organisationID'] = $rs['organisationID'];
                     // Add flag for password change requirement
                     $resultArr['requirePasswordChange'] = $isDefaultPassword;
                     
                     $fignerPrint = $rs['deviceFingerprint'];
-                    // Update UserToken in database
+                    // Update UserToken in database if deviceFingerprint is null and deviceFingerprint is set
                     if($fignerPrint == null && isset($this->deviceFingerprint)){
                         $updateToken = "UPDATE tblEmployee SET deviceFingerprint = '$this->deviceFingerprint', userToken = '$this->UserToken' 
                                   WHERE employeeID = '" . $rs['employeeID'] . "'";
