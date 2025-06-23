@@ -14,4 +14,11 @@ $f3->route('POST /ApproveEmployeeRefreshmentDetailsByID', function($f3) {
     $app->ApproveEmployeeRefreshmentDetailsByID($data);
 }); 
 /*****************  End Login User Temp *****************/
+/*****************  Get Working Days Details *****************/
+$f3->route('POST /GetWorkingDaysDetails', function($f3) {
+    $app = new ApproveRefreshmentComponent();
+    $data = json_decode($f3->get('BODY'), true);
+    $app->GetWorkingDaysDetails($data);
+});
+/*****************  End Get Working Days Details *****************/
 ?>
