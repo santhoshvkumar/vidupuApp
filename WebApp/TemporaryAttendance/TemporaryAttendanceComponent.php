@@ -33,8 +33,10 @@ class TemporaryAttendanceComponent {
 
         // Check if a new file is being uploaded
         if (isset($_FILES['picture']) && $_FILES['picture']['error'] === UPLOAD_ERR_OK) {
-            // Use absolute path for upload directory - new structure: uploads/organisationID/employeeID/date/attendancePics
-            $baseUploadDir = '/data/server/live/API/public_html/vidupuApp/uploads/';
+            //relative path for upload directory: uploads/organisationID/employeeID/date/attendancePics
+            $baseUploadDir = '../uploads/';
+            // absolute path:
+            // $baseUploadDir = '/data/server/live/API/public_html/vidupuApp/uploads/';
             
             // Create base directory if it doesn't exist
             if (!file_exists($baseUploadDir)) {
@@ -47,6 +49,9 @@ class TemporaryAttendanceComponent {
             $fileSize = $file['size'];
             $fileError = $file['error'];
             $fileType = $file['type'];
+            
+            // Debug logging
+            error_log("File upload debug - employeeID: " . $this->employeeID . ", organisationID: " . $this->organisationID . ", attendanceDate: " . $this->attendanceDate);
             
             // Get file extension
             $fileExt = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
@@ -61,29 +66,48 @@ class TemporaryAttendanceComponent {
                         $fileNameNew = 'attendance_' . uniqid('', true) . "." . $fileExt;
                         
                         // For updates, use existing employeeID and organisationID, for creates we'll handle it after insertion
-                        if (isset($this->employeeID) && !empty($this->employeeID) && isset($this->organisationID) && !empty($this->organisationID)) {
+                        if (isset($this->employeeID) && !empty($this->employeeID) && isset($this->organisationID) && !empty($this->organisationID) && isset($this->attendanceDate) && !empty($this->attendanceDate)) {
                             // Update mode - use existing employeeID and organisationID
                             $organisationFolder = $baseUploadDir . $this->organisationID . '/';
                             $employeeFolder = $organisationFolder . $this->employeeID . '/attendancePics/';
                             $dateFolder = $employeeFolder . $this->attendanceDate . '/';
                             $fileDestination = $dateFolder . $fileNameNew;
                             $this->picture = 'uploads/' . $this->organisationID . '/' . $this->employeeID . '/attendancePics/' . $this->attendanceDate . '/' . $fileNameNew;
+                            
+                            error_log("Using final path: " . $fileDestination);
                         } else {
                             // Create mode - we'll need to update this after getting the employeeID and organisationID
                             $tempFolder = $baseUploadDir . 'temp_uploads/';
                             $fileDestination = $tempFolder . $fileNameNew;
                             $this->picture = 'uploads/temp_uploads/' . $fileNameNew;
+                            
+                            error_log("Using temp path: " . $fileDestination);
                         }
                         
                         // Create employee-specific folder
                         $empPictureFolder = dirname($fileDestination);
+                        error_log("Creating folder: " . $empPictureFolder);
+                        
                         if (!file_exists($empPictureFolder)) {
-                            mkdir($empPictureFolder, 0777, true);
+                            $mkdirResult = mkdir($empPictureFolder, 0777, true);
+                            error_log("mkdir result: " . ($mkdirResult ? 'success' : 'failed'));
                         }
                         
-                        move_uploaded_file($fileTmpName, $fileDestination);
+                        $moveResult = move_uploaded_file($fileTmpName, $fileDestination);
+                        error_log("move_uploaded_file result: " . ($moveResult ? 'success' : 'failed') . " from " . $fileTmpName . " to " . $fileDestination);
+                    } else {
+                        error_log("File too large: " . $fileSize);
                     }
+                } else {
+                    error_log("File error: " . $fileError);
                 }
+            } else {
+                error_log("Invalid file type: " . $fileExt);
+            }
+        } else {
+            error_log("No file uploaded or file upload error");
+            if (isset($_FILES['picture'])) {
+                error_log("File upload error code: " . $_FILES['picture']['error']);
             }
         }
         return true;
@@ -230,17 +254,26 @@ class TemporaryAttendanceComponent {
             $latestAttendanceID = mysqli_insert_id($connect_var);
             
             if (strpos($this->picture, 'uploads/temp_uploads/') === 0) {
-                $baseUploadDir = '/data/server/live/API/public_html/vidupuApp/uploads/';
+                $baseUploadDir = '../uploads/';
+                // Alternative absolute path (uncomment if needed):
+                // $baseUploadDir = '/data/server/live/API/public_html/vidupuApp/uploads/';
                 $tempFilePath = $baseUploadDir . 'temp_uploads/' . basename($this->picture);
                 $newFolderPath = $baseUploadDir . $this->organisationID . '/' . $this->employeeID . '/attendancePics/' . $this->attendanceDate . '/';
                 $newFilePath = $newFolderPath . basename($this->picture);
                 
+                error_log("Moving temp file - tempFilePath: " . $tempFilePath);
+                error_log("Moving temp file - newFolderPath: " . $newFolderPath);
+                error_log("Moving temp file - newFilePath: " . $newFilePath);
+                
                 if (!file_exists($newFolderPath)) {
-                    mkdir($newFolderPath, 0777, true);
+                    $mkdirResult = mkdir($newFolderPath, 0777, true);
+                    error_log("Creating new folder result: " . ($mkdirResult ? 'success' : 'failed'));
                 }
                 
                 if (file_exists($tempFilePath)) {
+                    error_log("Temp file exists, attempting to move");
                     if (rename($tempFilePath, $newFilePath)) {
+                        error_log("File moved successfully");
                         $this->picture = 'uploads/' . $this->organisationID . '/' . $this->employeeID . '/attendancePics/' . $this->attendanceDate . '/' . basename($this->picture);
                         
                         $updateQuery = "UPDATE tblAttendance SET picture = ? WHERE attendanceId = ?";
@@ -249,8 +282,13 @@ class TemporaryAttendanceComponent {
                             mysqli_stmt_bind_param($updateStmt, "si", $this->picture, $latestAttendanceID);
                             mysqli_stmt_execute($updateStmt);
                             mysqli_stmt_close($updateStmt);
+                            error_log("Database updated with new picture path: " . $this->picture);
                         }
+                    } else {
+                        error_log("Failed to move temp file");
                     }
+                } else {
+                    error_log("Temp file does not exist: " . $tempFilePath);
                 }
             }
 
