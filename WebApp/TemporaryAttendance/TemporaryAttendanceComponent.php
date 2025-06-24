@@ -25,7 +25,7 @@ class TemporaryAttendanceComponent {
         $this->isLateCheckIN = $data['isLateCheckIN'];
         $this->Reason = $data['Reason'];
         $this->createdBy = $data['createdBy'];
-        $this->picture = isset($data['picture']) ? $data['picture'] : '';
+        $this->picture = isset($data['picture']) ? (is_array($data['picture']) ? '' : $data['picture']) : '';
         
         // Load check-in and check-out times
         $this->checkInTime = isset($data['checkInTime']) ? $data['checkInTime'] : '';
@@ -226,7 +226,7 @@ class TemporaryAttendanceComponent {
             $queryCreateEmployeeTemporaryAttendance = "INSERT INTO tblAttendance (
                 isTempAttendance, employeeID, organisationID, Reason, createdBy, picture, 
                 checkInTime, checkOutTime, attendanceDate, checkInBranchID, isLateCheckIN, isEarlyCheckOut
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURDATE(), ?, ?, ?)";
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
             $stmt = mysqli_prepare($connect_var, $queryCreateEmployeeTemporaryAttendance);
             if (!$stmt) {
@@ -242,6 +242,7 @@ class TemporaryAttendanceComponent {
                 $this->picture,
                 $checkInTimeValue,
                 $checkOutTimeValue,
+                $this->attendanceDate,
                 $this->checkInBranchID,
                 $isLateCheckIN,
                 $isEarlyCheckOut
