@@ -5,8 +5,15 @@ class ProfileMaster{
     public $NewPassword;
     public function loadChangePassword($decoded_items){
         $this->EmployeeID = $decoded_items['EmployeeID'];
-        $this->EmployeePassword = md5($decoded_items['EmployeePassword']);
         $this->NewPassword = md5($decoded_items['NewPassword']);
+        
+        // Make EmployeePassword optional
+        if (isset($decoded_items['EmployeePassword'])) {
+            $this->EmployeePassword = md5($decoded_items['EmployeePassword']);
+        } else {
+            $this->EmployeePassword = null;
+        }
+        
         return true;
     }
     public function changePassword() {
@@ -14,38 +21,46 @@ class ProfileMaster{
         header('Content-Type: application/json');
         try
         {
-            // Check user credentials with prepared statement
-            $queryUserLogin = "SELECT empID FROM tblEmployee WHERE employeeID = ? AND employeePassword = ?";
-            $stmt = mysqli_prepare($connect_var, $queryUserLogin);
-            mysqli_stmt_bind_param($stmt, "ss", $this->EmployeeID, $this->EmployeePassword);
-            mysqli_stmt_execute($stmt);
-            $result = mysqli_stmt_get_result($stmt);
-            
-            $userExist = 0;
-            if ($rs = mysqli_fetch_assoc($result)) {
-                if (isset($rs['empID'])) {
-                    $userExist = 1;
-                    
-                    // Update password with prepared statement
-                    $queryUpdatePassword = "UPDATE tblEmployee SET employeePassword = ? WHERE employeeID = ?";
-                    $updateStmt = mysqli_prepare($connect_var, $queryUpdatePassword);
-                    mysqli_stmt_bind_param($updateStmt, "ss", $this->NewPassword, $this->EmployeeID);
-                    mysqli_stmt_execute($updateStmt);
-                    mysqli_stmt_close($updateStmt);
+            // If EmployeePassword is provided, validate it; otherwise skip validation
+            if ($this->EmployeePassword !== null) {
+                // Check user credentials with prepared statement
+                $queryUserLogin = "SELECT empID FROM tblEmployee WHERE employeeID = ? AND employeePassword = ?";
+                $stmt = mysqli_prepare($connect_var, $queryUserLogin);
+                mysqli_stmt_bind_param($stmt, "ss", $this->EmployeeID, $this->EmployeePassword);
+                mysqli_stmt_execute($stmt);
+                $result = mysqli_stmt_get_result($stmt);
+                
+                $userExist = 0;
+                if ($rs = mysqli_fetch_assoc($result)) {
+                    if (isset($rs['empID'])) {
+                        $userExist = 1;
+                    }
+                }
+                
+                mysqli_stmt_close($stmt);
+                
+                if ($userExist == 0) {
+                    echo json_encode(array("status" => "error", "message_text" => "Kindly Make sure your current password is correct"), JSON_FORCE_OBJECT);
+                    return;
                 }
             }
             
-            mysqli_stmt_close($stmt);
-            mysqli_close($connect_var);
-
-            if ($userExist == 1) {
+            // Update password with prepared statement
+            $queryUpdatePassword = "UPDATE tblEmployee SET employeePassword = ? WHERE employeeID = ?";
+            $updateStmt = mysqli_prepare($connect_var, $queryUpdatePassword);
+            mysqli_stmt_bind_param($updateStmt, "ss", $this->NewPassword, $this->EmployeeID);
+            
+            if (mysqli_stmt_execute($updateStmt)) {
                 echo json_encode(array("status" => "success", "message_text" => "Password Changed Successfully"), JSON_FORCE_OBJECT);
             } else {
-                echo json_encode(array("status" => "error", "message_text" => "Kindly Make sure your current password is correct"), JSON_FORCE_OBJECT);
+                echo json_encode(array("status" => "error", "message_text" => "Failed to update password"), JSON_FORCE_OBJECT);
             }
+            
+            mysqli_stmt_close($updateStmt);
+            mysqli_close($connect_var);
         }
         catch(Exception $e){
-            echo json_encode(array("status"=>"error","message_text"=>"Error in changing password"),JSON_FORCE_OBJECT);
+            echo json_encode(array("status"=>"error","message_text"=>"Error in changing password: " . $e->getMessage()),JSON_FORCE_OBJECT);
         }
     }
 }

@@ -75,8 +75,6 @@ require 'AttendanceReport/DailyAttendanceReportComponent.php';
 require 'WebApp/LeaveReason/LeaveReasonComponent.php';
 require 'WebApp/LeaveReason/LeaveReasonRouter.php';
 
-require 'WebApp/AddOrganization/AddOrganizationComponent.php';
-require 'WebApp/AddOrganization/AddOrganizationRouter.php';
 
 require 'WebApp/Organisation/OrganisationRouter.php';
 require 'WebApp/Organisation/OrganisationComponent.php';
@@ -89,6 +87,9 @@ require 'section/sectionComponent.php';
 
 require 'WebApp/TemporaryAttendance/TemporaryAttendanceRouter.php';
 require 'WebApp/TemporaryAttendance/TemporaryAttendanceComponent.php';
+
+require 'WebApp/VisitorPass/VisitorPassRouter.php';
+require 'WebApp/VisitorPass/VisitorPassComponent.php';
 
 // Register all routers
 \EmployeePaySlip\EmployeePaySlipRouter::register($f3);
