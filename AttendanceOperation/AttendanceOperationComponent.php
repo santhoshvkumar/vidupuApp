@@ -209,15 +209,47 @@ class AttendanceOperationMaster{
         try{
             $currentTime = date('H:i:s');
             $currentDate = date('Y-m-d');
-            // Update checkout time and calculate total working hours
+            
+            // Get branch check-out time to determine early checkout
+            $branchQuery = "SELECT b.checkOutTime FROM tblBranch b 
+                           WHERE b.branchID = '$this->branchID' LIMIT 1";
+            $branchResult = mysqli_query($connect_var, $branchQuery);
+            $isEarlyCheckOut = 0; // Default to not early
+            
+            if ($branchResult && mysqli_num_rows($branchResult) > 0) {
+                // Get branch details and check-out time
+                $branchRow = mysqli_fetch_assoc($branchResult);
+                $branchCheckOutTime = $branchRow['checkOutTime']; // Get branch's specific check-out time
+                
+                // Debug logging
+                error_log("Employee $this->empID - BranchID: $this->branchID, BranchCheckOutTime: $branchCheckOutTime, CurrentTime: $currentTime");
+                
+                // Check if employee is checking out early based on their branch's check-out time
+                if ($currentTime < $branchCheckOutTime) {
+                    $isEarlyCheckOut = 1; // Mark 1 if early checkout
+                }
+            } else {
+                error_log("No branch found for branchID $this->branchID");
+                echo json_encode(array(
+                    "status" => "error", 
+                    "message_text" => "No branch found for branchID $this->branchID",
+                    "debug" => "Employee ID: $this->empID, BranchID: $this->branchID, OrganisationID: $this->organisationID"
+                ), JSON_FORCE_OBJECT);
+                return;
+            }
+            
+            // Update checkout time, calculate total working hours, and set early checkout flag
+            $branchIDValue = $this->branchID ? "'$this->branchID'" : 'NULL';
             $queryCheckOut = "UPDATE tblAttendance 
                             SET checkOutTime = CURRENT_TIME(),
-                                TotalWorkingHour = TIMEDIFF(CURRENT_TIME(), checkInTime)
+                                TotalWorkingHour = TIMEDIFF(CURRENT_TIME(), checkInTime),
+                                isEarlyCheckOut = '$isEarlyCheckOut',
+                                checkOutBranchID = $branchIDValue
                             WHERE employeeID = '$this->empID' 
                             AND checkOutTime IS NULL 
                             ORDER BY checkInTime DESC 
                             LIMIT 1";
-            //echo $queryCheckOut;
+            
             $rsd = mysqli_query($connect_var,$queryCheckOut);
             
             // Check if any row was actually updated
@@ -226,11 +258,31 @@ class AttendanceOperationMaster{
                 return;
             }
             
+            // Get the updated record details
+            $getUpdatedValues = "SELECT attendanceDate, checkInTime, checkOutTime, TotalWorkingHour, checkOutBranchID 
+                                FROM tblAttendance 
+                                WHERE employeeID = '$this->empID'
+                                ORDER BY attendanceDate DESC, checkOutTime DESC
+                                LIMIT 1";
+            $result = mysqli_query($connect_var, $getUpdatedValues);
+            $row = mysqli_fetch_assoc($result);
+            
             mysqli_close($connect_var);
-            echo json_encode(array("status"=>"success","message_text"=>"CheckOut Successfully"),JSON_FORCE_OBJECT);
+            echo json_encode(array(
+                "status"=>"success",
+                "message_text"=>"CheckOut Successfully",
+                "data" => array(
+                    "attendanceDate" => $row['attendanceDate'],
+                    "checkInTime" => $row['checkInTime'],
+                    "checkOutTime" => $row['checkOutTime'],
+                    "totalWorkingHour" => $row['TotalWorkingHour'],
+                    "isEarlyCheckOut" => $isEarlyCheckOut,
+                    "checkOutBranchID" => $row['checkOutBranchID']
+                )
+            ),JSON_FORCE_OBJECT);
         }
         catch(Exception $e){
-            echo json_encode(array("status"=>"error","message_text"=>"Error Checking Out"),JSON_FORCE_OBJECT);
+            echo json_encode(array("status"=>"error","message_text"=>"Error Checking Out: " . $e->getMessage()),JSON_FORCE_OBJECT);
         }
     }
     public function cancelLeaveOnGivenDate(){
