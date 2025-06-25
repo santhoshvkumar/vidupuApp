@@ -63,4 +63,10 @@ $f3->route('POST /CalculateRefreshmentAllowance',
 );
 /*****************  End Calculate Refreshment Allowance *****************/
 
+/*****************  Get Applied Newspaper Allowance Details *****************/
+$f3->route('POST /GetAppliedNewspaperAllowanceDetails', function($f3) {
+    $data = json_decode($f3->get('BODY'), true);
+    getAppliedNewspaperAllowanceDetails($data);
+});
+/*****************  End Get Applied Newspaper Allowance Details *****************/
 ?>
