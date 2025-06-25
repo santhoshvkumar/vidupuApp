@@ -42,7 +42,7 @@ class AddEmployeeComponent{
             $this->casualLeave = $data['casualLeave'] ?? 0;
             $this->privilegeLeave = $data['privilegeLeave'] ?? 0;
             $this->medicalLeave = $data['medicalLeave'] ?? 0;
-            $this->organisationID = $data['organisationID'];
+            $this->organisationID = $data['organisationID']?? 1;
             return true;
         } else {
             return false;
