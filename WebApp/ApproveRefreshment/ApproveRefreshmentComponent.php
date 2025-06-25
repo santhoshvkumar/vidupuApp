@@ -4,8 +4,8 @@ class ApproveRefreshmentComponent{
     public $employeeID;
     public $empID;
     public $employeeName;    
-    public $Month;
-    public $Year;
+    public $month;
+    public $year;
     public $TotalWorkingDays;
     public $ApprovedLeaveDays;
     public $EligibleDays;
@@ -15,149 +15,155 @@ class ApproveRefreshmentComponent{
     public $CreatedDate;
     public $Designation;
     public $approvedDate;
+    public $organisationID;
+    public $fromDate;
+    public $toDate;
 
-    public function loadApproveRefreshmentDetails(array $data){ 
-        if (isset($data['Month']) && isset($data['Year'])) {
-            $this->Month = $data['Month'];
-            $this->Year = $data['Year'];
+    public function loadRefreshmentData(array $data) {      
+        if (isset($data['fromDate']) && isset($data['toDate']) && isset($data['organisationID'])) {
+            $this->fromDate = $data['fromDate'];
+            $this->toDate = $data['toDate'];
+            $this->organisationID = $data['organisationID'];
+            
+            // Extract month and year from fromDate
+            $date = new DateTime($this->fromDate);
+            $this->month = $date->format('m'); // Numeric month (01, 02, etc.)
+            $this->year = $date->format('Y'); // 4-digit year
+            
+            echo "Data loaded successfully. Month: " . $this->month . ", Year: " . $this->year . "<br>";
             return true;
-        } else {
-            return false;
         }
-    }
-    public function loadApproveRefreshmentDetailsByID(array $data){ 
-        if (isset($data['empID']) && isset($data['Status'])) {
-            $this->empID = $data['empID'];
-            $this->Status = $data['Status'];
-            return true;
-        } else {
-            return false;
-        }
+        echo "Data loading failed - missing required parameters<br>";
+        return false;
     }
 
-    public function GetAllEmployeeRefreshmentDetails($data) {
+    public function GetRefreshmentAllowancesByOrganisationID() {
         include('config.inc');
         header('Content-Type: application/json');
-        
+
         try {
-            // Validate required fields
-            if (!isset($data['Month']) || !isset($data['Year'])) {
-                throw new Exception("Month and Year are required");
-            }
-
-            $month = $data['Month'];
-            $year = $data['Year'];
-
-            // Get all employee refreshment details for the specified month and year
+            $data = [];         
+            // Get Refreshment Allowances By Organisation ID
             $query = "SELECT 
-    r.EmployeeID, 
-    e.employeeName, 
+    e.employeeID,
     e.empID,
-    r.Month,
-    r.Year,
-    r.TotalWorkingDays,
-    r.ApprovedLeaveDays,
-    r.EligibleDays,
-    r.AmountPerDay,
-    r.TotalAmount,
-    r.Status,
-    r.CreatedDate,
-    r.approvedDate
-FROM 
-    tblrefreshment r
-JOIN 
-    tblEmployee e ON r.EmployeeID = e.employeeID WHERE r.Month = ? AND r.Year = ?";
+    e.employeeName,
+    e.isWashingAllowance,
+    e.isPhysicallyHandicapped,
+    w.noOfWorkingDays,
+    w.noOfDays AS totalCalendarDays,
+    IFNULL(l.leaveDaysInMonth, 0) AS leaveDaysInMonth,
+    w.noOfWorkingDays - IFNULL(l.leaveDaysInMonth, 0) AS eligibleDays,
 
+    -- TotalRefreshmentAmount
+    (w.noOfWorkingDays - IFNULL(l.leaveDaysInMonth, 0)) * 90 AS TotalRefreshmentAmount,
+
+    -- WashingAllowanceAmount
+    CASE 
+        WHEN e.isWashingAllowance = 1 THEN (w.noOfWorkingDays - IFNULL(l.leaveDaysInMonth, 0)) * 25
+        ELSE 0
+    END AS WashingAllowanceAmount,
+
+    -- PhysicallyChallangedAllowance
+    CASE 
+        WHEN e.isPhysicallyHandicapped = 1 THEN 2500
+        ELSE 0
+    END AS PhysicallyChallangedAllowance,
+
+    -- TotalAllowances = sum of all 3
+    (
+        ((w.noOfWorkingDays - IFNULL(l.leaveDaysInMonth, 0)) * 90) +
+        CASE 
+            WHEN e.isWashingAllowance = 1 THEN (w.noOfWorkingDays - IFNULL(l.leaveDaysInMonth, 0)) * 25
+            ELSE 0
+        END +
+        CASE 
+            WHEN e.isPhysicallyHandicapped = 1 THEN 2500
+            ELSE 0
+        END
+    ) AS TotalAllowances
+
+FROM tblEmployee e
+
+JOIN tblOrganisation o ON e.organisationID = o.organisationID
+
+LEFT JOIN tblworkingdays w 
+    ON w.month = ? AND w.year = ?
+
+LEFT JOIN (
+    SELECT 
+        a.employeeID,
+        SUM(
+            DATEDIFF(
+                LEAST(a.toDate, ?),
+                GREATEST(a.fromDate, ?)
+            ) + 1
+        ) AS leaveDaysInMonth
+    FROM tblApplyLeave a
+    WHERE 
+        a.status = 'Approved' AND
+        a.fromDate <= ? AND
+        a.toDate >= ?
+    GROUP BY a.employeeID
+) l ON l.employeeID = e.employeeID
+
+WHERE 
+    e.organisationID = ? AND 
+    e.isActive = 1 AND 
+    e.isTemporary = 0";
+            
             $stmt = mysqli_prepare($connect_var, $query);
             if (!$stmt) {
                 throw new Exception("Failed to prepare statement: " . mysqli_error($connect_var));
             }
-
-            mysqli_stmt_bind_param($stmt, "ss", $month, $year);
+            
+            mysqli_stmt_bind_param($stmt, "ssssssi", $this->month, $this->year, $this->fromDate, $this->toDate, $this->fromDate, $this->toDate, $this->organisationID);
             
             if (!mysqli_stmt_execute($stmt)) {
                 throw new Exception("Failed to execute statement: " . mysqli_error($connect_var));
             }
-
             $result = mysqli_stmt_get_result($stmt);
-            $data = array();
-
-            while ($row = mysqli_fetch_assoc($result)) {
-                $data[] = array(
-                    "EmployeeID" => $row['EmployeeID'],
-                    "employeeName" => $row['employeeName'],
-                    "empID" => $row['empID'],
-                    "Month" => $row['Month'],
-                    "Year" => $row['Year'],
-                    "TotalWorkingDays" => $row['TotalWorkingDays'],
-                    "ApprovedLeaveDays" => $row['ApprovedLeaveDays'],
-                    "EligibleDays" => $row['EligibleDays'],
-                    "AmountPerDay" => $row['AmountPerDay'],
-                    "TotalAmount" => $row['TotalAmount'],
-                    "Status" => $row['Status'],
-                    "CreatedDate" => $row['CreatedDate'],
-                    "approvedDate" => $row['approvedDate']
-                );
+            if (!$result) {
+                throw new Exception("Failed to get result: " . mysqli_error($connect_var));
             }
-
+            $RefreshmentAllowances = [];
+            
+            while ($row = mysqli_fetch_assoc($result)) {
+                $data[] = $row;
+            }
             mysqli_stmt_close($stmt);
-            mysqli_close($connect_var);
-
-            echo json_encode(array(
-                "status" => "success",
-                "data" => $data
-            ));
-
+            
+            if (count($data) > 0) {
+                echo json_encode([
+                    "status" => "success",  
+                    "data" => $data
+                ]);
+            } else {
+                echo json_encode([
+                    "status" => "error",
+                    "message" => "No refreshment allowances found"
+                ], JSON_FORCE_OBJECT);
+            }           
+           
         } catch (Exception $e) {
-            echo json_encode(array(
+            error_log("Error in GetRefreshmentAllowances: " . $e->getMessage());
+            echo json_encode([
                 "status" => "error",
                 "message" => $e->getMessage()
-            ));
+            ], JSON_FORCE_OBJECT);
+        } finally {
+            if (isset($connect_var)) {
+                mysqli_close($connect_var);
+            }
         }
     }
-    public function ApproveEmployeeRefreshmentDetailsByID($data) {
-        include('config.inc');
-        header('Content-Type: application/json');   
-        try {
-            if (!isset($data['empID'])) {
-                throw new Exception("EmployeeID is required");
-            }
-            $empID = $data['empID'];      
-            $Status = $data['Status'];
-        $query = "UPDATE tblrefreshment SET Status = ? , approvedDate = CURDATE() WHERE EmployeeID =(SELECT employeeID FROM tblEmployee WHERE empID = ?)";
-        $stmt = mysqli_prepare($connect_var, $query);
-        mysqli_stmt_bind_param($stmt, "si", $Status, $empID);
-        mysqli_stmt_execute($stmt);
-        mysqli_stmt_close($stmt);
-        mysqli_close($connect_var);
-        echo json_encode(array(
-            "status" => "success",
-            "message" => "Employee Refreshment Details Approved Successfully"
-        ));
-    } catch (Exception $e) {
-        echo json_encode(array(
-            "status" => "error",
-            "message" => $e->getMessage()
-        ));
-    }
-    }
-}        
-
-function GetAllEmployeeRefreshmentDetails($decoded_items) {
-    $ApproveRefreshmentComponent = new ApproveRefreshmentComponent();
-    if ($ApproveRefreshmentComponent->loadApproveRefreshmentDetails($decoded_items)) {
-        $ApproveRefreshmentComponent->GetAllEmployeeRefreshmentDetails();
-    } else {    
-        echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
-    }
 }
-function ApproveEmployeeRefreshmentDetailsByID($decoded_items) {
+function GetRefreshmentAllowancesByOrganisationID($decoded_items) {
     $ApproveRefreshmentComponent = new ApproveRefreshmentComponent();
-    if ($ApproveRefreshmentComponent->loadApproveRefreshmentDetailsByID($decoded_items)) {
-        $ApproveRefreshmentComponent->ApproveEmployeeRefreshmentDetailsByID();
-    } else {    
+    if ($ApproveRefreshmentComponent->loadRefreshmentData($decoded_items)) {
+        $ApproveRefreshmentComponent->GetRefreshmentAllowancesByOrganisationID();
+    } else {
         echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
-    }
+    }       
 }
-?>
 
