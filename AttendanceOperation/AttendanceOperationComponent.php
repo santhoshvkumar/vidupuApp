@@ -47,8 +47,40 @@ class AttendanceOperationMaster{
         }
     }
     public function loadCheckOut($decoded_items){
+        if (!isset($decoded_items['employeeID'])) {
+            error_log("loadCheckOut: employeeID not provided in request");
+            return false;
+        }
         $this->empID = $decoded_items['employeeID'];
-        return true;
+        error_log("loadCheckOut: Looking up branch info for employeeID: " . $this->empID);
+        
+        // Get branchID and organisationID from database using employeeID
+        include('config.inc');
+        $query = "SELECT branchID, organisationID FROM tblmapEmp WHERE employeeID = ? LIMIT 1";
+        error_log("loadCheckOut: Executing query: " . $query . " with employeeID: " . $this->empID);
+        
+        $stmt = mysqli_prepare($connect_var, $query);
+        if (!$stmt) {
+            error_log("loadCheckOut: Failed to prepare statement: " . mysqli_error($connect_var));
+            return false;
+        }
+        
+        mysqli_stmt_bind_param($stmt, "s", $this->empID);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
+        
+        if (mysqli_num_rows($result) > 0) {
+            $row = mysqli_fetch_assoc($result);
+            $this->branchID = $row['branchID'];
+            $this->organisationID = $row['organisationID'];
+            error_log("loadCheckOut: Found branch info - BranchID: " . $this->branchID . ", OrganisationID: " . $this->organisationID);
+            mysqli_close($connect_var);
+            return true;
+        } else {
+            error_log("loadCheckOut: No branch mapping found for employeeID: " . $this->empID);
+            mysqli_close($connect_var);
+            return false;
+        }
     }
     public function loadAutoCheckout($decoded_items){
         $this->dateOfCheckout = $decoded_items['dateOfCheckout'];
@@ -61,6 +93,17 @@ class AttendanceOperationMaster{
         try{
             
             error_log("Starting checkInOnGivenDate - EmployeeID: $this->empID, BranchID: $this->branchID, OrganisationID: $this->organisationID");
+            
+            // Check if branch information is available
+            if (empty($this->branchID) || empty($this->organisationID)) {
+                error_log("Missing branch information for employee $this->empID");
+                echo json_encode(array(
+                    "status" => "error", 
+                    "message_text" => "Employee not properly mapped to a branch. Please contact HR to update employee branch mapping.",
+                    "debug" => "Employee ID: $this->empID, BranchID: $this->branchID, OrganisationID: $this->organisationID"
+                ), JSON_FORCE_OBJECT);
+                return;
+            }
             
             $currentDate = date('Y-m-d');
             $currentTime = date('H:i:s');
@@ -207,6 +250,17 @@ class AttendanceOperationMaster{
         include('config.inc');
         header('Content-Type: application/json');
         try{
+            // Check if branch information is available
+            if (empty($this->branchID) || empty($this->organisationID)) {
+                error_log("Missing branch information for employee $this->empID");
+                echo json_encode(array(
+                    "status" => "error", 
+                    "message_text" => "Employee not properly mapped to a branch. Please contact HR to update employee branch mapping.",
+                    "debug" => "Employee ID: $this->empID, BranchID: $this->branchID, OrganisationID: $this->organisationID"
+                ), JSON_FORCE_OBJECT);
+                return;
+            }
+            
             $currentTime = date('H:i:s');
             $currentDate = date('Y-m-d');
             
@@ -1050,11 +1104,16 @@ function checkIn($decoded_items){
 
 function checkOut($decoded_items){
     $attendanceOperationObject = new AttendanceOperationMaster;
-    if($attendanceOperationObject->loadCheckOut($decoded_items)){
+    $loadResult = $attendanceOperationObject->loadCheckOut($decoded_items);
+    
+    if($loadResult){
         $attendanceOperationObject->checkOutOnGivenDate();
     } 
     else{
-        echo json_encode(array("status"=>"error","message_text"=>"Invalid Input Parameters"),JSON_FORCE_OBJECT);
+        echo json_encode(array(
+            "status" => "error",
+            "message_text" => "Employee not found or not mapped to any branch. Please provide valid employeeID."
+        ), JSON_FORCE_OBJECT);
     }
 }
 

@@ -37,7 +37,7 @@ class UserMaster{
                 tblLB.SpecialCasualLeave, tblLB.CompensatoryOff, tblLB.SpecialLeaveBloodDonation, 
                 tblLB.LeaveOnPrivateAffairs, tblB.branchUniqueID, tblB.branchName, 
                 tblB.branchAddress, tblB.branchLatitude, tblB.branchLongitude, tblB.branchRadius,
-                tblE.isManager, tblM.organisationID
+                tblE.isManager, tblM.organisationID, tblE.isMultipleCheckIN, tblE.isMultipleCheckOut
                 FROM tblEmployee tblE 
                 INNER JOIN tblLeaveBalance tblLB ON tblLB.employeeID = tblE.employeeID
                 INNER JOIN tblmapEmp tblM ON tblM.employeeID = tblE.employeeID
@@ -80,6 +80,8 @@ class UserMaster{
                     $resultArr['branchRadius'] = $rs['branchRadius'];
                     $resultArr['IsManager'] = $rs['isManager'];
                     $resultArr['organisationID'] = $rs['organisationID'];
+                    $resultArr['isMultipleCheckIN'] = $rs['isMultipleCheckIN'];
+                    $resultArr['isMultipleCheckOut'] = $rs['isMultipleCheckOut'];
                     // Add flag for password change requirement
                     $resultArr['requirePasswordChange'] = $isDefaultPassword;
                     

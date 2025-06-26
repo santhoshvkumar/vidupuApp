@@ -11,6 +11,7 @@ class TransferEmployeeComponent{
     public $isActive;
     public $isImmediate;
     public $transferHistoryID;
+    public $dataOfTransfer;
     
     public function loadTransferEmployeeDetails(array $data){       
         if (isset($data['employeeID']) && isset($data['fromBranch']) && isset($data['toBranch']) && isset($data['fromDate']) && isset($data['toDate']) && isset($data['transferType']) && isset($data['organisationID']) && isset($data['createdBy']) && isset($data['isActive']) && isset($data['isImmediate'])) {
@@ -157,42 +158,41 @@ class TransferEmployeeComponent{
                         mysqli_stmt_execute($stmtUpdateHistory);
                         mysqli_stmt_close($stmtUpdateHistory);
                     }
-                    // 1. Find all transfers where systemDate is past toDate and still active
-                    $queryPastTransfers = "SELECT transferHistoryID, fromBranch, employeeID 
-                    FROM tblTransferHistory 
-                    WHERE ? > toDate AND isActive = 1";
-                    $stmtPast = mysqli_prepare($connect_var, $queryPastTransfers);
-                    mysqli_stmt_bind_param($stmtPast, "s", $systemDate);
-                    mysqli_stmt_execute($stmtPast);
-                    $resultPast = mysqli_stmt_get_result($stmtPast);
-                    $pastTransfers = mysqli_fetch_all($resultPast, MYSQLI_ASSOC);
-                    mysqli_stmt_close($stmtPast);
-                    // 2. For each, update tblmapEmp and tblTransferHistory
-                    foreach ($pastTransfers as $row) {
-                        // Update tblmapEmp: set branchID to fromBranch
-                        $updateMapEmp = "UPDATE tblmapEmp SET branchID=? WHERE employeeID=? AND organisationID=?";
-                        $stmtUpdateMap = mysqli_prepare($connect_var, $updateMapEmp);
-                        mysqli_stmt_bind_param($stmtUpdateMap, "sss", $row['fromBranch'], $row['employeeID'], $this->organisationID);
-                        mysqli_stmt_execute($stmtUpdateMap);
-                        mysqli_stmt_close($stmtUpdateMap);
-    
-                        // Update tblTransferHistory: set isActive=0
-                        $updateTransferHistory = "UPDATE tblTransferHistory SET isActive=0 WHERE transferHistoryID=?";
-                        $stmtUpdateHistory = mysqli_prepare($connect_var, $updateTransferHistory);
-                        mysqli_stmt_bind_param($stmtUpdateHistory, "s", $row['transferHistoryID']);
-                        mysqli_stmt_execute($stmtUpdateHistory);
-                        mysqli_stmt_close($stmtUpdateHistory);
-                    }
-                    echo json_encode(array(
-                        "status" => "success",
-                        "data" => $data
-                    ));
-                } else {
-                    echo json_encode(array(
-                        "status" => "error",
-                        "message" => "No records found."
-                    ));
                 }
+                
+                // Process expired transfers (moved outside the active transfers block)
+                // 1. Find all transfers where systemDate is past toDate and still active
+                $queryPastTransfers = "SELECT transferHistoryID, fromBranch, employeeID 
+                FROM tblTransferHistory 
+                WHERE ? > toDate AND isActive = 1";
+                $stmtPast = mysqli_prepare($connect_var, $queryPastTransfers);
+                mysqli_stmt_bind_param($stmtPast, "s", $systemDate);
+                mysqli_stmt_execute($stmtPast);
+                $resultPast = mysqli_stmt_get_result($stmtPast);
+                $pastTransfers = mysqli_fetch_all($resultPast, MYSQLI_ASSOC);
+                mysqli_stmt_close($stmtPast);
+                
+                // 2. For each, update tblmapEmp and tblTransferHistory
+                foreach ($pastTransfers as $row) {
+                    // Update tblmapEmp: set branchID to fromBranch
+                    $updateMapEmp = "UPDATE tblmapEmp SET branchID=? WHERE employeeID=? AND organisationID=?";
+                    $stmtUpdateMap = mysqli_prepare($connect_var, $updateMapEmp);
+                    mysqli_stmt_bind_param($stmtUpdateMap, "sss", $row['fromBranch'], $row['employeeID'], $this->organisationID);
+                    mysqli_stmt_execute($stmtUpdateMap);
+                    mysqli_stmt_close($stmtUpdateMap);
+
+                    // Update tblTransferHistory: set isActive=0
+                    $updateTransferHistory = "UPDATE tblTransferHistory SET isActive=0 WHERE transferHistoryID=?";
+                    $stmtUpdateHistory = mysqli_prepare($connect_var, $updateTransferHistory);
+                    mysqli_stmt_bind_param($stmtUpdateHistory, "s", $row['transferHistoryID']);
+                    mysqli_stmt_execute($stmtUpdateHistory);
+                    mysqli_stmt_close($stmtUpdateHistory);
+                }
+                
+                echo json_encode(array(
+                    "status" => "success",
+                    "data" => $data
+                ));
             } catch (Exception $e) {
                 echo json_encode([
                     "status" => "error", 
@@ -256,10 +256,10 @@ class TransferEmployeeComponent{
                         th.isActive,
                         th.isImmediateTransfer
                     FROM tblTransferHistory th
-                    INNER JOIN tblEmployee e ON th.employeeID = e.empID
-                    INNER JOIN tblBranch fb ON th.fromBranch = fb.branchID
-                    INNER JOIN tblBranch tb ON th.toBranch = tb.branchID
-                    INNER JOIN tblUser u ON th.createdBy = u.userID
+                    LEFT JOIN tblEmployee e ON th.employeeID = e.employeeID
+                    LEFT JOIN tblBranch fb ON th.fromBranch = fb.branchID
+                    LEFT JOIN tblBranch tb ON th.toBranch = tb.branchID
+                    LEFT JOIN tblUser u ON th.createdBy = u.userID
                     WHERE th.isActive = 1 AND th.organisationID = ?
                     ORDER BY th.createdOn DESC";
             
@@ -300,6 +300,15 @@ class TransferEmployeeComponent{
                 "message_text" => $e->getMessage()
             ], JSON_FORCE_OBJECT);
         }
+    }
+
+    public function loadAutoTransfer(array $data) {
+        if (isset($data['dataOfTransfer']) && isset($data['organisationID'])) {
+            $this->dataOfTransfer = $data['dataOfTransfer'];
+            $this->organisationID = $data['organisationID'];
+            return true;
+        }
+        return false;
     }
 
 } // End of Class
