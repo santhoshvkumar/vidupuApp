@@ -47,40 +47,8 @@ class AttendanceOperationMaster{
         }
     }
     public function loadCheckOut($decoded_items){
-        if (!isset($decoded_items['employeeID'])) {
-            error_log("loadCheckOut: employeeID not provided in request");
-            return false;
-        }
         $this->empID = $decoded_items['employeeID'];
-        error_log("loadCheckOut: Looking up branch info for employeeID: " . $this->empID);
-        
-        // Get branchID and organisationID from database using employeeID
-        include('config.inc');
-        $query = "SELECT branchID, organisationID FROM tblmapEmp WHERE employeeID = ? LIMIT 1";
-        error_log("loadCheckOut: Executing query: " . $query . " with employeeID: " . $this->empID);
-        
-        $stmt = mysqli_prepare($connect_var, $query);
-        if (!$stmt) {
-            error_log("loadCheckOut: Failed to prepare statement: " . mysqli_error($connect_var));
-            return false;
-        }
-        
-        mysqli_stmt_bind_param($stmt, "s", $this->empID);
-        mysqli_stmt_execute($stmt);
-        $result = mysqli_stmt_get_result($stmt);
-        
-        if (mysqli_num_rows($result) > 0) {
-            $row = mysqli_fetch_assoc($result);
-            $this->branchID = $row['branchID'];
-            $this->organisationID = $row['organisationID'];
-            error_log("loadCheckOut: Found branch info - BranchID: " . $this->branchID . ", OrganisationID: " . $this->organisationID);
-            mysqli_close($connect_var);
-            return true;
-        } else {
-            error_log("loadCheckOut: No branch mapping found for employeeID: " . $this->empID);
-            mysqli_close($connect_var);
-            return false;
-        }
+        return true;
     }
     public function loadAutoCheckout($decoded_items){
         $this->dateOfCheckout = $decoded_items['dateOfCheckout'];
@@ -93,17 +61,6 @@ class AttendanceOperationMaster{
         try{
             
             error_log("Starting checkInOnGivenDate - EmployeeID: $this->empID, BranchID: $this->branchID, OrganisationID: $this->organisationID");
-            
-            // Check if branch information is available
-            if (empty($this->branchID) || empty($this->organisationID)) {
-                error_log("Missing branch information for employee $this->empID");
-                echo json_encode(array(
-                    "status" => "error", 
-                    "message_text" => "Employee not properly mapped to a branch. Please contact HR to update employee branch mapping.",
-                    "debug" => "Employee ID: $this->empID, BranchID: $this->branchID, OrganisationID: $this->organisationID"
-                ), JSON_FORCE_OBJECT);
-                return;
-            }
             
             $currentDate = date('Y-m-d');
             $currentTime = date('H:i:s');
@@ -250,17 +207,6 @@ class AttendanceOperationMaster{
         include('config.inc');
         header('Content-Type: application/json');
         try{
-            // Check if branch information is available
-            if (empty($this->branchID) || empty($this->organisationID)) {
-                error_log("Missing branch information for employee $this->empID");
-                echo json_encode(array(
-                    "status" => "error", 
-                    "message_text" => "Employee not properly mapped to a branch. Please contact HR to update employee branch mapping.",
-                    "debug" => "Employee ID: $this->empID, BranchID: $this->branchID, OrganisationID: $this->organisationID"
-                ), JSON_FORCE_OBJECT);
-                return;
-            }
-            
             $currentTime = date('H:i:s');
             $currentDate = date('Y-m-d');
             
@@ -598,16 +544,18 @@ class AttendanceOperationMaster{
                     a.isAutoCheckout,
                     CASE 
                         WHEN a.employeeID IN (72, 73) AND a.checkInTime > '08:10:00' THEN 1
-                        WHEN a.employeeID IN (24, 27) AND a.checkInTime > '11:10:00' THEN 1
+                        WHEN a.employeeID IN (27) AND a.checkInTime > '11:10:00' THEN 1
                         WHEN m.branchID IN (1, 52) AND a.checkInTime > '10:10:00' THEN 1
                         WHEN m.branchID BETWEEN 2 AND 51 AND a.checkInTime > '09:25:00' THEN 1
+                        WHEN m.branchID in(55,56) AND a.checkInTime > '11:00:00' THEN 1
                         ELSE 0 
                     END as isLateCheckIn,
                     CASE 
                         WHEN a.employeeID IN (72, 73) AND a.checkOutTime < '15:00:00' THEN 1
-                        WHEN a.employeeID IN (24, 27) AND a.checkOutTime < '18:00:00' THEN 1
-                        WHEN m.branchID IN (1, 52) AND a.checkOutTime < '17:00:00' THEN 1
+                        WHEN a.employeeID IN (27) AND a.checkOutTime < '18:00:00' THEN 1
+                        WHEN m.branchID IN (1,52) AND a.checkOutTime < '17:00:00' THEN 1
                         WHEN m.branchID BETWEEN 2 AND 51 AND a.checkOutTime < '16:30:00' THEN 1
+                        WHEN m.branchID in(55,56) AND a.checkOutTime < '17:00:00' THEN 1
                         ELSE 0 
                     END as isEarlyCheckOut,
                     0 as isHoliday,
@@ -832,23 +780,39 @@ class AttendanceOperationMaster{
             $leaveCount = 0;
             $absentCount = 0;
             
+            error_log("Starting count calculation for " . count($attendanceRecords) . " records");
+            
             foreach ($attendanceRecords as $record) {
                 // Only count if it's a working day (not a holiday)
                 if($record['isHoliday'] != 1) {
+                    error_log("Processing record for date: " . $record['attendanceDate'] . 
+                             " - isLateCheckIn: " . $record['isLateCheckIn'] . 
+                             " - isEarlyCheckOut: " . $record['isEarlyCheckOut'] . 
+                             " - isLeave: " . $record['isLeave'] . 
+                             " - isAbsent: " . $record['isAbsent']);
+                    
                     if($record['isLateCheckIn'] == 1) {
                         $lateCheckInCount++;
+                        error_log("Incremented lateCheckInCount to: " . $lateCheckInCount);
                     }
                     if($record['isEarlyCheckOut'] == 1) {
                         $earlyCheckOutCount++;
+                        error_log("Incremented earlyCheckOutCount to: " . $earlyCheckOutCount);
                     }
                     if($record['isLeave'] == 1) {
                         $leaveCount++;
+                        error_log("Incremented leaveCount to: " . $leaveCount);
                     }
                     if($record['isAbsent'] == 1) {
                         $absentCount++;
+                        error_log("Incremented absentCount to: " . $absentCount);
                     }
+                } else {
+                    error_log("Skipping holiday record for date: " . $record['attendanceDate']);
                 }
             }
+            
+            error_log("Final counts - lateCheckIn: $lateCheckInCount, earlyCheckOut: $earlyCheckOutCount, leave: $leaveCount, absent: $absentCount");
             
             $response = array(
                 "status" => "success",
@@ -1104,16 +1068,11 @@ function checkIn($decoded_items){
 
 function checkOut($decoded_items){
     $attendanceOperationObject = new AttendanceOperationMaster;
-    $loadResult = $attendanceOperationObject->loadCheckOut($decoded_items);
-    
-    if($loadResult){
+    if($attendanceOperationObject->loadCheckOut($decoded_items)){
         $attendanceOperationObject->checkOutOnGivenDate();
     } 
     else{
-        echo json_encode(array(
-            "status" => "error",
-            "message_text" => "Employee not found or not mapped to any branch. Please provide valid employeeID."
-        ), JSON_FORCE_OBJECT);
+        echo json_encode(array("status"=>"error","message_text"=>"Invalid Input Parameters"),JSON_FORCE_OBJECT);
     }
 }
 
