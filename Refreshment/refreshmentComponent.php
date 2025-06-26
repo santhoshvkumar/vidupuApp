@@ -1,5 +1,96 @@
 <?php
 class RefreshmentMaster {
+    public $organisationID;
+    public $empID;
+    public $employeeID;
+    public $employeeName;
+    public $fromDate;
+    public $toDate;
+
+    public function loadAppliedNewspaperAllowanceDetails($decoded_items){
+        if (isset($decoded_items['fromDate'])) {
+            $this->fromDate = $decoded_items['fromDate'];
+        }
+        if (isset($decoded_items['toDate'])) {
+            $this->toDate = $decoded_items['toDate'];
+        }
+        if (isset($decoded_items['organisationID'])) {
+            $this->organisationID = $decoded_items['organisationID'];
+        }        
+        return true;
+    }
+
+    public function getAppliedNewspaperAllowanceDetails(){
+        include('config.inc');
+        header('Content-Type: application/json');
+        try{
+            $query = "SELECT 
+    a.employeeID,
+    e.empID,
+    e.employeeName,
+    CONCAT_WS(', ', n1.NewspaperName, n2.NewspaperName) AS SubscribedNewsPapers,
+    CONCAT_WS(', ', a.firstNewspaperCost, a.secondNewspaperCost) AS SubscribedNewsPaperCost,
+    a.totalCost,
+    a.month as forTheMonthOf,
+    a.year,
+    a.billImage,
+    a.createdDate AS appliedDate
+FROM 
+    tblNewspaperAllowance a
+LEFT JOIN 
+    tblEmployee e ON a.employeeID = e.employeeID
+LEFT JOIN 
+    tblNewspaper n1 ON a.firstNewspaperID = n1.newspaperID
+LEFT JOIN 
+    tblNewspaper n2 ON a.secondNewspaperID = n2.newspaperID
+WHERE a.createdDate BETWEEN ? AND ? AND a.organisationID = ?";
+                $stmt = mysqli_prepare($connect_var, $query);
+                if (!$stmt) {
+                    throw new Exception("Failed to prepare statement: " . mysqli_error($connect_var));
+                }
+                
+                mysqli_stmt_bind_param($stmt, "ssi", $this->fromDate, $this->toDate, $this->organisationID);
+                
+                if (!mysqli_stmt_execute($stmt)) {
+                    throw new Exception("Failed to execute statement: " . mysqli_error($connect_var));
+                }
+                $result = mysqli_stmt_get_result($stmt);
+                if (!$result) {
+                    throw new Exception("Failed to get result: " . mysqli_error($connect_var));
+                }
+                $data = [];
+                
+                while ($row = mysqli_fetch_assoc($result)) {
+                    $data[] = $row;
+                }
+                
+                if (count($data) > 0) {
+                    echo json_encode([
+                        "status" => "success",
+                        "message" => "Newspaper allowance details fetched successfully",
+                        "record_count" => count($data),
+                        "data" => $data
+                    ]);
+                } else {
+                    echo json_encode([
+                        "status" => "error",
+                        "message" => "No newspaper allowance details found"
+                    ], JSON_FORCE_OBJECT);
+                }           
+               
+            } catch (Exception $e) {
+                error_log("Error in getAppliedNewspaperAllowanceDetails: " . $e->getMessage());
+                echo json_encode([
+                    "status" => "error",
+                    "message" => $e->getMessage()
+                ], JSON_FORCE_OBJECT);
+            } finally {
+                if (isset($connect_var)) {
+                    mysqli_close($connect_var);
+                }
+            }
+        }
+
     public function getNewspaperDetails() {
         include('config.inc');
         header('Content-Type: application/json');
@@ -377,5 +468,14 @@ function submitNewspaperSubscription($data) {
 function calculateRefreshmentAllowance($data) {
     $refreshmentObject = new RefreshmentMaster();
     $refreshmentObject->calculateRefreshmentAllowance($data);
+}
+
+function getAppliedNewspaperAllowanceDetails($data) {
+    $refreshmentObject = new RefreshmentMaster();
+    if ($refreshmentObject->loadAppliedNewspaperAllowanceDetails($data)) {  
+        $refreshmentObject->getAppliedNewspaperAllowanceDetails();
+    } else {
+        echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
+    }
 }
 ?>
