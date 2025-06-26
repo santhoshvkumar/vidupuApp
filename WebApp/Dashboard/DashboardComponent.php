@@ -126,7 +126,7 @@ class DashboardComponent{
        AND map.organisationID = ?
        AND map.branchID IN (?)
        AND (
-         (a.employeeID IN (72, 73, 75) AND a.checkInTime > '08:10:00') OR
+         (a.employeeID IN (72, 73) AND a.checkInTime > '08:10:00') OR
          (a.employeeID IN (24, 27) AND a.checkInTime > '11:10:00') OR
          (map.branchID IN (1) AND a.checkInTime > '10:10:00') OR
          (map.branchID BETWEEN 2 AND 52 AND a.checkInTime > '09:25:00')
@@ -140,7 +140,7 @@ class DashboardComponent{
        AND map.organisationID = ?
        AND map.branchID IN (?)
        AND (
-         (a.employeeID IN (72, 73, 75) AND a.checkOutTime < '15:00:00') OR
+         (a.employeeID IN (72, 73) AND a.checkOutTime < '15:00:00') OR
          (a.employeeID IN (24, 27) AND a.checkOutTime < '18:00:00') OR
          (map.branchID IN (1) AND a.checkOutTime < '17:00:00') OR
          (map.branchID BETWEEN 2 AND 52 AND a.checkOutTime < '16:30:00')
