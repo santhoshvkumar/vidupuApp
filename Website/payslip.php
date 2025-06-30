@@ -677,34 +677,66 @@ $fallbackDataNote = '';
   <title>Payslip - <?php echo $orgName; ?></title>
   <style>
     body {
+      margin: 0;
+      padding: 15px;
       font-family: Arial, sans-serif;
-      padding: 40px;
-      color: #000;
-      display: flex;
-      justify-content: center;
-      align-items: flex-start;
-      min-height: 100vh;
-      background: #fff;
+      font-size: 14px;
+      line-height: 1.3;
     }
     .container {
-      border: 1px solid #000;
-      padding: 20px;
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 15px;
+      background: white;
     }
-    h2, h3 {
+    .org-header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .org-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 0;
+    }
+    .org-logo {
+      max-width: 50px;
+      margin-right: 10px;
+    }
+    .org-details {
       text-align: center;
-      margin: 10px 0;
+    }
+    .org-details h2 {
+      margin: 0 0 1px 0;
+      font-size: 20px;
+      display: inline-block;
+    }
+    .org-meta {
+      text-align: center;
+      font-size: 14px;
+      line-height: 1.2;
+      margin: 0;
+    }
+    h3 {
+      text-align: center;
+      margin: 8px 0;
+      font-size: 16px;
     }
     .details {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 20px;
+      margin-bottom: 8px;
     }
     .details td {
+      padding: 2px 4px;
       border-left: 1px solid #000;
       border-right: 1px solid #000;
       border-top: none;
       border-bottom: none;
-      padding: 8px;
+      width: 50%;
+      font-size: 14px;
     }
     .details tr:first-child td {
       border-top: 1px solid #000;
@@ -712,121 +744,120 @@ $fallbackDataNote = '';
     .details tr:last-child td {
       border-bottom: 1px solid #000;
     }
-    .earnings td, .deductions td, .tax td, .tds td {
-      border: 1px solid #000;
-      padding: 8px;
-    }
     .section-title {
-      margin-top: 40px;
       font-weight: bold;
+      margin: 4px 0;
+      font-size: 15px;
     }
-    .org-header {
+    .earnings td, .deductions td {
+      padding: 2px 4px;
+      border: 1px solid #000;
+      font-size: 14px;
+    }
+    .earnings td:last-child, .deductions td:last-child {
+      width: 120px;
+      text-align: right;
+    }
+    table.earnings, table.deductions {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    /* Ensure tables are side by side */
+    .tables-container {
       display: flex;
-      align-items: center;
-      margin-bottom: 20px;
+      gap: 10px;
+      margin-bottom: 8px;
     }
-    .org-logo {
-      height: 80px;
-      width: 80px;
-      object-fit: contain;
-      margin-right: 20px;
-      border-radius: 8px;
-      background: #f5f5f5;
-      border: 1px solid #ccc;
-    }
-    .org-details {
+    .table-column {
       flex: 1;
     }
-    .org-details h2 {
-      text-align: left;
-      margin: 0 0 5px 0;
+    @media print {
+      body {
+        padding: 0;
+      }
+      .container {
+        max-width: none;
+        padding: 10px;
+      }
     }
-    .org-details .org-meta {
+    /* Total Deductions line */
+    .total-deductions {
+      margin: 4px 0;
+      width: 100%;
       font-size: 14px;
-      color: #333;
-      margin-bottom: 2px;
+      display: flex;
+      justify-content: flex-end;
     }
-    .org-details .org-meta:last-child {
-      margin-bottom: 0;
+    /* Net Pay Box */
+    .net-pay-box {
+      margin: 4px 0;
+      display: flex;
+      justify-content: flex-end;
     }
-  </style>
-  <style>
-    @media (max-width: 700px) {
-      table[style*='width:100%'] td {
-        display: block;
-        width: 100% !important;
-      }
-      .org-header {
-        flex-direction: column;
-        align-items: flex-start;
-      }
-      .org-logo {
-        margin-bottom: 10px;
-        margin-right: 0;
-      }
-      .org-details h2 {
-        text-align: left;
-      }
+    .net-pay-content {
+      border: 2px solid #000;
+      background: #e6ffe6;
+      padding: 8px 16px;
+      font-size: 15px;
+      font-weight: bold;
+    }
+    /* Amount in words */
+    .amount-words {
+      margin: 4px 0;
+      font-size: 14px;
+    }
+    /* Footer */
+    .footer-text {
+      margin-top: 8px;
+      color: #666;
+      font-size: 13px;
+      font-style: italic;
     }
   </style>
 </head>
 <body>
-
 <div class="container">
   <div class="org-header">
-    <?php if (!empty($logoWebPath)) { ?>
-      <img src="<?php echo $logoWebPath; ?>" alt="Logo" class="org-logo">
-    <?php } else { ?>
-      <!-- No logo found -->
-    <?php } ?>
-    <div class="org-details">
-      <h2><?php echo $orgName; ?></h2>
-      <div style="text-align:center; margin-top: 5px;">
-        <div class="org-meta">
-          <?php echo $orgAddress1; ?><?php if($orgAddress2) echo ', ' . $orgAddress2; ?>
-        </div>
-        <div class="org-meta">
-          <?php echo $orgCity; ?><?php if($orgState) echo ', ' . $orgState; ?>
-        </div>
-        <div class="org-meta">
-          Phone: <?php echo $orgPhone; ?><?php if($orgWebsite) echo ' | Website: ' . $orgWebsite; ?>
-        </div>
+    <div class="org-title-row">
+      <?php if (!empty($logoWebPath)) { ?>
+        <img src="<?php echo $logoWebPath; ?>" alt="Logo" class="org-logo">
+      <?php } ?>
+      <div class="org-details">
+        <h2><?php echo $orgName; ?></h2>
+        <div class="org-meta"><?php echo $orgAddress1; ?><?php if($orgAddress2) echo ', ' . $orgAddress2; ?></div>
+        <div class="org-meta"><?php echo $orgCity; ?><?php if($orgState) echo ', ' . $orgState; ?></div>
+        <div class="org-meta">Phone: <?php echo $orgPhone; ?><?php if($orgWebsite) echo ' | Website: ' . $orgWebsite; ?></div>
       </div>
     </div>
   </div>
 
-  <h3>Payslip for the month of <b><?php echo $monthName; ?> - <?php echo $year; ?></b></h3>
+  <h3>Payslip for the month of <?php echo $monthName; ?> - <?php echo $year; ?></h3>
 
-  <?php if ($usingFallbackData): ?>
-    <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 10px; margin: 10px 0; border-radius: 4px; color: #856404;">
-      <strong>⚠️ Notice:</strong> <?php echo $fallbackDataNote; ?>
-    </div>
-  <?php endif; ?>
-
+  <!-- Employee Details Table -->
   <table class="details">
     <tr>
-      <td><strong>Name:</strong> <?php echo $employeeName ? $employeeName : '_____________'; ?></td>
-      <td><strong>Employee No:</strong> <?php echo $empID ? $empID : '_____________'; ?></td>
+      <td><strong>Name:</strong> <?php echo $employeeName ? $employeeName : ''; ?></td>
+      <td><strong>Employee No:</strong> <?php echo $empID ? $empID : ''; ?></td>
     </tr>
     <tr>
-      <td><strong>Joining Date:</strong> <?php echo $joiningDate ? date('d-m-Y', strtotime($joiningDate)) : '_____________'; ?></td>
-      <td><strong>Bank Name:</strong> <?php echo $bankName ? $bankName : '_____________'; ?></td>
+      <td><strong>Joining Date:</strong> <?php echo $joiningDate ? date('d-m-Y', strtotime($joiningDate)) : ''; ?></td>
+      <td><strong>Bank Name:</strong> <?php echo $bankName ? $bankName : ''; ?></td>
     </tr>
     <tr>
-      <td><strong>Designation:</strong> <?php echo $designation ? $designation : '_____________'; ?></td>
-      <td><strong>Bank Account No:</strong> <?php echo $bankAccountNumber ? $bankAccountNumber : '_____________'; ?></td>
+      <td><strong>Designation:</strong> <?php echo $designation ? $designation : ''; ?></td>
+      <td><strong>Bank Account No:</strong> <?php echo $bankAccountNumber ? $bankAccountNumber : ''; ?></td>
     </tr>
     <tr>
-      <td><strong>Department:</strong> <?php echo $department ? $department : '_____________'; ?></td>
-      <td><strong>PAN Number:</strong> <?php echo $panNumber ? $panNumber : '_____________'; ?></td>
+      <td><strong>Department:</strong> <?php echo $department ? $department : ''; ?></td>
+      <td><strong>PAN Number:</strong> <?php echo $panNumber ? $panNumber : ''; ?></td>
     </tr>
     <tr>
-      <td><strong>Location:</strong> <?php echo $branchName ? $branchName : '_____________'; ?></td>
-      <td><strong>PF No:</strong> <?php echo $pfNumber ? $pfNumber : '_____________'; ?></td>
+      <td><strong>Location:</strong> <?php echo $branchName ? $branchName : ''; ?></td>
+      <td><strong>PF No:</strong> <?php echo $pfNumber ? $pfNumber : ''; ?></td>
     </tr>
     <tr>
       <td><strong>Effective Work Days:</strong> <?php echo $workingDays; ?></td>
-      <td><strong>PF UAN:</strong> <?php echo $pfUAN ? $pfUAN : '_____________'; ?></td>
+      <td><strong>PF UAN:</strong> <?php echo $pfUAN ? $pfUAN : ''; ?></td>
     </tr>
     <tr>
       <td><strong>LOP:</strong> <?php echo $lopDays; ?></td>
@@ -834,111 +865,126 @@ $fallbackDataNote = '';
     </tr>
   </table>
 
-  <!-- Earnings and Deductions Side by Side -->
-  <table style="width:100%; margin-top:1px;">
-    <tr>
-      <!-- Earnings Column -->
-      <td style="vertical-align:top; width:50%;">
-        <p class="section-title">Earnings</p>
-        <table class="earnings">
-          <tr><td>BASIC</td><td><?php echo isset($earnings['BASIC']) ? $earnings['BASIC'] : '___________'; ?></td></tr>
-          <tr><td>HRA</td><td><?php echo isset($earnings['HRA']) ? $earnings['HRA'] : '___________'; ?></td></tr>
-          <tr><td>CONVEYANCE</td><td><?php echo isset($earnings['CONVEYANCE']) ? $earnings['CONVEYANCE'] : '___________'; ?></td></tr>
-          <tr><td>MEDICAL ALLOWANCE</td><td><?php echo isset($earnings['MEDICAL ALLOWANCE']) ? $earnings['MEDICAL ALLOWANCE'] : '___________'; ?></td></tr>
-          <tr><td>OTHER ALLOWANCE</td><td><?php echo isset($earnings['OTHER ALLOWANCE']) ? $earnings['OTHER ALLOWANCE'] : '___________'; ?></td></tr>
-          <?php
-            // Display any additional earning types
-            $standard = ['BASIC','HRA','CONVEYANCE','MEDICAL ALLOWANCE','OTHER ALLOWANCE'];
-            $extraEarningsRows = 0;
-            foreach ($earnings as $type => $amount) {
-              if (!in_array($type, $standard)) {
-                echo "<tr><td>".htmlspecialchars($type)."</td><td>$amount</td></tr>";
-                $extraEarningsRows++;
-              }
-            }
-            $earningsRows = 5 + $extraEarningsRows + 1; // 5 standard + extra + total
-          ?>
-          <tr><td><strong>Total Earnings</strong></td><td><strong><?php echo $totalEarnings; ?></strong></td></tr>
-        </table>
-      </td>
-      <!-- Deductions Column -->
-      <td style="vertical-align:top; width:50%;">
-        <p class="section-title">Deductions</p>
-        <table class="deductions">
-          <tr><td>PF</td><td><?php echo isset($deductions['PF']) ? $deductions['PF'] : '___________'; ?></td></tr>
-          <tr><td>INCOME TAX</td><td><?php echo isset($deductions['INCOME TAX']) ? $deductions['INCOME TAX'] : '___________'; ?></td></tr>
-          <tr><td>MEDICLAIM</td><td><?php echo isset($deductions['MEDICLAIM']) ? $deductions['MEDICLAIM'] : '___________'; ?></td></tr>
-          <?php
-            // Display any additional deduction types
-            $standardDeductions = ['PF','INCOME TAX','MEDICLAIM','TOTAL_DED'];
-            $extraDeductionsRows = 0;
-            foreach ($deductions as $type => $amount) {
-              if (!in_array($type, $standardDeductions)) {
-                echo "<tr><td>".htmlspecialchars($type)."</td><td>$amount</td></tr>";
-                $extraDeductionsRows++;
-              }
-            }
-            $deductionsRows = 3 + $extraDeductionsRows; // 3 standard + extra
-          ?>
-        </table>
-
-        <!-- Loan Deductions Table -->
-        <p class="section-title">Loan Deductions</p>
-        <table class="deductions">
-          <tr><td>Housing Loan 1</td><td><?php echo isset($loanDeductions['HL1']) ? $loanDeductions['HL1'] : '___________'; ?></td></tr>
-          <tr><td>Housing Loan 2</td><td><?php echo isset($loanDeductions['HOUSING LOAN 2']) ? $loanDeductions['HOUSING LOAN 2'] : '___________'; ?></td></tr>
-          <tr><td>Vehicle Loan</td><td><?php echo isset($loanDeductions['VEHICLE LOAN']) ? $loanDeductions['VEHICLE LOAN'] : '___________'; ?></td></tr>
-          <tr><td>Personal Loan</td><td><?php echo isset($loanDeductions['SPL PER.LI']) ? $loanDeductions['SPL PER.LI'] : '___________'; ?></td></tr>
-          <tr><td>Other Loan</td><td><?php echo isset($loanDeductions['OTHER LOAN']) ? $loanDeductions['OTHER LOAN'] : '___________'; ?></td></tr>
-          <?php
-            // Display any additional loan types except HL1 and SPL PER.LI (already mapped above)
-            $standardLoans = ['HL1','HOUSING LOAN 2','VEHICLE LOAN','SPL PER.LI','OTHER LOAN'];
-            $extraLoanRows = 0;
-            foreach ($loanDeductions as $type => $amount) {
-              if (!in_array($type, $standardLoans)) {
-                echo "<tr><td>".htmlspecialchars($type)."</td><td>$amount</td></tr>";
-                $extraLoanRows++;
-              }
-            }
-            $loanRows = 5 + $extraLoanRows; // 5 standard + extra
-          ?>
-        </table>
+  <!-- Earnings and Deductions Tables -->
+  <div class="tables-container">
+    <div class="table-column">
+      <p class="section-title">Earnings</p>
+      <table class="earnings">
+        <tr><td>BASIC</td><td><?php echo isset($earnings['BASIC']) && $earnings['BASIC'] !== '' ? '₹' . number_format($earnings['BASIC'], 2) : ''; ?></td></tr>
+        <tr><td>HRA</td><td><?php echo isset($earnings['HRA']) && $earnings['HRA'] !== '' ? '₹' . number_format($earnings['HRA'], 2) : ''; ?></td></tr>
+        <tr><td>CONVEYANCE</td><td><?php echo isset($earnings['CONVEYANCE']) && $earnings['CONVEYANCE'] !== '' ? '₹' . number_format($earnings['CONVEYANCE'], 2) : ''; ?></td></tr>
+        <tr><td>MEDICAL ALLOWANCE</td><td><?php echo isset($earnings['MEDICAL ALLOWANCE']) && $earnings['MEDICAL ALLOWANCE'] !== '' ? '₹' . number_format($earnings['MEDICAL ALLOWANCE'], 2) : ''; ?></td></tr>
+        <tr><td>OTHER ALLOWANCE</td><td><?php echo isset($earnings['OTHER ALLOWANCE']) && $earnings['OTHER ALLOWANCE'] !== '' ? '₹' . number_format($earnings['OTHER ALLOWANCE'], 2) : ''; ?></td></tr>
         <?php
-          // Make all tables the same height by adding empty rows
-          $maxRows = max($earningsRows, $deductionsRows, $loanRows);
-          $deductionsPad = $maxRows - $deductionsRows;
-          $loanPad = $maxRows - $loanRows;
-          if ($deductionsPad > 0) {
-            for ($i = 0; $i < $deductionsPad; $i++) {
-              echo '<tr><td>&nbsp;</td><td>&nbsp;</td></tr>';
+          // Display any additional earning types
+          $standard = ['BASIC','HRA','CONVEYANCE','MEDICAL ALLOWANCE','OTHER ALLOWANCE'];
+          $extraEarningsRows = 0;
+          foreach ($earnings as $type => $amount) {
+            if (!in_array($type, $standard)) {
+              echo "<tr><td>".htmlspecialchars($type)."</td><td>" . ($amount !== '' ? '₹' . number_format($amount, 2) : '') . "</td></tr>";
+              $extraEarningsRows++;
             }
           }
-          if ($loanPad > 0) {
-            for ($i = 0; $i < $loanPad; $i++) {
-              echo '<tr><td>&nbsp;</td><td>&nbsp;</td></tr>';
-            }
-          }
+          $earningsRows = 5 + $extraEarningsRows + 1; // 5 standard + extra + total
         ?>
-      </td>
-    </tr>
-  </table>
+        <tr><td><strong>Total Earnings</strong></td><td><strong><?php echo $totalEarnings !== '' ? '₹' . number_format($totalEarnings, 2) : ''; ?></strong></td></tr>
+      </table>
+    </div>
+    <div class="table-column">
+      <p class="section-title">Deductions</p>
+      <table class="deductions">
+        <tr><td>PF</td><td><?php echo isset($deductions['PF']) && $deductions['PF'] !== '' ? '₹' . number_format($deductions['PF'], 2) : ''; ?></td></tr>
+        <tr><td>INCOME TAX</td><td><?php echo isset($deductions['INCOME TAX']) && $deductions['INCOME TAX'] !== '' ? '₹' . number_format($deductions['INCOME TAX'], 2) : ''; ?></td></tr>
+        <tr><td>MEDICLAIM</td><td><?php echo isset($deductions['MEDICLAIM']) && $deductions['MEDICLAIM'] !== '' ? '₹' . number_format($deductions['MEDICLAIM'], 2) : ''; ?></td></tr>
+        <?php
+          // Display any additional deduction types
+          $standardDeductions = ['PF','INCOME TAX','MEDICLAIM','TOTAL_DED'];
+          $extraDeductionsRows = 0;
+          foreach ($deductions as $type => $amount) {
+            if (!in_array($type, $standardDeductions)) {
+              echo "<tr><td>".htmlspecialchars($type)."</td><td>" . ($amount !== '' ? '₹' . number_format($amount, 2) : '') . "</td></tr>";
+              $extraDeductionsRows++;
+            }
+          }
+          $deductionsRows = 3 + $extraDeductionsRows; // 3 standard + extra
+        ?>
+      </table>
 
-  <div style="margin-top: 8px; margin-bottom: 8px; width: 100%; font-size: 1.1em; display: flex; justify-content: flex-end;">
-    <span style="text-align:right; flex: 1;">Total Deductions (Deductions + Loan Deductions)</span>
-    <span style="text-align:left; width: 120px; padding-left: 12px;"><?php echo $totalDeductions + $totalLoanDeductions; ?></span>
-  </div>
-
-  <div style="margin-top: 4px; margin-bottom: 8px; display: flex; justify-content: flex-end;">
-    <div style="border: 2px solid #000; background: #e6ffe6; padding: 12px 24px; font-size: 1.3em; font-weight: bold; display: inline-block;">
-      Net Pay for the month: <span style="font-weight:bold; color: #1a6600;"><?php echo $netPay; ?></span>
+      <!-- Loan Deductions Table -->
+      <p class="section-title">Loan Deductions</p>
+      <table class="deductions">
+        <tr><td>Housing Loan 1</td><td><?php echo isset($loanDeductions['HL1']) && $loanDeductions['HL1'] !== '' ? '₹' . number_format($loanDeductions['HL1'], 2) : ''; ?></td></tr>
+        <tr><td>Housing Loan 2</td><td><?php echo isset($loanDeductions['HOUSING LOAN 2']) && $loanDeductions['HOUSING LOAN 2'] !== '' ? '₹' . number_format($loanDeductions['HOUSING LOAN 2'], 2) : ''; ?></td></tr>
+        <tr><td>Vehicle Loan</td><td><?php echo isset($loanDeductions['VEHICLE LOAN']) && $loanDeductions['VEHICLE LOAN'] !== '' ? '₹' . number_format($loanDeductions['VEHICLE LOAN'], 2) : ''; ?></td></tr>
+        <tr><td>Personal Loan</td><td><?php echo isset($loanDeductions['SPL PER.LI']) && $loanDeductions['SPL PER.LI'] !== '' ? '₹' . number_format($loanDeductions['SPL PER.LI'], 2) : ''; ?></td></tr>
+        <tr><td>Other Loan</td><td><?php echo isset($loanDeductions['OTHER LOAN']) && $loanDeductions['OTHER LOAN'] !== '' ? '₹' . number_format($loanDeductions['OTHER LOAN'], 2) : ''; ?></td></tr>
+        <?php
+          // Display any additional loan types except HL1 and SPL PER.LI (already mapped above)
+          $standardLoans = ['HL1','HOUSING LOAN 2','VEHICLE LOAN','SPL PER.LI','OTHER LOAN'];
+          $extraLoanRows = 0;
+          foreach ($loanDeductions as $type => $amount) {
+            if (!in_array($type, $standardLoans)) {
+              echo "<tr><td>".htmlspecialchars($type)."</td><td>" . ($amount !== '' ? '₹' . number_format($amount, 2) : '') . "</td></tr>";
+              $extraLoanRows++;
+            }
+          }
+          $loanRows = 5 + $extraLoanRows; // 5 standard + extra
+        ?>
+      </table>
+      <?php
+        // Make all tables the same height by adding empty rows
+        $maxRows = max($earningsRows, $deductionsRows, $loanRows);
+        $deductionsPad = $maxRows - $deductionsRows;
+        $loanPad = $maxRows - $loanRows;
+        if ($deductionsPad > 0) {
+          for ($i = 0; $i < $deductionsPad; $i++) {
+            echo '<tr><td>&nbsp;</td><td>&nbsp;</td></tr>';
+          }
+        }
+        if ($loanPad > 0) {
+          for ($i = 0; $i < $loanPad; $i++) {
+            echo '<tr><td>&nbsp;</td><td>&nbsp;</td></tr>';
+          }
+        }
+      ?>
     </div>
   </div>
 
-  <p><strong>(in words):</strong> <?php echo $netPayInWords; ?></p>
+  <!-- Total Deductions and Net Pay Section -->
+  <div style="display: flex; justify-content: space-between; margin-top: 10px;">
+    <!-- Left side: Net Pay and Amount in Words -->
+    <div style="flex: 1;">
+      <div style="border: 2px solid #000; background: #e6ffe6; padding: 8px 16px; display: inline-block; margin-bottom: 8px;">
+        <span style="font-size: 15px; font-weight: bold;">Net Pay for the month: </span>
+        <span style="font-size: 15px; font-weight: bold; color: #1a6600;"><?php echo $netPay !== '' ? '₹' . number_format($netPay, 2) : ''; ?></span>
+      </div>
+      <div style="margin-left: 8px; display: inline-block;">
+        <span style="font-size: 14px;"><strong>(in words):</strong> <?php echo $netPayInWords; ?></span>
+      </div>
+    </div>
 
-  <p style="margin-top: 20px; color: #888;"><em>This is a computer generated payslip and does not require a signature.</em></p>
+    <!-- Right side: Total Deductions -->
+    <div style="width: 40%;">
+      <div class="total-deductions">
+        <span style="text-align:right; flex: 1;">Total Deductions</span>
+        <span style="text-align:right; width: 120px; padding-left: 12px;"><?php echo $totalDeductions !== '' ? '₹' . number_format($totalDeductions, 2) : ''; ?></span>
+      </div>
+      <div class="total-deductions">
+        <span style="text-align:right; flex: 1;">Total Loan Deductions</span>
+        <span style="text-align:right; width: 120px; padding-left: 12px;"><?php echo $totalLoanDeductions !== '' ? '₹' . number_format($totalLoanDeductions, 2) : ''; ?></span>
+      </div>
+      <div class="total-deductions" style="font-weight: bold; margin-bottom: 12px;">
+        <span style="text-align:right; flex: 1;">Total (Deductions + Loan Deductions)</span>
+        <span style="text-align:right; width: 120px; padding-left: 12px;"><?php echo ($totalDeductions !== '' || $totalLoanDeductions !== '') ? '₹' . number_format($totalDeductions + $totalLoanDeductions, 2) : ''; ?></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div style="position: fixed; bottom: 20px; left: 0; right: 0; text-align: center; background-color: rgba(217, 237, 247, 0.9); padding: 10px;">
+    <p style="color: #666; font-size: 13px; font-style: italic; margin: 0;">This is a computer generated payslip and does not require a signature.</p>
+  </div>
 </div>
-
 </body>
 </html>
  
