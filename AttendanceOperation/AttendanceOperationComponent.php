@@ -543,19 +543,26 @@ class AttendanceOperationMaster{
                     a.TotalWorkingHour,
                     a.isAutoCheckout,
                     CASE 
+                        /* Previous logic:
                         WHEN a.employeeID IN (72, 73) AND a.checkInTime > '08:10:00' THEN 1
                         WHEN a.employeeID IN (27) AND a.checkInTime > '11:10:00' THEN 1
                         WHEN m.branchID IN (1, 52) AND a.checkInTime > '10:10:00' THEN 1
                         WHEN m.branchID BETWEEN 2 AND 51 AND a.checkInTime > '09:25:00' THEN 1
                         WHEN m.branchID in(55,56) AND a.checkInTime > '11:00:00' THEN 1
+                        */
+                        WHEN a.checkInBranchID IN (55, 56) THEN 0
+                        WHEN a.checkInTime IS NOT NULL AND b.checkInTime IS NOT NULL AND a.checkInTime > b.checkInTime THEN 1
                         ELSE 0 
                     END as isLateCheckIn,
                     CASE 
+/* Previous logic:
                         WHEN a.employeeID IN (72, 73) AND a.checkOutTime < '15:00:00' THEN 1
                         WHEN a.employeeID IN (27) AND a.checkOutTime < '18:00:00' THEN 1
-                        WHEN m.branchID IN (1,52) AND a.checkOutTime < '17:00:00' THEN 1
+                        WHEN m.branchID IN (1, 52) AND a.checkOutTime < '17:00:00' THEN 1
                         WHEN m.branchID BETWEEN 2 AND 51 AND a.checkOutTime < '16:30:00' THEN 1
-                        WHEN m.branchID in(55,56) AND a.checkOutTime < '17:00:00' THEN 1
+                        WHEN m.branchID in(55,56) AND a.checkOutTime < '17:00:00' THEN 1*/
+                        WHEN a.checkInBranchID IN (55, 56) THEN 0
+                        WHEN a.checkOutTime IS NOT NULL AND b.checkOutTime IS NOT NULL AND a.checkOutTime < b.checkOutTime THEN 1
                         ELSE 0 
                     END as isEarlyCheckOut,
                     0 as isHoliday,
@@ -563,7 +570,7 @@ class AttendanceOperationMaster{
                     0 as isLeave,
                     0 as isAbsent
                 FROM tblAttendance a
-                JOIN tblmapEmp m ON a.employeeID = m.employeeID
+                LEFT JOIN tblBranch b ON a.checkInBranchID = b.branchID
                 WHERE a.employeeID = ?
                 AND YEAR(a.attendanceDate) = ?
                 AND MONTH(a.attendanceDate) = ?
