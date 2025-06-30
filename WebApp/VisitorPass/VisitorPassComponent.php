@@ -17,19 +17,16 @@ class VisitorPassComponent {
         error_log("Debug - Received data: " . print_r($data, true));
         
         if (isset($data['name']) && isset($data['phone']) && 
-            isset($data['toMeet']) && isset($data['reasonForVisit']) && 
-            isset($data['organisationId'])) {
+            isset($data['visitorId']) && isset($data['toMeet']) && 
+            isset($data['reasonForVisit']) && isset($data['organisationId'])) {
             
             $this->name = $data['name'];
             $this->phone = $data['phone'];
+            $this->visitorId = intval($data['visitorId']);
             $this->toMeet = intval($data['toMeet']);
             $this->reasonForVisit = $data['reasonForVisit'];
             $this->organisationId = intval($data['organisationId']);
             $this->createdBy = isset($data['createdBy']) ? intval($data['createdBy']) : 1;
-            
-            if (isset($data['visitorId'])) {
-                $this->visitorId = intval($data['visitorId']);
-            }
             
             // Handle file upload for visitor photo
             if (isset($_FILES['photo']) && $_FILES['photo']['error'] === UPLOAD_ERR_OK) {
@@ -156,10 +153,17 @@ class VisitorPassComponent {
             
             error_log("Debug - Final proof value: " . $this->proof);
             error_log("Debug - Final proofUrl value: " . $this->proofUrl);
+            error_log("Debug - Final visitorId value: " . $this->visitorId);
             
             return true;
         } else {
             error_log("Debug - Missing required fields in data");
+            error_log("Debug - name: " . (isset($data['name']) ? 'set' : 'not set'));
+            error_log("Debug - phone: " . (isset($data['phone']) ? 'set' : 'not set'));
+            error_log("Debug - visitorId: " . (isset($data['visitorId']) ? 'set' : 'not set'));
+            error_log("Debug - toMeet: " . (isset($data['toMeet']) ? 'set' : 'not set'));
+            error_log("Debug - reasonForVisit: " . (isset($data['reasonForVisit']) ? 'set' : 'not set'));
+            error_log("Debug - organisationId: " . (isset($data['organisationId']) ? 'set' : 'not set'));
             return false;
         }
     }
@@ -170,6 +174,7 @@ class VisitorPassComponent {
     
         try {
             // Debug: Log the values being inserted
+            error_log("Debug - visitorId: " . $this->visitorId);
             error_log("Debug - name: " . $this->name);
             error_log("Debug - phone: " . $this->phone);
             error_log("Debug - toMeet: " . $this->toMeet);
@@ -181,9 +186,9 @@ class VisitorPassComponent {
             error_log("Debug - organisationId: " . $this->organisationId);
             
             $queryCreateVisitorPass = "INSERT INTO tblVisitor (
-                name, phone, toMeet, reasonForVisit, photo, proof, proofUrl,
+                visitorId, name, phone, toMeet, reasonForVisit, photo, proof, proofUrl,
                 createdOn, createdBy, organisationId
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, CURDATE(), ?, ?)";
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURDATE(), ?, ?)";
 
             $stmt = mysqli_prepare($connect_var, $queryCreateVisitorPass);
             if (!$stmt) {
@@ -194,7 +199,8 @@ class VisitorPassComponent {
                 return;
             }
             
-            mysqli_stmt_bind_param($stmt, "ssissssii",
+            mysqli_stmt_bind_param($stmt, "ississssii",
+                $this->visitorId,
                 $this->name,
                 $this->phone,
                 $this->toMeet,
@@ -207,12 +213,10 @@ class VisitorPassComponent {
             );
 
             if (mysqli_stmt_execute($stmt)) {
-                $latestVisitorId = mysqli_insert_id($connect_var);
-                
                 echo json_encode(array(
                     "status" => "success",
                     "message" => "Visitor pass created successfully",
-                    "visitorId" => $latestVisitorId
+                    "visitorId" => $this->visitorId
                 ));
             } else {
                 echo json_encode(array(
