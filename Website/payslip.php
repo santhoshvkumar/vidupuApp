@@ -62,21 +62,92 @@ while($row = mysqli_fetch_assoc($stmtOrg)) {
   $orgPhone = $row['PhoneNumber'];
 }
 
+// Add a direct check for the employee data
+$checkQuery = "SELECT empID, bankAccountNumber, PANNumber, PFNumber, PFUAN 
+               FROM tblEmployee 
+               WHERE empID = '$employeeId'";
+$checkResult = mysqli_query($connect_var, $checkQuery);
+
+echo "<!-- DEBUG: Check Query: " . htmlspecialchars($checkQuery) . " -->";
+if ($checkResult) {
+    $checkData = mysqli_fetch_assoc($checkResult);
+    echo "<!-- DEBUG: Check Data: " . print_r($checkData, true) . " -->";
+} else {
+    echo "<!-- DEBUG: Check Query Error: " . mysqli_error($connect_var) . " -->";
+}
+
 // Fetch employee details with section and branch information
-$queryEmp = "SELECT e.*, s.SectionName, b.branchName 
-             FROM tblEmployee e 
-             LEFT JOIN tblAssignedSection a ON e.employeeID = a.employeeID AND a.isActive = 1
-             LEFT JOIN tblSection s ON a.sectionID = s.SectionID 
-             LEFT JOIN tblmapEmp m ON e.employeeID = m.employeeID
-             LEFT JOIN tblBranch b ON m.branchID = b.branchID
-             WHERE e.empID = '$employeeId' AND e.organisationID = '$organisationId'";
+$queryEmp = "SELECT 
+    e.employeeID,
+    e.empID,
+    e.employeeName,
+    e.joiningDate,
+    e.bankName,
+    e.bankAccountNumber,
+    e.designation,
+    e.panNumber,
+    e.pfNumber,
+    e.pfUAN,
+    s.SectionName,
+    b.branchName,
+    e.organisationID
+FROM tblEmployee e 
+LEFT JOIN tblAssignedSection a ON e.employeeID = a.employeeID AND a.isActive = 1
+LEFT JOIN tblSection s ON a.sectionID = s.SectionID 
+LEFT JOIN tblmapEmp m ON e.employeeID = m.employeeID
+LEFT JOIN tblBranch b ON m.branchID = b.branchID
+WHERE e.empID = '$employeeId'";
+
 $stmtEmp = mysqli_query($connect_var, $queryEmp);
 
 if (!$stmtEmp) {
+    echo "<!-- DEBUG: Query Error: " . mysqli_error($connect_var) . " -->";
     die("Employee query failed: " . mysqli_error($connect_var));
 }
 
 $employee = mysqli_fetch_assoc($stmtEmp);
+
+// Debug the raw data
+echo "<!-- DEBUG: Query: " . htmlspecialchars($queryEmp) . " -->";
+echo "<!-- DEBUG: Employee ID being searched: " . htmlspecialchars($employeeId) . " -->";
+echo "<!-- DEBUG: Raw employee data: " . print_r($employee, true) . " -->";
+
+if (!$employee) {
+    echo "<!-- DEBUG: No employee found with ID: $employeeId -->";
+}
+
+// Initialize employee variables with debug information
+$employeeName = '';
+$empID = '';
+$joiningDate = '';
+$bankName = '';
+$bankAccountNumber = '';
+$designation = '';
+$panNumber = '';
+$pfNumber = '';
+$pfUAN = '';
+$branchName = '';
+$department = '';
+
+if ($employee) {
+    $employeeName = $employee['employeeName'] ?? '';
+    $empID = $employee['empID'] ?? '';
+    $joiningDate = $employee['joiningDate'] ?? '';
+    $bankName = $employee['bankName'] ?? '';
+    $bankAccountNumber = $employee['bankAccountNumber'] ?? '';
+    $designation = $employee['designation'] ?? '';
+    $panNumber = $employee['panNumber'] ?? '';
+    $pfNumber = $employee['pfNumber'] ?? '';
+    $pfUAN = $employee['pfUAN'] ?? '';
+    $department = $employee['SectionName'] ?? '';
+    $branchName = $employee['branchName'] ?? '';
+    
+    // Debug each field
+    echo "<!-- DEBUG: Bank Account Number from DB: " . htmlspecialchars($bankAccountNumber) . " -->";
+    echo "<!-- DEBUG: PAN Number from DB: " . htmlspecialchars($panNumber) . " -->";
+    echo "<!-- DEBUG: PF Number from DB: " . htmlspecialchars($pfNumber) . " -->";
+    echo "<!-- DEBUG: PF UAN from DB: " . htmlspecialchars($pfUAN) . " -->";
+}
 
 // Fetch working days for the specified month and year
 $queryWorkingDays = "SELECT noOfWorkingDays FROM tblworkingdays WHERE monthName = '$month' AND year = '$year'";
@@ -157,33 +228,6 @@ echo "<!-- Organisation ID: $organisationId -->";
 echo "<!-- Month: $monthName, Month Number: $month, Year: $year -->";
 echo "<!-- Working Days: $workingDays -->";
 echo "<!-- LOP Days: $lopDays -->";
-
-// Initialize employee variables
-$employeeName = '';
-$empID = '';
-$joiningDate = '';
-$bankName = '';
-$bankAccountNumber = '';
-$designation = '';
-$panNumber = '';
-$pfNumber = '';
-$pfUAN = '';
-$branchName = '';
-$department = '';
-
-if ($employee) {
-  $employeeName = $employee['employeeName'] ?? '';
-  $empID = $employee['empID'] ?? '';
-  $joiningDate = $employee['joiningDate'] ?? '';
-  $bankName = $employee['BankName'] ?? '';
-  $bankAccountNumber = $employee['BankAccountNumber'] ?? '';
-  $designation = $employee['Designation'] ?? '';
-  $panNumber = $employee['PANNumber'] ?? '';
-  $pfNumber = $employee['PFNumber'] ?? '';
-  $pfUAN = $employee['PFUAN'] ?? '';
-  $department = $employee['SectionName'] ?? '';
-  $branchName = $employee['branchName'] ?? '';
-}
 
 // --- Logo path handling ---
 $logoWebPath = '';
