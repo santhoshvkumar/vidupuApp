@@ -117,14 +117,17 @@ class TransferEmployeeComponent{
             }
         }
     
-        public function autoTransferProcess() {
+                public function autoTransferProcess() {
             include('config.inc');
             header('Content-Type: application/json');
         
             try {
                 $data = [];
                 $systemDate = $this->dataOfTransfer;
-    
+                $transfersProcessed = 0;
+                $allProcessedTransfers = [];
+
+                /* Previous Implementation - Commented for reference
                 $querySystemTransfer = "SELECT transferHistoryID, fromBranch, toBranch, employeeID, toDate, transferType 
                     FROM tblTransferHistory 
                     WHERE ? BETWEEN fromDate AND toDate 
@@ -135,64 +138,111 @@ class TransferEmployeeComponent{
                 $result = mysqli_stmt_get_result($stmt);
                 $data = mysqli_fetch_all($result, MYSQLI_ASSOC);
                 mysqli_stmt_close($stmt);
+                */
+
+                // New
+                // First process returns for expired transfers from previous day
+                $queryExpiredTransfers = "SELECT th.transferHistoryID, th.fromBranch, th.employeeID 
+                    FROM tblTransferHistory th
+                    WHERE DATE(?) > DATE(th.toDate)
+                    AND th.isActive = 1 
+                    AND th.organisationID = ?
+                    AND th.transferType != 'Permanent'";
+                $stmtExpired = mysqli_prepare($connect_var, $queryExpiredTransfers);
+                mysqli_stmt_bind_param($stmtExpired, "ss", $systemDate, $this->organisationID);
+                mysqli_stmt_execute($stmtExpired);
+                $resultExpired = mysqli_stmt_get_result($stmtExpired);
+                $expiredTransfers = mysqli_fetch_all($resultExpired, MYSQLI_ASSOC);
+                mysqli_stmt_close($stmtExpired);
     
-                if (count($data) > 0) {
-                    foreach ($data as $row) {
-                        $updateQuery = "UPDATE tblmapEmp SET branchID=?, transferHistoryID=? WHERE employeeID=? and organisationID=?";
-                        $updateStmt = mysqli_prepare($connect_var, $updateQuery);
-                        mysqli_stmt_bind_param(
-                            $updateStmt,
-                            "ssss",
-                            $row['toBranch'],
-                            $row['transferHistoryID'],
-                            $row['employeeID'],
-                            $this->organisationID
-                        );
-                        mysqli_stmt_execute($updateStmt);
-                        mysqli_stmt_close($updateStmt);
-                    }
-                    if($row['transferType'] === 'Permanent'){
-                        $updateTransferHistory = "UPDATE tblTransferHistory SET isActive=0 WHERE transferHistoryID=?";
-                        $stmtUpdateHistory = mysqli_prepare($connect_var, $updateTransferHistory);
-                        mysqli_stmt_bind_param($stmtUpdateHistory, "s", $row['transferHistoryID']);
-                        mysqli_stmt_execute($stmtUpdateHistory);
-                        mysqli_stmt_close($stmtUpdateHistory);
-                    }
-                }
-                
-                // Process expired transfers (moved outside the active transfers block)
-                // 1. Find all transfers where systemDate is past toDate and still active
-                $queryPastTransfers = "SELECT transferHistoryID, fromBranch, employeeID 
-                FROM tblTransferHistory 
-                WHERE ? > toDate AND isActive = 1";
-                $stmtPast = mysqli_prepare($connect_var, $queryPastTransfers);
-                mysqli_stmt_bind_param($stmtPast, "s", $systemDate);
-                mysqli_stmt_execute($stmtPast);
-                $resultPast = mysqli_stmt_get_result($stmtPast);
-                $pastTransfers = mysqli_fetch_all($resultPast, MYSQLI_ASSOC);
-                mysqli_stmt_close($stmtPast);
-                
-                // 2. For each, update tblmapEmp and tblTransferHistory
-                foreach ($pastTransfers as $row) {
-                    // Update tblmapEmp: set branchID to fromBranch
-                    $updateMapEmp = "UPDATE tblmapEmp SET branchID=? WHERE employeeID=? AND organisationID=?";
+                // Process returns
+                foreach ($expiredTransfers as $transfer) {
+                    // Return employee to original branch
+                    $updateMapEmp = "UPDATE tblmapEmp 
+                        SET branchID = ?, transferHistoryID = NULL 
+                        WHERE employeeID = ? 
+                        AND organisationID = ?";
                     $stmtUpdateMap = mysqli_prepare($connect_var, $updateMapEmp);
-                    mysqli_stmt_bind_param($stmtUpdateMap, "sss", $row['fromBranch'], $row['employeeID'], $this->organisationID);
+                    mysqli_stmt_bind_param($stmtUpdateMap, "sss", 
+                        $transfer['fromBranch'], 
+                        $transfer['employeeID'], 
+                        $this->organisationID
+                    );
                     mysqli_stmt_execute($stmtUpdateMap);
                     mysqli_stmt_close($stmtUpdateMap);
 
-                    // Update tblTransferHistory: set isActive=0
-                    $updateTransferHistory = "UPDATE tblTransferHistory SET isActive=0 WHERE transferHistoryID=?";
+                    // Deactivate the transfer
+                    $updateTransferHistory = "UPDATE tblTransferHistory 
+                        SET isActive = 0 
+                        WHERE transferHistoryID = ?";
                     $stmtUpdateHistory = mysqli_prepare($connect_var, $updateTransferHistory);
-                    mysqli_stmt_bind_param($stmtUpdateHistory, "s", $row['transferHistoryID']);
+                    mysqli_stmt_bind_param($stmtUpdateHistory, "s", $transfer['transferHistoryID']);
                     mysqli_stmt_execute($stmtUpdateHistory);
                     mysqli_stmt_close($stmtUpdateHistory);
+
+                    $transfer['status'] = 'returned';
+                    $allProcessedTransfers[] = $transfer;
+                    $transfersProcessed++;
+                // Then process new/active transfers for current date
+                $queryActiveTransfers = "SELECT transferHistoryID, fromBranch, toBranch, employeeID, toDate, transferType 
+                    FROM tblTransferHistory 
+                    WHERE DATE(?) BETWEEN DATE(fromDate) AND DATE(toDate)
+                    AND isActive = 1 
+                    AND organisationID = ?";
+                $stmtActive = mysqli_prepare($connect_var, $queryActiveTransfers);
+                mysqli_stmt_bind_param($stmtActive, "ss", $systemDate, $this->organisationID);
+                mysqli_stmt_execute($stmtActive);
+                $resultActive = mysqli_stmt_get_result($stmtActive);
+                $activeTransfers = mysqli_fetch_all($resultActive, MYSQLI_ASSOC);
+                mysqli_stmt_close($stmtActive);
+
+                foreach ($activeTransfers as $transfer) {
+                    // Update employee branch
+                    $updateQuery = "UPDATE tblmapEmp 
+                        SET branchID = ?, transferHistoryID = ? 
+                        WHERE employeeID = ? 
+                        AND organisationID = ?";
+                    $updateStmt = mysqli_prepare($connect_var, $updateQuery);
+                    mysqli_stmt_bind_param($updateStmt, "ssss",
+                        $transfer['toBranch'],
+                        $transfer['transferHistoryID'],
+                        $transfer['employeeID'],
+                        $this->organisationID
+                    );
+                    mysqli_stmt_execute($updateStmt);
+                    mysqli_stmt_close($updateStmt);
+
+                    // If permanent transfer, deactivate it
+                    if ($transfer['transferType'] === 'Permanent') {
+                        $updateTransferHistory = "UPDATE tblTransferHistory 
+                            SET isActive = 0 
+                            WHERE transferHistoryID = ?";
+                        $stmtUpdateHistory = mysqli_prepare($connect_var, $updateTransferHistory);
+                        mysqli_stmt_bind_param($stmtUpdateHistory, "s", $transfer['transferHistoryID']);
+                        mysqli_stmt_execute($stmtUpdateHistory);
+                        mysqli_stmt_close($stmtUpdateHistory);
+                    }
+
+                    $transfer['status'] = 'transferred';
+                    $allProcessedTransfers[] = $transfer;
+                    $transfersProcessed++;
                 }
-                
-                echo json_encode(array(
-                    "status" => "success",
-                    "data" => $data
-                ));
+
+                if ($transfersProcessed > 0) {
+                    echo json_encode(array(
+                        "status" => "success",
+                        "message" => "Successfully processed " . $transfersProcessed . " transfers",
+                        "data" => $allProcessedTransfers
+                    ));
+                } else {
+                    echo json_encode(array(
+                        "status" => "success",
+                        "message" => "No transfers to process for the given date",
+                        "data" => []
+                    ));
+                }
+                mysqli_close($connect_var);
+            }
             } catch (Exception $e) {
                 echo json_encode([
                     "status" => "error", 
