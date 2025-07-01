@@ -327,7 +327,7 @@ FROM (SELECT 1) AS dummy;
             WHERE emp.deviceFingerprint IS NOT NULL 
             AND emp.deviceFingerprint <> '' 
             AND emp.organisationID = ?
-            AND emp.employeePassword='1e28284f59e926547bb6793ad8723722'
+            AND emp.employeePassword != '1e28284f59e926547bb6793ad8723722'
             AND emp.isActive = 1) AS loginnedDevices
         FROM (SELECT 1) AS dummy;";
             $debug_query = str_replace(
