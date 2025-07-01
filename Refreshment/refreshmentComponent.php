@@ -267,11 +267,31 @@ WHERE a.createdDate BETWEEN ? AND ? AND a.organisationID = ?";
                 throw new Exception("Missing required fields");
             }
 
+            // Get employee details including allowance flags
+            $employeeQuery = "SELECT employeeID, isPhysicallyHandicapped, isWashingAllowance 
+                            FROM tblEmployee 
+                            WHERE employeeID = ?";
+            $stmt = mysqli_prepare($connect_var, $employeeQuery);
+            if (!$stmt) {
+                throw new Exception("Failed to prepare employee query: " . mysqli_error($connect_var));
+            }
+            mysqli_stmt_bind_param($stmt, "s", $data['employeeID']);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+            $employee = mysqli_fetch_assoc($result);
+
+            if (!$employee) {
+                throw new Exception("Employee not found");
+            }
+
             // Get total working days for the month
             $workingDaysQuery = "SELECT noOfWorkingDays, monthName 
                                FROM tblWorkingDays 
                                WHERE workingDayID = ? AND Year = ?";
             $stmt = mysqli_prepare($connect_var, $workingDaysQuery);
+            if (!$stmt) {
+                throw new Exception("Failed to prepare working days query: " . mysqli_error($connect_var));
+            }
             mysqli_stmt_bind_param($stmt, "ii", $data['month'], $data['year']);
             mysqli_stmt_execute($stmt);
             $result = mysqli_stmt_get_result($stmt);
@@ -294,6 +314,9 @@ WHERE a.createdDate BETWEEN ? AND ? AND a.organisationID = ?";
                           AND (isExtend = 0 OR isExtend IS NULL)"; // Exclude extended leaves
             
             $stmt = mysqli_prepare($connect_var, $leaveQuery);
+            if (!$stmt) {
+                throw new Exception("Failed to prepare leave query: " . mysqli_error($connect_var));
+            }
             mysqli_stmt_bind_param($stmt, "sii", $data['employeeID'], $data['month'], $data['year']);
             mysqli_stmt_execute($stmt);
             $result = mysqli_stmt_get_result($stmt);
@@ -301,13 +324,39 @@ WHERE a.createdDate BETWEEN ? AND ? AND a.organisationID = ?";
 
             $approvedLeaveDays = $leaveDays['leaveDays'];
             $eligibleDays = $totalWorkingDays - $approvedLeaveDays;
-            $amountPerDay = 90.00; // Fixed amount per day
-            $totalAmount = $eligibleDays * $amountPerDay;
+            
+            // Calculate individual allowances
+            $amountPerDay = 90.00; // Fixed amount per day for refreshment
+            $refreshmentAmount = $eligibleDays * $amountPerDay;
+            
+            // Calculate washing allowance if eligible
+            $washingAmount = 0.00;
+            if ($employee['isWashingAllowance'] == 1) {
+                $washingAmount = $totalWorkingDays * 25.00; // ₹25 per working day
+            }
+            
+            // Calculate physically handicapped allowance if eligible
+            $physicallyHandicappedAmount = 0.00;
+            if ($employee['isPhysicallyHandicapped'] == 1) {
+                $physicallyHandicappedAmount = 2500.00; // Fixed ₹2500 per month
+            }
+            
+            // Calculate medical allowance (only in May and December)
+            $medicalAmount = 0.00;
+            if ($data['month'] == 5 || $data['month'] == 12) {
+                $medicalAmount = 6000.00;
+            }
+            
+            // Calculate total amount
+            $totalAmount = $refreshmentAmount + $washingAmount + $physicallyHandicappedAmount + $medicalAmount;
 
             // Check if refreshment record already exists
             $checkQuery = "SELECT RefreshmentID FROM tblRefreshment 
                           WHERE EmployeeID = ? AND Month = ? AND Year = ?";
             $stmt = mysqli_prepare($connect_var, $checkQuery);
+            if (!$stmt) {
+                throw new Exception("Failed to prepare check query: " . mysqli_error($connect_var));
+            }
             mysqli_stmt_bind_param($stmt, "sii", $data['employeeID'], $data['month'], $data['year']);
             mysqli_stmt_execute($stmt);
             $result = mysqli_stmt_get_result($stmt);
@@ -319,16 +368,27 @@ WHERE a.createdDate BETWEEN ? AND ? AND a.organisationID = ?";
                                   ApprovedLeaveDays = ?,
                                   EligibleDays = ?,
                                   AmountPerDay = ?,
+                                  RefreshmentAmount = ?,
+                                  WashingAmount = ?,
+                                  PhysicallyHandicappedAmount = ?,
+                                  MedicalAmount = ?,
                                   TotalAmount = ?,
                                   Status = 'Pending'
                               WHERE EmployeeID = ? AND Month = ? AND Year = ?";
                 
                 $stmt = mysqli_prepare($connect_var, $updateQuery);
-                mysqli_stmt_bind_param($stmt, "iiiddsii", 
+                if (!$stmt) {
+                    throw new Exception("Failed to prepare update query: " . mysqli_error($connect_var));
+                }
+                mysqli_stmt_bind_param($stmt, "iiiddddddsis", 
                     $totalWorkingDays,
                     $approvedLeaveDays,
                     $eligibleDays,
                     $amountPerDay,
+                    $refreshmentAmount,
+                    $washingAmount,
+                    $physicallyHandicappedAmount,
+                    $medicalAmount,
                     $totalAmount,
                     $data['employeeID'],
                     $data['month'],
@@ -338,11 +398,17 @@ WHERE a.createdDate BETWEEN ? AND ? AND a.organisationID = ?";
                 // Insert new record
                 $insertQuery = "INSERT INTO tblRefreshment 
                               (EmployeeID, Month, Year, TotalWorkingDays, 
-                               ApprovedLeaveDays, EligibleDays, AmountPerDay, TotalAmount, Status) 
-                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Pending')";
+                               ApprovedLeaveDays, EligibleDays, AmountPerDay, 
+                               RefreshmentAmount, WashingAmount, 
+                               PhysicallyHandicappedAmount, MedicalAmount,
+                               TotalAmount, Status) 
+                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending')";
                 
                 $stmt = mysqli_prepare($connect_var, $insertQuery);
-                mysqli_stmt_bind_param($stmt, "siiiiidd", 
+                if (!$stmt) {
+                    throw new Exception("Failed to prepare insert query: " . mysqli_error($connect_var));
+                }
+                mysqli_stmt_bind_param($stmt, "siiiiiiddddd", 
                     $data['employeeID'],
                     $data['month'],
                     $data['year'],
@@ -350,6 +416,10 @@ WHERE a.createdDate BETWEEN ? AND ? AND a.organisationID = ?";
                     $approvedLeaveDays,
                     $eligibleDays,
                     $amountPerDay,
+                    $refreshmentAmount,
+                    $washingAmount,
+                    $physicallyHandicappedAmount,
+                    $medicalAmount,
                     $totalAmount
                 );
             }
@@ -357,28 +427,48 @@ WHERE a.createdDate BETWEEN ? AND ? AND a.organisationID = ?";
             if (mysqli_stmt_execute($stmt)) {
                 echo json_encode(array(
                     "status" => "success",
-                    "message_text" => "Refreshment allowance calculated successfully",
+                    "message_text" => "Allowances calculated successfully",
                     "result" => array(
                         "monthName" => $monthName,
                         "totalWorkingDays" => $totalWorkingDays,
                         "approvedLeaveDays" => $approvedLeaveDays,
                         "eligibleDays" => $eligibleDays,
-                        "amountPerDay" => $amountPerDay,
+                        "allowances" => array(
+                            "refreshment" => array(
+                                "amountPerDay" => $amountPerDay,
+                                "totalAmount" => $refreshmentAmount
+                            ),
+                            "washing" => array(
+                                "enabled" => (bool)$employee['isWashingAllowance'],
+                                "amountPerDay" => 25.00,
+                                "totalAmount" => $washingAmount
+                            ),
+                            "physicallyHandicapped" => array(
+                                "enabled" => (bool)$employee['isPhysicallyHandicapped'],
+                                "amount" => $physicallyHandicappedAmount
+                            ),
+                            "medical" => array(
+                                "amount" => $medicalAmount
+                            )
+                        ),
                         "totalAmount" => $totalAmount
                     )
                 ));
             } else {
-                throw new Exception("Failed to save refreshment allowance");
+                throw new Exception("Failed to save allowance data: " . mysqli_error($connect_var));
             }
 
         } catch (Exception $e) {
+            error_log("Error in calculateRefreshmentAllowance: " . $e->getMessage());
             echo json_encode(array(
                 "status" => "error",
                 "message_text" => $e->getMessage()
             ));
+        } finally {
+            if (isset($connect_var)) {
+                mysqli_close($connect_var);
+            }
         }
-
-        mysqli_close($connect_var);
     }
 
     public function getNewspaperHistory($employeeID) {
