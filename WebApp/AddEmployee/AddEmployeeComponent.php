@@ -112,9 +112,9 @@ class AddEmployeeComponent{
             mysqli_stmt_close($stmt);
 
             // 2. Insert into tblmapEmp (Employee-Branch mapping)
-            $queryMapEmp = "INSERT INTO tblmapEmp (employeeID, branchID) VALUES (?, ?)";
+            $queryMapEmp = "INSERT INTO tblmapEmp (employeeID, branchID, organisationID) VALUES (?, ?, ?)";
             $stmt = mysqli_prepare($connect_var, $queryMapEmp);
-            mysqli_stmt_bind_param($stmt, "ii", $employeeID, $this->branchID);
+            mysqli_stmt_bind_param($stmt, "iii", $employeeID, $this->branchID, $this->organisationID);
             
             if (!mysqli_stmt_execute($stmt)) {
                 throw new Exception("Error mapping employee to branch: " . mysqli_error($connect_var));
@@ -134,9 +134,9 @@ class AddEmployeeComponent{
             }
 
             // 4. Insert into tblLeaveBalance
-            $queryLeaveBalance = "INSERT INTO tblLeaveBalance (employeeID, casualLeave, privilegeLeave, medicalLeave) VALUES (?, ?, ?, ?)";
+            $queryLeaveBalance = "INSERT INTO tblLeaveBalance (employeeID, casualLeave, privilegeLeave, medicalLeave, organisationID) VALUES (?, ?, ?, ?, ?)";
             $stmt = mysqli_prepare($connect_var, $queryLeaveBalance);
-            mysqli_stmt_bind_param($stmt, "iiii", $employeeID, $this->casualLeave, $this->privilegeLeave, $this->medicalLeave);
+            mysqli_stmt_bind_param($stmt, "iiiii", $employeeID, $this->casualLeave, $this->privilegeLeave, $this->medicalLeave, $this->organisationID);
             
             if (!mysqli_stmt_execute($stmt)) {
                 throw new Exception("Error setting leave balance: " . mysqli_error($connect_var));
