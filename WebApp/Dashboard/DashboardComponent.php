@@ -283,8 +283,7 @@ FROM (SELECT 1) AS dummy;
             FROM tblAttendance AS a
             JOIN tblmapEmp AS map ON a.employeeID = map.employeeID
             WHERE a.attendanceDate = ? 
-            AND map.organisationID = ?
-            AND map.isActive = 1) AS checkedInToday,
+            AND map.organisationID = ?) AS checkedInToday,
 
             -- Late check-in
             (SELECT COUNT(*)
@@ -292,7 +291,6 @@ FROM (SELECT 1) AS dummy;
             JOIN tblmapEmp AS map ON a.employeeID = map.employeeID
             WHERE a.attendanceDate = ? 
             AND map.organisationID = ?
-            AND map.isActive = 1
             AND (
                 (a.employeeID IN (72, 73) AND a.checkInTime > '08:10:00') OR
                 (a.employeeID IN (27) AND a.checkInTime > '11:10:00') OR
@@ -307,7 +305,6 @@ FROM (SELECT 1) AS dummy;
             JOIN tblmapEmp AS map ON a.employeeID = map.employeeID
             WHERE a.attendanceDate = ? 
             AND map.organisationID = ?
-            AND map.isActive = 1
             AND (
                 (a.employeeID IN (72, 73) AND a.checkOutTime < '15:00:00') OR  
                 (a.employeeID IN (27) AND a.checkOutTime < '18:00:00') OR
@@ -322,17 +319,15 @@ FROM (SELECT 1) AS dummy;
             JOIN tblmapEmp AS map ON l.employeeID = map.employeeID
             WHERE ? BETWEEN l.fromDate AND l.toDate 
             AND map.organisationID = ?
-            AND map.isActive = 1
             AND l.status = 'Approved') AS onLeave,
 
             -- Logged-in devices
             (SELECT COUNT(*)
             FROM tblEmployee AS emp
-            JOIN tblmapEmp AS map ON emp.employeeID = map.employeeID
             WHERE emp.deviceFingerprint IS NOT NULL 
             AND emp.deviceFingerprint <> '' 
-            AND map.organisationID = ?
-            AND map.isActive = 1) AS loginnedDevices
+            AND emp.organisationID = ?
+            AND emp.isActive = 1) AS loginnedDevices
         FROM (SELECT 1) AS dummy;";
             $debug_query = str_replace(
                 ['?', '?', '?', '?', '?', '?', '?', '?', '?', '?'],
