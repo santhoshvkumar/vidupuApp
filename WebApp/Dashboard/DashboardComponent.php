@@ -101,96 +101,58 @@ class DashboardComponent{
     
         try {
             $data = [];
+
+            // Escape variables for security
+            $branchID = mysqli_real_escape_string($connect_var, $this->branchID);
+            $currentDate = mysqli_real_escape_string($connect_var, $this->currentDate);
+            $organisationID = mysqli_real_escape_string($connect_var, $this->organisationID);
     
             // 1. Total active employees
             $queryActiveEmployeeDetails =   "SELECT
 
-    -- Total employees
-    (select count(*) from tblEmployee tblE INNER JOIN tblmapEmp tblMap on tblMap.employeeID = tblE.employeeID WHERE tblMap.branchID=? and tblE.organisationID=? and tblE.isActive=1) AS totalEmployees,
+                -- Total employees
+                (select count(*) from tblEmployee tblE INNER JOIN tblmapEmp tblMap on tblMap.employeeID = tblE.employeeID WHERE tblMap.branchID='$branchID' and tblE.organisationID='$organisationID' and tblE.isActive=1) AS totalEmployees,
 
-   
-    (SELECT count(*) FROM tblAttendance WHERE attendanceDate=?  and checkInBranchID=?) As checkedInToday,
+                (SELECT count(*) FROM tblAttendance WHERE attendanceDate='$currentDate'  and checkInBranchID='$branchID') As checkedInToday,
 
-    -- Late check-in (using branch-based logic like AttendanceOperationComponent)
-    (SELECT count(*) FROM tblAttendance WHERE checkInBranchID=? and attendanceDate=? and isLateCheckIN='1') AS lateCheckin;
+                -- Late check-in (using branch-based logic like AttendanceOperationComponent)
+                (SELECT count(*) FROM tblAttendance WHERE checkInBranchID='$branchID' and attendanceDate='$currentDate' and isLateCheckIN='1') AS lateCheckin,
 
-    -- Early check-out (using branch-based logic like AttendanceOperationComponent)
-    (SELECT count(*) FROM tblAttendance WHERE checkInBranchID=? and attendanceDate=? and isEarlyCheckOut='1') AS earlyCheckout,
+                -- Early check-out (using branch-based logic like AttendanceOperationComponent)
+                (SELECT count(*) FROM tblAttendance WHERE checkInBranchID='$branchID' and attendanceDate='$currentDate' and isEarlyCheckOut='1') AS earlyCheckout,
 
-    -- On Leave
-    (SELECT COUNT(*)
-            FROM tblApplyLeave AS l
-            JOIN tblmapEmp AS map ON l.employeeID = map.employeeID
-            WHERE ? BETWEEN l.fromDate AND l.toDate 
-            AND map.organisationID = ?
-            AND map.branchID IN (?)
-            AND l.status = 'Approved') AS onLeave,
+                -- On Leave
+                (SELECT COUNT(*)
+                        FROM tblApplyLeave AS l
+                        JOIN tblmapEmp AS map ON l.employeeID = map.employeeID
+                        WHERE '$currentDate' BETWEEN l.fromDate AND l.toDate 
+                        AND map.organisationID = '$organisationID'
+                        AND map.branchID IN ('$branchID')
+                        AND l.status = 'Approved') AS onLeave,
 
-    -- Logged-in devices
-    (SELECT COUNT(*)
-     FROM tblEmployee AS emp
-     JOIN tblmapEmp AS map ON emp.employeeID = map.employeeID
-     WHERE emp.deviceFingerprint IS NOT NULL 
-       AND emp.deviceFingerprint <> ''
-       AND emp.organisationID = ?
-       AND map.branchID IN (?)
-       AND emp.isActive = 1) AS loginnedDevices
+                -- Logged-in devices
+                (SELECT COUNT(*)
+                FROM tblEmployee AS emp
+                JOIN tblmapEmp AS map ON emp.employeeID = map.employeeID
+                WHERE emp.deviceFingerprint IS NOT NULL 
+                AND emp.deviceFingerprint <> ''
+                AND emp.organisationID = '$organisationID'
+                AND map.branchID IN ('$branchID')
+                AND emp.isActive = 1) AS loginnedDevices
 
-FROM (SELECT 1) AS dummy;
-";
-            $debug_query = str_replace(
-                ['?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?'],
-                [   
-                    "'" . $this->branchID . "'",
-                    "'" . $this->organisationID . "'",
-                    "'" . $this->currentDate . "'",
-                    "'" . $this->branchID . "'",
-                    "'" . $this->branchID . "'",
-                    "'" . $this->currentDate . "'",
-                    "'" . $this->branchID . "'",
-                    "'" . $this->currentDate . "'",
-                    "'" . $this->currentDate . "'", // for onLeave
-                    "'" . $this->organisationID . "'", // for onLeave
-                    "'" . $this->branchID . "'", // for onLeave
-                    "'" . $this->organisationID . "'", // for loginnedDevices
-                    "'" . $this->branchID . "'", // for loginnedDevices
-                ],
-                $queryActiveEmployeeDetails
-            );
-            echo $debug_query;
+            FROM (SELECT 1) AS dummy;";
 
-            $stmt = mysqli_prepare($connect_var, $queryActiveEmployeeDetails);
-            if (!$stmt) {
-                error_log("Prepare failed: " . mysqli_error($connect_var));
-                throw new Exception("Database prepare failed");
+            error_log("Debug Query: " . $queryActiveEmployeeDetails);
+
+            $rsd = mysqli_query($connect_var, $queryActiveEmployeeDetails);
+            if (!$rsd) {
+                error_log("Query failed: " . mysqli_error($connect_var));
+                throw new Exception("Database query failed");
             }
 
-            mysqli_stmt_bind_param($stmt, "ssssssssssssss", 
-                    $this->branchID, // for totalEmployees
-                    $this->organisationID, // for totalEmployees
-                    $this->currentDate, // for checkedInToday
-                    $this->branchID, // for checkedInToday
-                    $this->branchID,
-                    $this->currentDate,
-                    $this->branchID,
-                    $this->currentDate, // for lateCheckin
-                    $this->currentDate, // for earlyCheckout
-                    $this->organisationID, // for earlyCheckout
-                    $this->branchID,
-                    $this->organisationID, // for onLeave
-                    $this->branchID, // for onLeave
-            );            
-            if (!mysqli_stmt_execute($stmt)) {
-                error_log("Execute failed: " . mysqli_stmt_error($stmt));
-                throw new Exception("Database execute failed");
-            }
-
-            $result = mysqli_stmt_get_result($stmt);
-            $row = mysqli_fetch_assoc($result);
-            
+            $row = mysqli_fetch_assoc($rsd);
             // Debug the result
             error_log("Query Result: " . print_r($row, true));
-            
             if ($row) {                
                 $data['totalEmployees'] = isset($row['totalEmployees']) ? intval($row['totalEmployees']) : 0;
                 $data['checkedInToday'] = isset($row['checkedInToday']) ? intval($row['checkedInToday']) : 0;
