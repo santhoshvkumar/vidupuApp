@@ -157,7 +157,7 @@ FROM (SELECT 1) AS dummy;
                 ],
                 $queryActiveEmployeeDetails
             );
-            error_log("Debug Query: " . $debug_query);
+            echo $debug_query;
 
             $stmt = mysqli_prepare($connect_var, $queryActiveEmployeeDetails);
             if (!$stmt) {
