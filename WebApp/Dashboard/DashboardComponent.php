@@ -143,15 +143,13 @@ class DashboardComponent{
        AND a.checkOutTime < b.checkOutTime
        AND a.checkInBranchID NOT IN (55, 56)) AS earlyCheckout,
 
-    -- On leave
     (SELECT COUNT(*)
-     FROM tblApplyLeave AS l
-     JOIN tblmapEmp AS map ON l.employeeID = map.employeeID
-     WHERE ? BETWEEN l.fromDate AND l.toDate
-       AND l.status = 'Approved'
-       AND map.organisationID = ?
-       AND map.branchID IN (?)
-       AND map.isActive = 1) AS onLeave,
+            FROM tblApplyLeave AS l
+            JOIN tblmapEmp AS map ON l.employeeID = map.employeeID
+            WHERE ? BETWEEN l.fromDate AND l.toDate 
+            AND map.organisationID = ?
+            AND map.branchID IN (?)
+            AND l.status = 'Approved') AS onLeave,
 
     -- Logged-in devices
     (SELECT COUNT(*)
@@ -295,13 +293,13 @@ FROM (SELECT 1) AS dummy;
             AND a.checkInBranchID NOT IN (55, 56)) AS earlyCheckout,
 
             -- On leave
-            (SELECT COUNT(*)
+           (SELECT COUNT(*)
             FROM tblApplyLeave AS l
             JOIN tblmapEmp AS map ON l.employeeID = map.employeeID
             WHERE ? BETWEEN l.fromDate AND l.toDate 
             AND map.organisationID = ?
             AND l.status = 'Approved') AS onLeave,
-
+ 
             -- Logged-in devices
             (SELECT COUNT(*)
             FROM tblEmployee AS emp
