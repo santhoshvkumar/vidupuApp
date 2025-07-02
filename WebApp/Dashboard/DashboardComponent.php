@@ -164,7 +164,7 @@ class DashboardComponent{
 FROM (SELECT 1) AS dummy;
 ";
             $debug_query = str_replace(
-                ['?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?'],
+                ['?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?'],
                 [   
                     "'" . $this->branchID . "'",
                     "'" . $this->organisationID . "'",
@@ -191,7 +191,7 @@ FROM (SELECT 1) AS dummy;
                 throw new Exception("Database prepare failed");
             }
 
-            mysqli_stmt_bind_param($stmt, "ssssssssssss", 
+            mysqli_stmt_bind_param($stmt, "ssssssssssssss", 
                     $this->branchID, // for totalEmployees
                     $this->organisationID, // for totalEmployees
                     $this->currentDate, // for checkedInToday
