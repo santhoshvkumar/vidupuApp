@@ -109,13 +109,13 @@ class DashboardComponent{
     (select count(*) from tblEmployee tblE INNER JOIN tblmapEmp tblMap on tblMap.employeeID = tblE.employeeID WHERE tblMap.branchID=? and tblE.organisationID=? and tblE.isActive=1) AS totalEmployees,
 
    
-    (SELECT count(*) FROM `tblAttendance` WHERE attendanceDate=?  and checkInBranchID=?) As checkedInToday,
+    (SELECT count(*) FROM tblAttendance WHERE attendanceDate=?  and checkInBranchID=?) As checkedInToday,
 
     -- Late check-in (using branch-based logic like AttendanceOperationComponent)
-    (SELECT count(*) FROM `tblAttendance` WHERE checkInBranchID=? and attendanceDate=? and isLateCheckIN='1') AS lateCheckin;
+    (SELECT count(*) FROM tblAttendance WHERE checkInBranchID=? and attendanceDate=? and isLateCheckIN='1') AS lateCheckin;
 
     -- Early check-out (using branch-based logic like AttendanceOperationComponent)
-    (SELECT count(*) FROM `tblAttendance` WHERE checkInBranchID=? and attendanceDate=? and isEarlyCheckOut='1') AS earlyCheckout,
+    (SELECT count(*) FROM tblAttendance WHERE checkInBranchID=? and attendanceDate=? and isEarlyCheckOut='1') AS earlyCheckout,
 
     -- On Leave
     (SELECT COUNT(*)
