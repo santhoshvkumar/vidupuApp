@@ -106,12 +106,7 @@ class DashboardComponent{
             $queryActiveEmployeeDetails =   "SELECT
 
     -- Total employees
-    (SELECT COUNT(DISTINCT emp.employeeID)
-     FROM tblEmployee AS emp
-     JOIN tblmapEmp AS map ON emp.employeeID = map.employeeID
-     WHERE map.branchID IN (?) 
-     AND emp.organisationID = ?
-     AND emp.isActive = 1) AS totalEmployees,
+    (select count(*) from tblEmployee tblE INNER JOIN tblmapEmp tblMap on tblMap.employeeID = tblE.employeeID WHERE tblMap.branchID=? and tblE.organisationID=? and tblE.isActive=1) AS totalEmployees,
 
     -- Checked-in today
     (SELECT COUNT(*)
