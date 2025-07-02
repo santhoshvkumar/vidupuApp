@@ -370,7 +370,7 @@ WHERE emp.isActive = 1
         header('Content-Type: application/json');
         try {       
             $data = [];                       
-            $queryIndividualNoOfCheckinsInHeadOffice = "SELECT tblE.employeeName, tblB.branchName, tblE.employeePhone, tblA.checkInTime FROM `tblAttendance` tblA INNER JOIN tblEmployee tblE on tblE.employeeID = tblA.employeeID INNER JOIN tblBranch tblB on tblB.branchID = tblA.checkInBranchID WHERE tblA.attendanceDate=? and tblA.checkInBranchID=?";
+            $queryIndividualNoOfCheckinsInHeadOffice = "SELECT tblE.employeeName, tblB.branchName as locationName, tblE.employeePhone, tblA.checkInTime FROM `tblAttendance` tblA INNER JOIN tblEmployee tblE on tblE.employeeID = tblA.employeeID INNER JOIN tblBranch tblB on tblB.branchID = tblA.checkInBranchID WHERE tblA.attendanceDate=? and tblA.checkInBranchID=?";
 
             $debug_query = str_replace(['?', '?'], ["'" . $this->currentDate . "'", "'" . $this->branchID . "'"], $queryIndividualNoOfCheckinsInHeadOffice);
             error_log("Debug Query: " . $debug_query);
