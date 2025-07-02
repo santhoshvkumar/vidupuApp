@@ -370,28 +370,9 @@ WHERE emp.isActive = 1
         header('Content-Type: application/json');
         try {       
             $data = [];                       
-            $queryIndividualNoOfCheckinsInHeadOffice = "SELECT 
-                emp.employeeName, 
-                COALESCE(b.branchName, sec.sectionName) AS locationName, 
-                emp.employeePhone, 
-                CAST(MIN(att.checkInTime) AS CHAR) AS checkInTime,
-                COUNT(att.employeeID) AS checked_in
-            FROM tblEmployee AS emp
-                LEFT JOIN tblmapEmp AS m ON emp.employeeID = m.employeeID
-                LEFT JOIN tblBranch AS b ON m.branchID = b.branchID AND b.branchID <> 1
-                LEFT JOIN tblAssignedSection AS assign ON emp.employeeID = assign.employeeID
-                LEFT JOIN tblSection AS sec ON assign.sectionID = sec.sectionID
-                INNER JOIN tblAttendance AS att ON emp.employeeID = att.employeeID 
-                    AND DATE(att.attendanceDate) = ?
-                    AND m.branchID IN (?)
-                    AND m.organisationID = ?
-                    AND emp.employeeID <> 888
-            GROUP BY 
-                emp.employeeName, 
-                locationName, 
-                emp.employeePhone;";
+            $queryIndividualNoOfCheckinsInHeadOffice = "SELECT tblE.employeeName, tblB.branchName, tblE.employeePhone, tblA.checkInTime FROM `tblAttendance` tblA INNER JOIN tblEmployee tblE on tblE.employeeID = tblA.employeeID INNER JOIN tblBranch tblB on tblB.branchID = tblA.checkInBranchID WHERE tblA.attendanceDate=? and tblA.checkInBranchID=?";
 
-            $debug_query = str_replace(['?', '?', '?'], ["'" . $this->currentDate . "'", "'" . $this->branchID . "'", "'" . $this->organisationID . "'"], $queryIndividualNoOfCheckinsInHeadOffice);
+            $debug_query = str_replace(['?', '?'], ["'" . $this->currentDate . "'", "'" . $this->branchID . "'"], $queryIndividualNoOfCheckinsInHeadOffice);
             error_log("Debug Query: " . $debug_query);
 
             $stmt = mysqli_prepare($connect_var, $queryIndividualNoOfCheckinsInHeadOffice);
@@ -399,7 +380,7 @@ WHERE emp.isActive = 1
                 throw new Exception("Database prepare failed");
             }
 
-            mysqli_stmt_bind_param($stmt, "sss", $this->currentDate, $this->branchID, $this->organisationID);
+            mysqli_stmt_bind_param($stmt, "ss", $this->currentDate, $this->branchID);
             
             if (!mysqli_stmt_execute($stmt)) {
                 throw new Exception("Database execute failed");
