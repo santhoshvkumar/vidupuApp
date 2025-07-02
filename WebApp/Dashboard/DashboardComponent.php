@@ -122,35 +122,27 @@ class DashboardComponent{
        AND map.organisationID = ?
        AND map.isActive = 1) AS checkedInToday,
 
-    -- Late check-in
+    -- Late check-in (using branch-based logic like AttendanceOperationComponent)
     (SELECT COUNT(*)
      FROM tblAttendance AS a
-     JOIN tblmapEmp AS map ON a.employeeID = map.employeeID
+     JOIN tblBranch b ON a.checkInBranchID = b.branchID
      WHERE a.attendanceDate = ?
-       AND map.organisationID = ?
-       AND map.branchID IN (?)
-       AND map.isActive = 1
-       AND (
-         (a.employeeID IN (72, 73) AND a.checkInTime > '08:10:00') OR
-         (a.employeeID IN (24, 27) AND a.checkInTime > '11:10:00') OR
-         (map.branchID IN (1) AND a.checkInTime > '10:10:00') OR
-         (map.branchID BETWEEN 2 AND 52 AND a.checkInTime > '09:25:00')
-       )) AS lateCheckin,
+       AND a.organisationID = ?
+       AND a.checkInTime IS NOT NULL
+       AND b.checkInTime IS NOT NULL
+       AND a.checkInTime > b.checkInTime
+       AND a.checkInBranchID NOT IN (55, 56)) AS lateCheckin,
 
-    -- Early check-out
+    -- Early check-out (using branch-based logic like AttendanceOperationComponent)
     (SELECT COUNT(*)
      FROM tblAttendance AS a
-     JOIN tblmapEmp AS map ON a.employeeID = map.employeeID
+     JOIN tblBranch b ON a.checkInBranchID = b.branchID
      WHERE a.attendanceDate = ?
-       AND map.organisationID = ?
-       AND map.branchID IN (?)
-       AND map.isActive = 1
-       AND (
-         (a.employeeID IN (72, 73) AND a.checkOutTime < '15:00:00') OR
-         (a.employeeID IN (24, 27) AND a.checkOutTime < '18:00:00') OR
-         (map.branchID IN (1) AND a.checkOutTime < '17:00:00') OR
-         (map.branchID BETWEEN 2 AND 52 AND a.checkOutTime < '16:30:00')
-       )) AS earlyCheckout,
+       AND a.organisationID = ?
+       AND a.checkOutTime IS NOT NULL
+       AND b.checkOutTime IS NOT NULL
+       AND a.checkOutTime < b.checkOutTime
+       AND a.checkInBranchID NOT IN (55, 56)) AS earlyCheckout,
 
     -- On leave
     (SELECT COUNT(*)
@@ -175,24 +167,22 @@ class DashboardComponent{
 FROM (SELECT 1) AS dummy;
 ";
             $debug_query = str_replace(
-                ['?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?'],
+                ['?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?'],
                 [   
                     "'" . $this->branchID . "'",
                     "'" . $this->organisationID . "'",
                     "'" . $this->currentDate . "'",
                     "'" . $this->branchID . "'",
                     "'" . $this->organisationID . "'",
-                    "'" . $this->currentDate . "'",//for checkedInToday
-                    "'" . $this->organisationID . "'",
-                    "'" . $this->branchID . "'",//for lateCheckin
-                    "'" . $this->currentDate . "'",
-                    "'" . $this->organisationID . "'",
-                    "'" . $this->branchID . "'",//for lateCheckin
-                    "'" . $this->currentDate . "'",
-                    "'" . $this->organisationID . "'",
-                    "'" . $this->branchID . "'",//for earlyCheckout
-                    "'" . $this->organisationID . "'",                                    
-                    "'" . $this->branchID . "'",
+                    "'" . $this->currentDate . "'", // for lateCheckin
+                    "'" . $this->organisationID . "'", // for lateCheckin
+                    "'" . $this->currentDate . "'", // for earlyCheckout
+                    "'" . $this->organisationID . "'", // for earlyCheckout
+                    "'" . $this->currentDate . "'", // for onLeave
+                    "'" . $this->organisationID . "'", // for onLeave
+                    "'" . $this->branchID . "'", // for onLeave
+                    "'" . $this->organisationID . "'", // for loginnedDevices
+                    "'" . $this->branchID . "'", // for loginnedDevices
                 ],
                 $queryActiveEmployeeDetails
             );
@@ -204,23 +194,21 @@ FROM (SELECT 1) AS dummy;
                 throw new Exception("Database prepare failed");
             }
 
-            mysqli_stmt_bind_param($stmt, "ssssssssssssssss", 
+            mysqli_stmt_bind_param($stmt, "ssssssssssss", 
                     $this->branchID, // for totalEmployees
                     $this->organisationID, // for totalEmployees
                     $this->currentDate, // for checkedInToday
                     $this->branchID, // for checkedInToday
                     $this->organisationID,
-                    $this->currentDate,
-                    $this->organisationID,
-                    $this->branchID,
-                    $this->currentDate,
-                    $this->organisationID,
-                    $this->branchID,
-                    $this->currentDate,
-                    $this->organisationID,
-                    $this->branchID,
-                    $this->organisationID,                                    
-                    $this->branchID,
+                    $this->currentDate, // for lateCheckin
+                    $this->organisationID, // for lateCheckin
+                    $this->currentDate, // for earlyCheckout
+                    $this->organisationID, // for earlyCheckout
+                    $this->currentDate, // for onLeave
+                    $this->organisationID, // for onLeave
+                    $this->branchID, // for onLeave
+                    $this->organisationID, // for loginnedDevices
+                    $this->branchID, // for loginnedDevices
             );            
             if (!mysqli_stmt_execute($stmt)) {
                 error_log("Execute failed: " . mysqli_stmt_error($stmt));
@@ -285,33 +273,27 @@ FROM (SELECT 1) AS dummy;
             WHERE a.attendanceDate = ? 
             AND map.organisationID = ?) AS checkedInToday,
 
-            -- Late check-in
+            -- Late check-in (using branch-based logic like AttendanceOperationComponent)
             (SELECT COUNT(*)
             FROM tblAttendance AS a
-            JOIN tblmapEmp AS map ON a.employeeID = map.employeeID
+            JOIN tblBranch b ON a.checkInBranchID = b.branchID
             WHERE a.attendanceDate = ? 
-            AND map.organisationID = ?
-            AND (
-                (a.employeeID IN (72, 73) AND a.checkInTime > '08:10:00') OR
-                (a.employeeID IN (27) AND a.checkInTime > '11:10:00') OR
-                (map.branchID IN (1) AND a.checkInTime > '10:10:00') OR
-                (map.branchID BETWEEN 2 AND 52 AND a.checkInTime > '09:25:00') OR
-                (map.branchID in(55,56) AND a.checkInTime > '11:00:00')
-            )) AS lateCheckin,
+            AND a.organisationID = ?
+            AND a.checkInTime IS NOT NULL
+            AND b.checkInTime IS NOT NULL
+            AND a.checkInTime > b.checkInTime
+            AND a.checkInBranchID NOT IN (55, 56)) AS lateCheckin,
 
-            -- Early check-out
+            -- Early check-out (using branch-based logic like AttendanceOperationComponent)
             (SELECT COUNT(*)
             FROM tblAttendance AS a
-            JOIN tblmapEmp AS map ON a.employeeID = map.employeeID
+            JOIN tblBranch b ON a.checkInBranchID = b.branchID
             WHERE a.attendanceDate = ? 
-            AND map.organisationID = ?
-            AND (
-                (a.employeeID IN (72, 73) AND a.checkOutTime < '15:00:00') OR  
-                (a.employeeID IN (27) AND a.checkOutTime < '18:00:00') OR
-                (map.branchID IN (1) AND a.checkOutTime < '17:00:00') OR
-                (map.branchID BETWEEN 2 AND 52 AND a.checkOutTime < '16:30:00') OR
-                (map.branchID in(55,56) AND a.checkOutTime < '17:00:00')
-            )) AS earlyCheckout,
+            AND a.organisationID = ?
+            AND a.checkOutTime IS NOT NULL
+            AND b.checkOutTime IS NOT NULL
+            AND a.checkOutTime < b.checkOutTime
+            AND a.checkInBranchID NOT IN (55, 56)) AS earlyCheckout,
 
             -- On leave
             (SELECT COUNT(*)
