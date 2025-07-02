@@ -151,7 +151,7 @@ class DashboardComponent{
        AND l.status = 'Approved'
        AND map.organisationID = ?
        AND map.branchID IN (?)
-       AND map.isActive = 1) AS onLeave,
+     ) AS onLeave,
 
     -- Logged-in devices
     (SELECT COUNT(*)
