@@ -119,8 +119,7 @@ class DashboardComponent{
      JOIN tblmapEmp AS map ON a.employeeID = map.employeeID
      WHERE a.attendanceDate = ?
        AND map.branchID IN (?) 
-       AND map.organisationID = ?
-     ) AS checkedInToday,
+       AND map.organisationID = ?) AS checkedInToday,
 
     -- Late check-in (using branch-based logic like AttendanceOperationComponent)
     (SELECT COUNT(*)
@@ -152,7 +151,7 @@ class DashboardComponent{
        AND l.status = 'Approved'
        AND map.organisationID = ?
        AND map.branchID IN (?)
-     ) AS onLeave,
+       AND map.isActive = 1) AS onLeave,
 
     -- Logged-in devices
     (SELECT COUNT(*)
