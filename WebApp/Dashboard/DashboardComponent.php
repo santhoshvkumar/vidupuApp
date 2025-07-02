@@ -108,36 +108,16 @@ class DashboardComponent{
     -- Total employees
     (select count(*) from tblEmployee tblE INNER JOIN tblmapEmp tblMap on tblMap.employeeID = tblE.employeeID WHERE tblMap.branchID=? and tblE.organisationID=? and tblE.isActive=1) AS totalEmployees,
 
-    -- Checked-in today
-    (SELECT COUNT(*)
-     FROM tblAttendance AS a
-     JOIN tblmapEmp AS map ON a.employeeID = map.employeeID
-     WHERE a.attendanceDate = ?
-       AND map.branchID IN (?) 
-       AND map.organisationID = ?) AS checkedInToday,
+   
+    (SELECT count(*) FROM `tblAttendance` WHERE attendanceDate=?  and checkInBranchID=?) As checkedInToday,
 
     -- Late check-in (using branch-based logic like AttendanceOperationComponent)
-    (SELECT COUNT(*)
-     FROM tblAttendance AS a
-     JOIN tblBranch b ON a.checkInBranchID = b.branchID
-     WHERE a.attendanceDate = ?
-       AND a.organisationID = ?
-       AND a.checkInTime IS NOT NULL
-       AND b.checkInTime IS NOT NULL
-       AND a.checkInTime > b.checkInTime
-       AND a.checkInBranchID NOT IN (55, 56)) AS lateCheckin,
+    (SELECT count(*) FROM `tblAttendance` WHERE checkInBranchID=? and attendanceDate=? and isLateCheckIN='1') AS lateCheckin;
 
     -- Early check-out (using branch-based logic like AttendanceOperationComponent)
-    (SELECT COUNT(*)
-     FROM tblAttendance AS a
-     JOIN tblBranch b ON a.checkInBranchID = b.branchID
-     WHERE a.attendanceDate = ?
-       AND a.organisationID = ?
-       AND a.checkOutTime IS NOT NULL
-       AND b.checkOutTime IS NOT NULL
-       AND a.checkOutTime < b.checkOutTime
-       AND a.checkInBranchID NOT IN (55, 56)) AS earlyCheckout,
+    (SELECT count(*) FROM `tblAttendance` WHERE checkInBranchID=? and attendanceDate=? and isEarlyCheckOut='1') AS earlyCheckout,
 
+    -- On Leave
     (SELECT COUNT(*)
             FROM tblApplyLeave AS l
             JOIN tblmapEmp AS map ON l.employeeID = map.employeeID
@@ -159,17 +139,16 @@ class DashboardComponent{
 FROM (SELECT 1) AS dummy;
 ";
             $debug_query = str_replace(
-                ['?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?'],
+                ['?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?'],
                 [   
                     "'" . $this->branchID . "'",
                     "'" . $this->organisationID . "'",
                     "'" . $this->currentDate . "'",
                     "'" . $this->branchID . "'",
-                    "'" . $this->organisationID . "'",
-                    "'" . $this->currentDate . "'", // for lateCheckin
-                    "'" . $this->organisationID . "'", // for lateCheckin
-                    "'" . $this->currentDate . "'", // for earlyCheckout
-                    "'" . $this->organisationID . "'", // for earlyCheckout
+                    "'" . $this->branchID . "'",
+                    "'" . $this->currentDate . "'",
+                    "'" . $this->branchID . "'",
+                    "'" . $this->currentDate . "'",
                     "'" . $this->currentDate . "'", // for onLeave
                     "'" . $this->organisationID . "'", // for onLeave
                     "'" . $this->branchID . "'", // for onLeave
@@ -191,16 +170,15 @@ FROM (SELECT 1) AS dummy;
                     $this->organisationID, // for totalEmployees
                     $this->currentDate, // for checkedInToday
                     $this->branchID, // for checkedInToday
-                    $this->organisationID,
+                    $this->branchID,
+                    $this->currentDate,
+                    $this->branchID,
                     $this->currentDate, // for lateCheckin
-                    $this->organisationID, // for lateCheckin
                     $this->currentDate, // for earlyCheckout
                     $this->organisationID, // for earlyCheckout
-                    $this->currentDate, // for onLeave
+                    $this->branchID,
                     $this->organisationID, // for onLeave
                     $this->branchID, // for onLeave
-                    $this->organisationID, // for loginnedDevices
-                    $this->branchID, // for loginnedDevices
             );            
             if (!mysqli_stmt_execute($stmt)) {
                 error_log("Execute failed: " . mysqli_stmt_error($stmt));
