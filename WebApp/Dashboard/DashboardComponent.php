@@ -120,7 +120,7 @@ class DashboardComponent{
      WHERE a.attendanceDate = ?
        AND map.branchID IN (?) 
        AND map.organisationID = ?
-       AND map.isActive = 1) AS checkedInToday,
+     ) AS checkedInToday,
 
     -- Late check-in (using branch-based logic like AttendanceOperationComponent)
     (SELECT COUNT(*)
@@ -152,7 +152,7 @@ class DashboardComponent{
        AND l.status = 'Approved'
        AND map.organisationID = ?
        AND map.branchID IN (?)
-       AND map.isActive = 1) AS onLeave,
+     ) AS onLeave,
 
     -- Logged-in devices
     (SELECT COUNT(*)
