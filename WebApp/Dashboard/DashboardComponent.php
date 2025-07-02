@@ -110,8 +110,8 @@ class DashboardComponent{
      FROM tblEmployee AS emp
      JOIN tblmapEmp AS map ON emp.employeeID = map.employeeID
      WHERE map.branchID IN (?) 
-     AND map.organisationID = ?
-     AND map.isActive = 1) AS totalEmployees,
+     AND emp.organisationID = ?
+     AND emp.isActive = 1) AS totalEmployees,
 
     -- Checked-in today
     (SELECT COUNT(*)
@@ -119,8 +119,7 @@ class DashboardComponent{
      JOIN tblmapEmp AS map ON a.employeeID = map.employeeID
      WHERE a.attendanceDate = ?
        AND map.branchID IN (?) 
-       AND map.organisationID = ?
-       AND map.isActive = 1) AS checkedInToday,
+       AND map.organisationID = ?) AS checkedInToday,
 
     -- Late check-in (using branch-based logic like AttendanceOperationComponent)
     (SELECT COUNT(*)
@@ -151,8 +150,7 @@ class DashboardComponent{
      WHERE ? BETWEEN l.fromDate AND l.toDate
        AND l.status = 'Approved'
        AND map.organisationID = ?
-       AND map.branchID IN (?)
-       AND map.isActive = 1) AS onLeave,
+       AND map.branchID IN (?)) AS onLeave,
 
     -- Logged-in devices
     (SELECT COUNT(*)
@@ -160,9 +158,9 @@ class DashboardComponent{
      JOIN tblmapEmp AS map ON emp.employeeID = map.employeeID
      WHERE emp.deviceFingerprint IS NOT NULL 
        AND emp.deviceFingerprint <> ''
-       AND map.organisationID = ?
+       AND emp.organisationID = ?
        AND map.branchID IN (?)
-       AND map.isActive = 1) AS loginnedDevices
+       AND emp.isActive = 1) AS loginnedDevices
 
 FROM (SELECT 1) AS dummy;
 ";
