@@ -260,10 +260,7 @@ class DashboardComponent{
             AND emp.organisationID = ?
             AND emp.isActive = 1) AS loginnedDevices
             -- Absentees (without branch filter)
-            (SELECT 
-                emp.employeeName,
-                COALESCE(b.branchName, sec.sectionName) AS locationName,
-                emp.employeePhone
+            (SELECT COUNT(*) 
             FROM tblEmployee AS emp
             LEFT JOIN tblmapEmp AS m ON emp.employeeID = m.employeeID
             LEFT JOIN tblBranch AS b ON m.branchID = b.branchID
