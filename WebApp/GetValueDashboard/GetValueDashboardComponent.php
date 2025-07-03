@@ -297,6 +297,7 @@ WHERE emp.isActive = 1
                 emp.employeePhone
             FROM tblEmployee AS emp
             LEFT JOIN tblmapEmp AS m ON emp.employeeID = m.employeeID
+            LEFT JOIN tblBranch AS b ON m.branchID = b.branchID
             LEFT JOIN tblAssignedSection AS assign ON emp.employeeID = assign.employeeID
             LEFT JOIN tblSection AS sec ON assign.sectionID = sec.sectionID
             LEFT JOIN tblAttendance AS att 
