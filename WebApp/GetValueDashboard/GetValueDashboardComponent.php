@@ -324,13 +324,14 @@ WHERE emp.isActive = 1
                 $queryIndividualNoOfCheckinsInHeadOffice
             );
             echo $debug_query;
-            echo "Organisation ID: " . $this->organisationID;
+           
             error_log("Debug Query: " . $debug_query);
 
             $stmt = mysqli_prepare($connect_var, $queryIndividualNoOfCheckinsInHeadOffice);
             if (!$stmt) {           
                 throw new Exception("Database prepare failed");
             }
+            echo "Organisation ID: " . $this->organisationID;
 
             mysqli_stmt_bind_param($stmt, "sss", $this->currentDate, $this->organisationID, $this->currentDate);
 
