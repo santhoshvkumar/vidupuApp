@@ -316,18 +316,7 @@ WHERE emp.isActive = 1
                     AND '$currentDate' BETWEEN fromDate AND toDate
             );
             ";
-
-            $debug_query = str_replace(
-                ['?', '?', '?'],
-                [
-                    "'" . $this->currentDate . "'",
-                    "'" . $this->organisationID . "'",
-                    "'" . $this->currentDate . "'",
-                ],
-                $queryIndividualNoOfCheckinsInHeadOffice
-            );
-
-
+            echo $queryIndividualNoOfCheckinsInHeadOffice;
             $rsd = mysqli_query($connect_var, $queryIndividualNoOfCheckinsInHeadOffice);
             if (!$rsd) {
                 error_log("Query failed: " . mysqli_error($connect_var));
