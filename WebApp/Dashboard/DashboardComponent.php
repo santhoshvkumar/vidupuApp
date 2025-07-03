@@ -259,31 +259,9 @@ class DashboardComponent{
             AND emp.deviceFingerprint <> '' 
             AND emp.organisationID = ?
             AND emp.isActive = 1) AS loginnedDevices
-            -- Absentees (without branch filter)
-            (SELECT COUNT(*) 
-            FROM tblEmployee AS emp
-            LEFT JOIN tblmapEmp AS m ON emp.employeeID = m.employeeID
-            LEFT JOIN tblBranch AS b ON m.branchID = b.branchID
-            LEFT JOIN tblAssignedSection AS assign ON emp.employeeID = assign.employeeID
-            LEFT JOIN tblSection AS sec ON assign.sectionID = sec.sectionID
-            LEFT JOIN tblAttendance AS att 
-                ON emp.employeeID = att.employeeID 
-                AND DATE(att.attendanceDate) = ?
-            WHERE emp.isActive = 1
-            AND emp.organisationID = ?
-            AND att.checkInTime IS NULL
-            AND emp.employeeID NOT IN (
-                SELECT employeeID
-                FROM tblApplyLeave
-                WHERE status = 'Approved' AND employeeID <> 888
-                    AND ? BETWEEN fromDate AND toDate
-            )) AS absentees
-
-
-
         FROM (SELECT 1) AS dummy;";
             $debug_query = str_replace(
-                ['?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?'],
+                ['?', '?', '?', '?', '?', '?', '?', '?', '?', '?'],
                 [   
                     "'" . $this->organisationID . "'",
                     "'" . $this->currentDate . "'",
@@ -295,9 +273,6 @@ class DashboardComponent{
                     "'" . $this->currentDate . "'",
                     "'" . $this->organisationID . "'",
                     "'" . $this->organisationID . "'",
-                    "'" . $this->currentDate . "'",
-                    "'" . $this->organisationID . "'",
-                    "'" . $this->currentDate . "'",
                 ],
                 $queryActiveEmployeeDetails
             );
@@ -309,7 +284,7 @@ class DashboardComponent{
                 throw new Exception("Database prepare failed");
             }
 
-            mysqli_stmt_bind_param($stmt, "sssssssssssss", 
+            mysqli_stmt_bind_param($stmt, "ssssssssss", 
                 $this->organisationID,  // for checkedInToday
                 $this->currentDate, // for checkedInToday
                 $this->organisationID, // for lateCheckin
@@ -320,9 +295,6 @@ class DashboardComponent{
                 $this->currentDate, // for onLeave
                 $this->organisationID, // for loginnedDevices
                 $this->organisationID, // for loginnedDevices
-                $this->currentDate, // for absentees
-                $this->organisationID, // for absentees
-                $this->currentDate, // for absentees
             );
                 
             if (!mysqli_stmt_execute($stmt)) {
@@ -343,8 +315,7 @@ class DashboardComponent{
                 $data['earlyCheckout'] = isset($row['earlyCheckout']) ? intval($row['earlyCheckout']) : 0;
                 $data['onLeave'] = isset($row['onLeave']) ? intval($row['onLeave']) : 0;
                 $data['loginnedDevices'] = isset($row['loginnedDevices']) ? intval($row['loginnedDevices']) : 0;
-                //$data['absenteesinHO'] = $data['totalEmployees'] - ($data['checkedInToday'] + $data['onLeave']);
-                $data['absenteesinHO'] = isset($row['absentees']) ? intval($row['absentees']) : 0;
+                $data['absenteesinHO'] = $data['totalEmployees'] - ($data['checkedInToday'] + $data['onLeave']);
                 // Debug final data
                 error_log("Final Data: " . print_r($data, true));                
                 echo json_encode([
