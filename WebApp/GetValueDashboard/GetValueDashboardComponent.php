@@ -323,6 +323,7 @@ WHERE emp.isActive = 1
                 ],
                 $queryIndividualNoOfCheckinsInHeadOffice
             );
+            echo $debug_query;
             error_log("Debug Query: " . $debug_query);
 
             $stmt = mysqli_prepare($connect_var, $queryIndividualNoOfCheckinsInHeadOffice);
