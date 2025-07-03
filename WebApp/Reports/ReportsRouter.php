@@ -43,4 +43,45 @@ $f3->route('POST /GetDesignationWiseAttendanceReport',
         }
     }
 );
+$f3->route('POST /GetManagementLeaveReport',
+    function($f3) {
+        header('Content-Type: application/json');
+        $decoded_items = json_decode($f3->get('BODY'), true);
+        if(!$decoded_items == NULL) {
+            GetManagementLeaveReport($decoded_items);
+        } else {
+            echo json_encode(array("status" => "error", "message_text" => "Invalid input parameters"), JSON_FORCE_OBJECT);
+        }
+    }
+);
+$f3->route('POST /GetDesignationWiseLeaveReport',
+    function($f3) {
+        header('Content-Type: application/json');
+        $decoded_items = json_decode($f3->get('BODY'), true);
+        if(!$decoded_items == NULL) {
+            GetDesignationWiseLeaveReport($decoded_items);
+        } else {
+            echo json_encode(array("status" => "error", "message_text" => "Invalid input parameters"), JSON_FORCE_OBJECT);
+        }
+    }
+);
+
+function GetManagementLeaveReport($decoded_items) {
+    $ReportsObject = new ReportsComponent();
+    if ($ReportsObject->loadOrganisationID($decoded_items)) {
+        $ReportsObject->GetManagementLeaveReport();
+    } else {
+        echo json_encode(array("status" => "error", "message_text" => "Invalid input parameters"), JSON_FORCE_OBJECT);
+    }
+}
+
+function GetDesignationWiseLeaveReport($decoded_items) {
+    $ReportsObject = new ReportsComponent();
+    if ($ReportsObject->loadOrganisationID($decoded_items) && 
+        $ReportsObject->loadSelectedMonth($decoded_items)) {
+        $ReportsObject->GetDesignationWiseLeaveReport();
+    } else {
+        echo json_encode(array("status" => "error", "message_text" => "Invalid input parameters"), JSON_FORCE_OBJECT);
+    }
+}
 ?>
