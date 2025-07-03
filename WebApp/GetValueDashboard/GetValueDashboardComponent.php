@@ -333,8 +333,6 @@ WHERE emp.isActive = 1
                 error_log("Query failed: " . mysqli_error($connect_var));
                 throw new Exception("Database query failed");
             }
-
-            $result = mysqli_stmt_get_result($stmt);
             $countEmployee = 0;
             $resultData = [];
             while ($row = mysqli_fetch_assoc($rsd)) {
