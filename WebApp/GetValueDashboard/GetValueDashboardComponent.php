@@ -352,7 +352,6 @@ WHERE emp.isActive = 1
                 ], JSON_FORCE_OBJECT);  
             }
 
-            mysqli_stmt_close($stmt);
             mysqli_close($connect_var);
         } catch (Exception $e) {
             error_log("Error in GetValueDashboardforCheckin: " . $e->getMessage());
