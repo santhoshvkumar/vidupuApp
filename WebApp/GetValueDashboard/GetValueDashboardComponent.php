@@ -291,6 +291,9 @@ WHERE emp.isActive = 1
         header('Content-Type: application/json');
         try {
             $data = [];
+
+            $currentDate = mysqli_real_escape_string($connect_var, $this->currentDate);
+            $organisationID = mysqli_real_escape_string($connect_var, $this->organisationID);
             $queryIndividualNoOfCheckinsInHeadOffice = "SELECT 
                 emp.employeeName,
                 COALESCE(b.branchName, sec.sectionName) AS locationName,
@@ -302,15 +305,15 @@ WHERE emp.isActive = 1
             LEFT JOIN tblSection AS sec ON assign.sectionID = sec.sectionID
             LEFT JOIN tblAttendance AS att 
                 ON emp.employeeID = att.employeeID 
-                AND DATE(att.attendanceDate) = ?
+                AND DATE(att.attendanceDate) = '$currentDate'
             WHERE emp.isActive = 1
-            AND emp.organisationID = ?
+            AND emp.organisationID = '$organisationID'
             AND att.checkInTime IS NULL
             AND emp.employeeID NOT IN (
                 SELECT employeeID
                 FROM tblApplyLeave
                 WHERE status = 'Approved' AND employeeID <> 888
-                    AND ? BETWEEN fromDate AND toDate
+                    AND '$currentDate' BETWEEN fromDate AND toDate
             );
             ";
 
@@ -331,20 +334,23 @@ WHERE emp.isActive = 1
             if (!$stmt) {           
                 throw new Exception("Database prepare failed");
             }
-            echo "Organisation ID: " . $this->organisationID;
-
-            mysqli_stmt_bind_param($stmt, "sss", $this->currentDate, $this->organisationID, $this->currentDate);
-
+         
             if (!mysqli_stmt_execute($stmt)) {  
                 throw new Exception("Database execute failed");
             }
+         
+            // Direct execution of the query
+             $rsd = mysqli_query($connect_var, $queryIndividualNoOfCheckinsInHeadOffice);
+             if (!$rsd) {
+                 error_log("Query failed: " . mysqli_error($connect_var));
+                 throw new Exception("Database query failed");
+             }
+             $resultData = [];
+             while ($row = mysqli_fetch_assoc($rsd)) {
+                 $resultData[] = $row;
+             }
 
-            $result = mysqli_stmt_get_result($stmt);
-            $countEmployee = 0;
-            while ($row = mysqli_fetch_assoc($result)) {
-                $countEmployee++;   
-                $data[] = $row;
-            }
+           
 
             if ($countEmployee > 0) {
                 echo json_encode([
