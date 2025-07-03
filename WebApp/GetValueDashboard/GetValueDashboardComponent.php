@@ -326,31 +326,21 @@ WHERE emp.isActive = 1
                 ],
                 $queryIndividualNoOfCheckinsInHeadOffice
             );
-            echo $debug_query;
-           
-            error_log("Debug Query: " . $debug_query);
 
-            $stmt = mysqli_prepare($connect_var, $queryIndividualNoOfCheckinsInHeadOffice);
-            if (!$stmt) {           
-                throw new Exception("Database prepare failed");
-            }
-         
-            if (!mysqli_stmt_execute($stmt)) {  
-                throw new Exception("Database execute failed");
-            }
-         
-            // Direct execution of the query
-             $rsd = mysqli_query($connect_var, $queryIndividualNoOfCheckinsInHeadOffice);
-             if (!$rsd) {
-                 error_log("Query failed: " . mysqli_error($connect_var));
-                 throw new Exception("Database query failed");
-             }
-             $resultData = [];
-             while ($row = mysqli_fetch_assoc($rsd)) {
-                 $resultData[] = $row;
-             }
 
-           
+            $rsd = mysqli_query($connect_var, $queryIndividualNoOfCheckinsInHeadOffice);
+            if (!$rsd) {
+                error_log("Query failed: " . mysqli_error($connect_var));
+                throw new Exception("Database query failed");
+            }
+
+            $result = mysqli_stmt_get_result($stmt);
+            $countEmployee = 0;
+            $resultData = [];
+            while ($row = mysqli_fetch_assoc($rsd)) {
+                $resultData[] = $row;
+                $countEmployee++;
+            }
 
             if ($countEmployee > 0) {
                 echo json_encode([
