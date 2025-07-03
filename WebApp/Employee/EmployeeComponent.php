@@ -36,10 +36,14 @@ class EmployeeComponent{
     }
 
     public function loadResetPassword(array $data){ 
-        if (isset($data['empID'])) {  
+        error_log("loadResetPassword received data: " . print_r($data, true));
+        if (isset($data['empID']) && isset($data['organisationID'])) {  
             $this->empID = $data['empID'];
+            $this->organisationID = $data['organisationID'];
+            error_log("loadResetPassword set empID: {$this->empID}, organisationID: {$this->organisationID}");
             return true;
         } else {
+            error_log("loadResetPassword missing required fields");
             return false;
         }
     }
@@ -52,10 +56,14 @@ class EmployeeComponent{
         }
     }
     public function loadDeviceFingerprint(array $data){ 
-        if (isset($data['empID'])) {  
+        error_log("loadDeviceFingerprint received data: " . print_r($data, true));
+        if (isset($data['empID']) && isset($data['organisationID'])) {  
             $this->empID = $data['empID'];
+            $this->organisationID = $data['organisationID'];
+            error_log("loadDeviceFingerprint set empID: {$this->empID}, organisationID: {$this->organisationID}");
             return true;
         } else {
+            error_log("loadDeviceFingerprint missing required fields");
             return false;
         }
     }
@@ -191,78 +199,164 @@ class EmployeeComponent{
         include(dirname(__FILE__) . '/../../config.inc');
         header('Content-Type: application/json');    
         try {       
-            $data = [];                       
+            error_log("ResetPassword starting with empID: {$this->empID}, organisationID: {$this->organisationID}");
+            
+            // Start transaction
+            mysqli_begin_transaction($connect_var);
 
             $ResetPasswordQuery = "
                UPDATE tblEmployee 
                SET employeePassword = MD5('Password#1') 
-               WHERE empID = ?;";
+               WHERE empID = ? AND organisationID = ?;";
 
+            error_log("ResetPassword query: " . $ResetPasswordQuery);
 
             $stmt = mysqli_prepare($connect_var, $ResetPasswordQuery);
             if (!$stmt) {
-                throw new Exception("Database prepare failed");
+                throw new Exception("Database prepare failed: " . mysqli_error($connect_var));
             }
 
-            mysqli_stmt_bind_param($stmt, "s", 
-                $this->empID
-            );
+            mysqli_stmt_bind_param($stmt, "si", $this->empID, $this->organisationID);
+            
+            // Log the actual values that will be used in the query
+            error_log("ResetPassword executing with params - empID: {$this->empID}, organisationID: {$this->organisationID}");
             
             if (!mysqli_stmt_execute($stmt)) {
-                throw new Exception("Database execute failed");
+                throw new Exception("Database execute failed: " . mysqli_error($connect_var));
             }
 
-            $result = mysqli_stmt_get_result($stmt);    
+            // Check if any rows were affected
+            $affected_rows = mysqli_stmt_affected_rows($stmt);
+            error_log("ResetPassword affected rows: {$affected_rows}");
+            
+            if ($affected_rows === 0) {
+                // Let's check if the employee exists
+                $checkQuery = "SELECT COUNT(*) as count FROM tblEmployee WHERE empID = ? AND organisationID = ?";
+                $checkStmt = mysqli_prepare($connect_var, $checkQuery);
+                mysqli_stmt_bind_param($checkStmt, "si", $this->empID, $this->organisationID);
+                mysqli_stmt_execute($checkStmt);
+                $result = mysqli_stmt_get_result($checkStmt);
+                $row = mysqli_fetch_assoc($result);
+                error_log("Employee existence check result: " . print_r($row, true));
+                mysqli_stmt_close($checkStmt);
+                
+                throw new Exception("No employee found with ID: " . $this->empID . " in organisation: " . $this->organisationID);
+            }
+
+            // Close the statement
+            mysqli_stmt_close($stmt);
+            
+            // Commit the transaction
+            mysqli_commit($connect_var);
+
             $ResetPasswordResult = [];    
             $ResetPasswordResult['status'] = "success";
             $ResetPasswordResult['message_text'] = "Password reset successfully";
+            $ResetPasswordResult['affected_rows'] = $affected_rows;
             
             echo json_encode($ResetPasswordResult, JSON_FORCE_OBJECT);
             
         } catch (Exception $e) {
+            // Rollback on error
+            if (isset($connect_var)) {
+                mysqli_rollback($connect_var);
+            }
+            error_log("ResetPassword error: " . $e->getMessage());
             echo json_encode([
                 "status" => "error",
                 "message_text" => $e->getMessage()
             ], JSON_FORCE_OBJECT);
+        } finally {
+            // Close statement if it's still open
+            if (isset($stmt) && $stmt) {
+                mysqli_stmt_close($stmt);
+            }
+            // Close connection
+            if (isset($connect_var)) {
+                mysqli_close($connect_var);
+            }
         }
     }
     public function ResetDeviceFingerprint() {
         include(dirname(__FILE__) . '/../../config.inc');
         header('Content-Type: application/json');
         try {
-            $data = [];                       
+            error_log("ResetDeviceFingerprint starting with empID: {$this->empID}, organisationID: {$this->organisationID}");
+            
+            // Start transaction
+            mysqli_begin_transaction($connect_var);
 
             $ResetDeviceFingerprintQuery = "
                UPDATE tblEmployee 
-               SET deviceFingerprint = NULL 
-               WHERE empID = ?;";
+               SET deviceFingerprint = '' 
+               WHERE empID = ? AND organisationID = ?;";
 
+            error_log("ResetDeviceFingerprint query: " . $ResetDeviceFingerprintQuery);
 
             $stmt = mysqli_prepare($connect_var, $ResetDeviceFingerprintQuery);
             if (!$stmt) {
-                throw new Exception("Database prepare failed");
+                throw new Exception("Database prepare failed: " . mysqli_error($connect_var));
             }
 
-            mysqli_stmt_bind_param($stmt, "s", 
-                $this->empID
-            );
+            mysqli_stmt_bind_param($stmt, "si", $this->empID, $this->organisationID);
+            
+            // Log the actual values that will be used in the query
+            error_log("ResetDeviceFingerprint executing with params - empID: {$this->empID}, organisationID: {$this->organisationID}");
             
             if (!mysqli_stmt_execute($stmt)) {
-                throw new Exception("Database execute failed");
+                throw new Exception("Database execute failed: " . mysqli_error($connect_var));
             }
 
-            $result = mysqli_stmt_get_result($stmt);    
+            // Check if any rows were affected
+            $affected_rows = mysqli_stmt_affected_rows($stmt);
+            error_log("ResetDeviceFingerprint affected rows: {$affected_rows}");
+            
+            if ($affected_rows === 0) {
+                // Let's check if the employee exists
+                $checkQuery = "SELECT COUNT(*) as count FROM tblEmployee WHERE empID = ? AND organisationID = ?";
+                $checkStmt = mysqli_prepare($connect_var, $checkQuery);
+                mysqli_stmt_bind_param($checkStmt, "si", $this->empID, $this->organisationID);
+                mysqli_stmt_execute($checkStmt);
+                $result = mysqli_stmt_get_result($checkStmt);
+                $row = mysqli_fetch_assoc($result);
+                error_log("Employee existence check result: " . print_r($row, true));
+                mysqli_stmt_close($checkStmt);
+                
+                throw new Exception("No employee found with ID: " . $this->empID . " in organisation: " . $this->organisationID);
+            }
+
+            // Close the statement
+            mysqli_stmt_close($stmt);
+            
+            // Commit the transaction
+            mysqli_commit($connect_var);
+
             $ResetDeviceFingerprintResult = [];    
             $ResetDeviceFingerprintResult['status'] = "success";
             $ResetDeviceFingerprintResult['message_text'] = "Device fingerprint reset successfully";
+            $ResetDeviceFingerprintResult['affected_rows'] = $affected_rows;
             
             echo json_encode($ResetDeviceFingerprintResult, JSON_FORCE_OBJECT);
             
         } catch (Exception $e) {
+            // Rollback on error
+            if (isset($connect_var)) {
+                mysqli_rollback($connect_var);
+            }
+            error_log("ResetDeviceFingerprint error: " . $e->getMessage());
             echo json_encode([
                 "status" => "error",
                 "message_text" => $e->getMessage()
             ], JSON_FORCE_OBJECT);
+        } finally {
+            // Close statement if it's still open
+            if (isset($stmt) && $stmt) {
+                mysqli_stmt_close($stmt);
+            }
+            // Close connection
+            if (isset($connect_var)) {
+                mysqli_close($connect_var);
+            }
         }
     }
     public function ResetEmployeeActiveStatus() {
