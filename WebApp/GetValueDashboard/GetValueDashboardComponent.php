@@ -292,27 +292,26 @@ WHERE emp.isActive = 1
         try {
             $data = [];
             $queryIndividualNoOfCheckinsInHeadOffice = "SELECT 
-    emp.employeeName,
-    COALESCE(b.branchName, sec.sectionName) AS locationName,
-    emp.employeePhone
-FROM tblEmployee AS emp
-LEFT JOIN tblmapEmp AS m ON emp.employeeID = m.employeeID
-LEFT JOIN tblBranch AS b ON m.branchID = b.branchID
-LEFT JOIN tblAssignedSection AS assign ON emp.employeeID = assign.employeeID
-LEFT JOIN tblSection AS sec ON assign.sectionID = sec.sectionID
-LEFT JOIN tblAttendance AS att 
-    ON emp.employeeID = att.employeeID 
-    AND DATE(att.attendanceDate) = ?
-WHERE emp.isActive = 1
-  AND m.organisationID = ?
-  AND att.checkInTime IS NULL
-  AND emp.employeeID NOT IN (
-      SELECT employeeID
-      FROM tblApplyLeave
-      WHERE status = 'Approved' AND employeeID <> 888
-        AND ? BETWEEN fromDate AND toDate
-  );
-";
+                emp.employeeName,
+                COALESCE(b.branchName, sec.sectionName) AS locationName,
+                emp.employeePhone
+            FROM tblEmployee AS emp
+            LEFT JOIN tblmapEmp AS m ON emp.employeeID = m.employeeID
+            LEFT JOIN tblAssignedSection AS assign ON emp.employeeID = assign.employeeID
+            LEFT JOIN tblSection AS sec ON assign.sectionID = sec.sectionID
+            LEFT JOIN tblAttendance AS att 
+                ON emp.employeeID = att.employeeID 
+                AND DATE(att.attendanceDate) = ?
+            WHERE emp.isActive = 1
+            AND m.organisationID = ?
+            AND att.checkInTime IS NULL
+            AND emp.employeeID NOT IN (
+                SELECT employeeID
+                FROM tblApplyLeave
+                WHERE status = 'Approved' AND employeeID <> 888
+                    AND ? BETWEEN fromDate AND toDate
+            );
+            ";
 
             $debug_query = str_replace(
                 ['?', '?', '?'],
