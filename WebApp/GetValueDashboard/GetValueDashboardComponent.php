@@ -332,7 +332,7 @@ WHERE emp.isActive = 1
             if ($countEmployee > 0) {
                 echo json_encode([
                     "status" => "success",          
-                    "data" => $data
+                    "data" => $resultData
                 ]);
             } else {
                 echo json_encode([
