@@ -304,7 +304,7 @@ WHERE emp.isActive = 1
                 ON emp.employeeID = att.employeeID 
                 AND DATE(att.attendanceDate) = ?
             WHERE emp.isActive = 1
-            AND m.organisationID = ?
+            AND emp.organisationID = ?
             AND att.checkInTime IS NULL
             AND emp.employeeID NOT IN (
                 SELECT employeeID
@@ -324,6 +324,7 @@ WHERE emp.isActive = 1
                 $queryIndividualNoOfCheckinsInHeadOffice
             );
             echo $debug_query;
+            echo "Organisation ID: " . $this->organisationID;
             error_log("Debug Query: " . $debug_query);
 
             $stmt = mysqli_prepare($connect_var, $queryIndividualNoOfCheckinsInHeadOffice);
