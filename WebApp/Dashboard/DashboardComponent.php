@@ -111,7 +111,7 @@ class DashboardComponent{
             $queryActiveEmployeeDetails =   "SELECT
 
                 -- Total employees
-                (select count(*) from tblEmployee tblE INNER JOIN tblmapEmp tblMap on tblMap.employeeID = tblE.employeeID WHERE tblMap.branchID='$branchID' and tblE.organisationID='$organisationID' and tblE.isActive=1) AS totalEmployees,
+                (select count(*) from tblEmployee tblE INNER JOIN tblmapEmp tblMap on tblMap.employeeID = tblE.employeeID WHERE tblE.organisationID='$organisationID' and tblE.isActive=1) AS totalEmployees,
 
                 (SELECT count(*) FROM tblAttendance WHERE attendanceDate='$currentDate'  and checkInBranchID='$branchID') As checkedInToday,
 
@@ -127,7 +127,6 @@ class DashboardComponent{
                         JOIN tblmapEmp AS map ON l.employeeID = map.employeeID
                         WHERE '$currentDate' BETWEEN l.fromDate AND l.toDate 
                         AND map.organisationID = '$organisationID'
-                        AND map.branchID IN ('$branchID')
                         AND l.status = 'Approved') AS onLeave,
 
                 -- Logged-in devices
@@ -137,8 +136,26 @@ class DashboardComponent{
                 WHERE emp.deviceFingerprint IS NOT NULL 
                 AND emp.deviceFingerprint <> ''
                 AND emp.organisationID = '$organisationID'
-                AND map.branchID IN ('$branchID')
-                AND emp.isActive = 1) AS loginnedDevices
+                AND emp.isActive = 1) AS loginnedDevices,
+
+                -- Absentees (without branch filter)
+                (SELECT COUNT(DISTINCT e.employeeID)
+                FROM tblEmployee e
+                JOIN tblmapEmp m ON e.employeeID = m.employeeID
+                WHERE e.isActive = 1
+                AND m.organisationID = '$organisationID'
+                AND e.employeeID NOT IN (
+                    -- Not checked in
+                    SELECT DISTINCT a.employeeID 
+                    FROM tblAttendance a 
+                    WHERE a.attendanceDate = '$currentDate'
+                    UNION
+                    -- Not on approved leave
+                    SELECT DISTINCT l.employeeID
+                    FROM tblApplyLeave l
+                    WHERE '$currentDate' BETWEEN l.fromDate AND l.toDate 
+                    AND l.status = 'Approved'
+                )) AS absentees
 
             FROM (SELECT 1) AS dummy;";
 
@@ -160,7 +177,7 @@ class DashboardComponent{
                 $data['earlyCheckout'] = isset($row['earlyCheckout']) ? intval($row['earlyCheckout']) : 0;
                 $data['onLeave'] = isset($row['onLeave']) ? intval($row['onLeave']) : 0;
                 $data['loginnedDevices'] = isset($row['loginnedDevices']) ? intval($row['loginnedDevices']) : 0;
-                $data['absenteesinHO'] = $data['totalEmployees'] - ($data['checkedInToday'] + $data['onLeave']);
+                $data['absenteesinHO'] = isset($row['absentees']) ? intval($row['absentees']) : 0;
                 // Debug final data
                 error_log("Final Data: " . print_r($data, true));                
                 echo json_encode([

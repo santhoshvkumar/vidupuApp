@@ -68,19 +68,36 @@ $f3->route('POST /GetDesignationWiseLeaveReport',
 
 function GetManagementLeaveReport($decoded_items) {
     $ReportsObject = new ReportsComponent();
-    if ($ReportsObject->loadOrganisationID($decoded_items)) {
+    if ($ReportsObject->loadOrganisationID($decoded_items) &&
+        $ReportsObject->loadSelectedMonth($decoded_items)) {
         $ReportsObject->GetManagementLeaveReport();
     } else {
-        echo json_encode(array("status" => "error", "message_text" => "Invalid input parameters"), JSON_FORCE_OBJECT);
+        echo json_encode(array("status" => "error", "message_text" => "Invalid input parameters. Required: organisationID and selectedMonth"), JSON_FORCE_OBJECT);
     }
 }
 
 function GetDesignationWiseLeaveReport($decoded_items) {
+    error_log("GetDesignationWiseLeaveReport called with params: " . json_encode($decoded_items));
+    
     $ReportsObject = new ReportsComponent();
+    if (!isset($decoded_items['organisationID'])) {
+        error_log("Missing organisationID parameter");
+        echo json_encode(array("status" => "error", "message_text" => "Missing organisationID parameter"), JSON_FORCE_OBJECT);
+        return;
+    }
+    
+    if (!isset($decoded_items['selectedMonth'])) {
+        error_log("Missing selectedMonth parameter");
+        echo json_encode(array("status" => "error", "message_text" => "Missing selectedMonth parameter"), JSON_FORCE_OBJECT);
+        return;
+    }
+    
     if ($ReportsObject->loadOrganisationID($decoded_items) && 
         $ReportsObject->loadSelectedMonth($decoded_items)) {
+        error_log("Parameters loaded successfully, calling GetDesignationWiseLeaveReport");
         $ReportsObject->GetDesignationWiseLeaveReport();
     } else {
+        error_log("Failed to load parameters");
         echo json_encode(array("status" => "error", "message_text" => "Invalid input parameters"), JSON_FORCE_OBJECT);
     }
 }
