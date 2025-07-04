@@ -223,7 +223,7 @@ class DashboardComponent{
             AND map.organisationID = ?) AS checkedInToday,
 
             -- Late check-in (using branch-based logic like AttendanceOperationComponent)
-            (SELECT COUNT(*) FROM tblAttendance tblA INNER JOIN tblEmployee tblE on tblE.employeeID = tblA.employeeID INNER JOIN tblBranch tblB on tblB.branchID = tblA.checkInBranchID WHERE  tblA.attendanceDate='? and tblA.organisationID=? and tblA.isLateCheckIN=1) AS lateCheckin,
+            (SELECT COUNT(*) FROM tblAttendance tblA INNER JOIN tblEmployee tblE on tblE.employeeID = tblA.employeeID INNER JOIN tblBranch tblB on tblB.branchID = tblA.checkInBranchID WHERE  tblA.attendanceDate=? and tblA.organisationID=? and tblA.isLateCheckIN=1) AS lateCheckin,
 
             -- Early check-out (using branch-based logic like AttendanceOperationComponent)
             (SELECT COUNT(*)
