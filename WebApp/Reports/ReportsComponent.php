@@ -663,8 +663,6 @@ ORDER BY
         include(dirname(__FILE__) . '/../../config.inc');
         header('Content-Type: application/json');
         try {
-            error_log("Starting GetDesignationWiseLeaveReport with month: " . $this->selectedMonth);
-            
             // First get all dates in the selected month
             $dates = [];
             $daysInMonth = date('t', strtotime($this->selectedMonth));
@@ -675,96 +673,63 @@ ORDER BY
                 $dates[] = date('Y-m-d', strtotime($this->selectedMonth . '-' . $i));
             }
 
-            error_log("Processing dates from $monthStart to $monthEnd");
+            // Define the order of designations
+            $designationOrder = [
+                'Deputy General Manager',
+                'Assistant General Manager', 
+                'IT Specialist',
+                'PA to Executive',
+                'Chief Manager',
+                'Manager',
+                'Assistant Manager',
+                'System Admin',
+                'Assistant',
+                'Teller',
+                'Sub Staff',
+                'Intern',
+                'Sweeper'
+            ];
 
-            // Define designation order
-            $designationOrder = "CASE e.Designation
-                WHEN 'Deputy General Manager' THEN 1
-                WHEN 'Assistant General Manager' THEN 2
-                WHEN 'IT Specialist' THEN 3
-                WHEN 'PA TO EXECUTIVE' THEN 4
-                WHEN 'Chief Manager' THEN 5
-                WHEN 'Manager' THEN 6
-                WHEN 'Assistant Manager' THEN 7
-                WHEN 'Assistant' THEN 8
-                WHEN 'System Admin' THEN 9
-                WHEN 'Teller' THEN 10
-                WHEN 'Sub Staff' THEN 11
-                WHEN 'Sweeper' THEN 12
-                WHEN 'Intern' THEN 13
-                ELSE 14 END";
-
-            // Get leave data for the month
+            // Get leave data for the month - using a simpler approach
             $query = "
-                WITH RECURSIVE dates AS (
-                    SELECT 1 as day
-                    UNION ALL
-                    SELECT day + 1
-                    FROM dates
-                    WHERE day < DAY(LAST_DAY(?))
-                ),
-                leave_dates AS (
-                    SELECT 
-                        e.Designation,
-                        DATE(DATE_ADD(?, INTERVAL d.day - 1 DAY)) as leaveDate,
-                        e.employeeID,
-                        e.employeeName,
-                        e.empID,
-                        al.typeOfLeave
-                    FROM 
-                        tblEmployee e
-                    JOIN 
-                        tblApplyLeave al ON e.employeeID = al.employeeID
-                    CROSS JOIN 
-                        dates d
-                    WHERE 
-                        e.organisationID = ? AND
-                        e.isActive = 1 AND
-                        al.status = 'Approved' AND
-                        al.typeOfLeave IN ('Casual Leave', 'Privilege Leave', 'PrivilegeLeave(Medical Grounds)', 'Medical Leave') AND
-                        DATE(DATE_ADD(?, INTERVAL d.day - 1 DAY)) BETWEEN al.fromDate AND al.toDate
-                )
                 SELECT 
-                    ld.Designation,
-                    ld.leaveDate,
-                    COUNT(DISTINCT ld.employeeID) as employeeCount,
-                    GROUP_CONCAT(
-                        DISTINCT 
-                        CONCAT(
-                            ld.employeeName, 
-                            ' (', 
-                            ld.empID, 
-                            ' - ',
-                            CASE 
-                                WHEN ld.typeOfLeave = 'PrivilegeLeave(Medical Grounds)' THEN 'PL(Medical)'
-                                ELSE ld.typeOfLeave 
-                            END,
-                            ')'
-                        )
-                        ORDER BY ld.employeeName ASC
-                        SEPARATOR ', '
-                    ) as employeeDetails
+                    e.Designation,
+                    al.fromDate,
+                    al.toDate,
+                    e.employeeID,
+                    e.employeeName,
+                    e.empID,
+                    al.typeOfLeave
                 FROM 
-                    leave_dates ld
-                GROUP BY 
-                    ld.Designation, ld.leaveDate
+                    tblEmployee e
+                JOIN 
+                    tblApplyLeave al ON e.employeeID = al.employeeID
+                WHERE 
+                    e.organisationID = ? AND
+                    e.isActive = 1 AND
+                    al.status = 'Approved' AND
+                    al.typeOfLeave IN ('Casual Leave', 'Privilege Leave', 'PrivilegeLeave(Medical Grounds)', 'Medical Leave') AND
+                    (
+                        (al.fromDate >= ? AND al.fromDate <= ?) OR
+                        (al.toDate >= ? AND al.toDate <= ?) OR
+                        (al.fromDate <= ? AND al.toDate >= ?)
+                    )
                 ORDER BY 
-                    $designationOrder,
-                    ld.leaveDate";
+                    al.fromDate";
 
-            error_log("Executing query with params: org=" . $this->organisationID . ", month=" . $this->selectedMonth);
-            
             $stmt = mysqli_prepare($connect_var, $query);
             if (!$stmt) {
-                error_log("Database prepare failed: " . mysqli_error($connect_var));
                 throw new Exception("Database prepare failed: " . mysqli_error($connect_var));
             }
 
-            mysqli_stmt_bind_param($stmt, "ssss", 
-                $this->selectedMonth,
-                $monthStart,
+            mysqli_stmt_bind_param($stmt, "sssssss", 
                 $this->organisationID,
-                $monthStart
+                $monthStart,
+                $monthEnd,
+                $monthStart,
+                $monthEnd,
+                $monthStart,
+                $monthEnd
             );
             
             if (!mysqli_stmt_execute($stmt)) {
@@ -775,37 +740,64 @@ ORDER BY
             $result = mysqli_stmt_get_result($stmt);
             $leaveData = [];
             while ($row = mysqli_fetch_assoc($result)) {
-                error_log("Processing row: " . json_encode($row));
                 if (!isset($leaveData[$row['Designation']])) {
                     $leaveData[$row['Designation']] = [
                         'counts' => array_fill(0, $daysInMonth, 0),
                         'details' => array_fill(0, $daysInMonth, '')
                     ];
                 }
-                $day = (int)date('d', strtotime($row['leaveDate'])) - 1;
-                $leaveData[$row['Designation']]['counts'][$day] = (int)$row['employeeCount'];
-                $leaveData[$row['Designation']]['details'][$day] = $row['employeeDetails'];
+                
+                // Process each day in the leave period
+                $fromDate = new DateTime($row['fromDate']);
+                $toDate = new DateTime($row['toDate']);
+                $monthStartDate = new DateTime($monthStart);
+                $monthEndDate = new DateTime($monthEnd);
+                
+                // Adjust dates to be within the month
+                $startDate = max($fromDate, $monthStartDate);
+                $endDate = min($toDate, $monthEndDate);
+                
+                $typeOfLeave = $row['typeOfLeave'] == 'PrivilegeLeave(Medical Grounds)' ? 'PL(Medical)' : $row['typeOfLeave'];
+                $employeeDetail = $row['employeeName'] . ' (' . $row['empID'] . ' - ' . $typeOfLeave . ')';
+                
+                while ($startDate <= $endDate) {
+                    $day = (int)$startDate->format('d') - 1;
+                    $leaveData[$row['Designation']]['counts'][$day]++;
+                    if ($leaveData[$row['Designation']]['details'][$day] != '') {
+                        $leaveData[$row['Designation']]['details'][$day] .= ', ';
+                    }
+                    $leaveData[$row['Designation']]['details'][$day] .= $employeeDetail;
+                    $startDate->add(new DateInterval('P1D'));
+                }
             }
 
             mysqli_stmt_close($stmt);
 
-            // Format the response
+            // Format the response with all designations in order
             $formattedReport = [];
-            foreach ($leaveData as $designation => $data) {
+            foreach ($designationOrder as $designation) {
                 $row = [
                     'designation' => $designation
                 ];
-                foreach ($data['counts'] as $index => $count) {
-                    $row['day_' . ($index + 1)] = $count;
-                    if ($count > 0) {
-                        $row['details_' . ($index + 1)] = $data['details'][$index];
+                
+                // Initialize all days with 0 count
+                for ($i = 0; $i < $daysInMonth; $i++) {
+                    $row['day_' . ($i + 1)] = 0;
+                }
+                
+                // If this designation has leave data, use it
+                if (isset($leaveData[$designation])) {
+                    foreach ($leaveData[$designation]['counts'] as $index => $count) {
+                        $row['day_' . ($index + 1)] = $count;
+                        if ($count > 0) {
+                            $row['details_' . ($index + 1)] = $leaveData[$designation]['details'][$index];
+                        }
                     }
                 }
+                
                 $formattedReport[] = $row;
             }
 
-            error_log("Sending response with " . count($formattedReport) . " designations");
-            
             $response = [
                 "status" => "success",
                 "data" => [
@@ -814,11 +806,9 @@ ORDER BY
                 ]
             ];
             
-            error_log("Final response: " . json_encode($response));
             echo json_encode($response);
 
         } catch (Exception $e) {
-            error_log("Error in GetDesignationWiseLeaveReport: " . $e->getMessage());
             echo json_encode([
                 "status" => "error",
                 "message_text" => $e->getMessage()
