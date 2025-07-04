@@ -480,18 +480,10 @@ WHERE emp.isActive = 1
             CAST(MIN(att.checkOutTime) AS CHAR) AS checkOutTime,
             COUNT(
                 CASE
-                    -- Early checkout rule for employeeIDs 72, 73, 75
-                    WHEN emp.employeeID IN (72, 73, 75) AND att.checkOutTime < '15:00:00' THEN 1
-        
-                    -- Early checkout rule for employeeIDs 24, 27
-                    WHEN emp.employeeID IN (24, 27) AND att.checkOutTime < '18:00:00' THEN 1
-        
-                    -- Early checkout rule for branches 1 
-                    WHEN m.branchID IN (1) AND att.checkOutTime < '17:00:00' THEN 1
-        
-                    -- Early checkout rule for branches 2 to 52
-                    WHEN m.branchID BETWEEN 2 AND 52 AND att.checkOutTime < '16:30:00' THEN 1
-        
+                    -- Early checkout rule using branch-based logic
+                    WHEN b.checkOutTime IS NOT NULL 
+                    AND att.checkOutTime IS NOT NULL 
+                    AND att.checkOutTime < b.checkOutTime THEN 1
                     ELSE NULL
                 END
             ) AS early_checkout
@@ -505,16 +497,20 @@ WHERE emp.isActive = 1
           AND m.branchID IN (?) 
           AND m.organisationID = ?
           AND emp.employeeID <> 888
+          AND att.checkOutTime IS NOT NULL
+          AND (att.checkInBranchID = ? OR att.checkOutBranchID = ?)
         GROUP BY emp.employeeName, locationName, emp.employeePhone, emp.employeeID
         HAVING early_checkout > 0;";
         
     
             $debug_query = str_replace(
-                ['?', '?', '?'],  
+                ['?', '?', '?', '?', '?'],  
                 [
                     "'" . $this->currentDate . "'",
                     "'" . $this->branchID . "'",   
                     "'" . $this->organisationID . "'",
+                    "'" . $this->branchID . "'",
+                    "'" . $this->branchID . "'",
                 ],
                 $queryIndividualNoOfCheckinsInHeadOffice
             );
@@ -526,7 +522,7 @@ WHERE emp.isActive = 1
                 throw new Exception("Database prepare failed");
             }
 
-            mysqli_stmt_bind_param($stmt, "sss", $this->currentDate, $this->branchID, $this->organisationID);
+            mysqli_stmt_bind_param($stmt, "sssss", $this->currentDate, $this->branchID, $this->organisationID, $this->branchID, $this->branchID);
             
             if (!mysqli_stmt_execute($stmt)) {
                 error_log("Execute failed: " . mysqli_stmt_error($stmt));
@@ -535,8 +531,10 @@ WHERE emp.isActive = 1
 
             $result = mysqli_stmt_get_result($stmt);
             $countEmployee = 0;
+            error_log("Debug Early Checkout List Employees:");
             while ($row = mysqli_fetch_assoc($result)) {
                 $countEmployee++;
+                error_log("List Employee: " . $row['employeeName'] . " (ID: " . $row['employeeID'] . ") - CheckOut: " . $row['checkOutTime']);
                 $data[] = $row;
             }
             if ($countEmployee > 0) {
@@ -573,18 +571,10 @@ WHERE emp.isActive = 1
             CAST(MIN(att.checkOutTime) AS CHAR) AS checkOutTime,
             COUNT(
                 CASE
-                    -- Early checkout rule for employeeIDs 72, 73, 75
-                    WHEN emp.employeeID IN (72, 73, 75) AND att.checkOutTime < '15:00:00' THEN 1
-        
-                    -- Early checkout rule for employeeIDs 24, 27
-                    WHEN emp.employeeID IN (24, 27) AND att.checkOutTime < '18:00:00' THEN 1
-        
-                    -- Early checkout rule for branches 1 
-                    WHEN m.branchID IN (1) AND att.checkOutTime < '17:00:00' THEN 1
-        
-                    -- Early checkout rule for branches 2 to 52
-                    WHEN m.branchID BETWEEN 2 AND 52 AND att.checkOutTime < '16:30:00' THEN 1
-        
+                    -- Early checkout rule using branch-based logic
+                    WHEN b.checkOutTime IS NOT NULL 
+                    AND att.checkOutTime IS NOT NULL 
+                    AND att.checkOutTime < b.checkOutTime THEN 1
                     ELSE NULL
                 END
             ) AS early_checkout

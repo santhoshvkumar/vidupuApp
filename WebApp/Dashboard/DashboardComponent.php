@@ -119,7 +119,18 @@ class DashboardComponent{
                 (SELECT count(*) FROM tblAttendance WHERE checkInBranchID='$branchID' and attendanceDate='$currentDate' and isLateCheckIN='1') AS lateCheckin,
 
                 -- Early check-out (using branch-based logic like AttendanceOperationComponent)
-                (SELECT count(*) FROM tblAttendance WHERE checkInBranchID='$branchID' and attendanceDate='$currentDate' and isEarlyCheckOut='1') AS earlyCheckout,
+                (SELECT COUNT(*)
+                FROM tblAttendance AS a
+                JOIN tblEmployee AS emp ON a.employeeID = emp.employeeID
+                JOIN tblmapEmp AS m ON emp.employeeID = m.employeeID
+                LEFT JOIN tblBranch AS b ON m.branchID = b.branchID AND m.branchID <> 1
+                WHERE a.attendanceDate = '$currentDate'
+                AND m.branchID = '$branchID'
+                AND a.checkOutTime IS NOT NULL
+                AND b.checkOutTime IS NOT NULL
+                AND a.checkOutTime < b.checkOutTime
+                AND m.branchID NOT IN (55, 56)
+                AND (a.checkInBranchID = '$branchID' OR a.checkOutBranchID = '$branchID')) AS earlyCheckout,
 
                 -- On Leave
                 (SELECT COUNT(*)
@@ -170,6 +181,32 @@ class DashboardComponent{
             $row = mysqli_fetch_assoc($rsd);
             // Debug the result
             error_log("Query Result: " . print_r($row, true));
+            
+            // Debug: Show exactly which employees are being counted as early check-out
+            $debugEarlyCheckoutQuery = "SELECT 
+                emp.employeeName, emp.employeeID,
+                a.checkInBranchID, a.checkOutBranchID, a.checkOutTime,
+                b.branchName, b.checkOutTime as branchCheckOutTime
+            FROM tblAttendance AS a
+            JOIN tblEmployee AS emp ON a.employeeID = emp.employeeID
+            JOIN tblmapEmp AS m ON emp.employeeID = m.employeeID
+            LEFT JOIN tblBranch AS b ON m.branchID = b.branchID AND m.branchID <> 1
+            WHERE a.attendanceDate = '$currentDate'
+            AND m.branchID = '$branchID'
+            AND a.checkOutTime IS NOT NULL
+            AND b.checkOutTime IS NOT NULL
+            AND a.checkOutTime < b.checkOutTime
+            AND m.branchID NOT IN (55, 56)
+            AND (a.checkInBranchID = '$branchID' OR a.checkOutBranchID = '$branchID')";
+            
+            $debugResult = mysqli_query($connect_var, $debugEarlyCheckoutQuery);
+            if ($debugResult) {
+                error_log("Debug Early Checkout Employees:");
+                while ($debugRow = mysqli_fetch_assoc($debugResult)) {
+                    error_log("Employee: " . $debugRow['employeeName'] . " (ID: " . $debugRow['employeeID'] . ") - CheckOut: " . $debugRow['checkOutTime'] . " vs Branch: " . $debugRow['branchCheckOutTime']);
+                }
+            }
+            
             if ($row) {                
                 $data['totalEmployees'] = isset($row['totalEmployees']) ? intval($row['totalEmployees']) : 0;
                 $data['checkedInToday'] = isset($row['checkedInToday']) ? intval($row['checkedInToday']) : 0;
@@ -228,13 +265,16 @@ class DashboardComponent{
             -- Early check-out (using branch-based logic like AttendanceOperationComponent)
             (SELECT COUNT(*)
             FROM tblAttendance AS a
-            JOIN tblBranch b ON a.checkInBranchID = b.branchID
+            JOIN tblEmployee AS emp ON a.employeeID = emp.employeeID
+            JOIN tblmapEmp AS m ON emp.employeeID = m.employeeID
+            LEFT JOIN tblBranch AS b ON m.branchID = b.branchID AND m.branchID <> 1
             WHERE a.attendanceDate = ? 
-            AND a.organisationID = ?
+            AND m.organisationID = ?
             AND a.checkOutTime IS NOT NULL
             AND b.checkOutTime IS NOT NULL
             AND a.checkOutTime < b.checkOutTime
-            AND a.checkInBranchID NOT IN (55, 56)) AS earlyCheckout,
+            AND m.branchID NOT IN (55, 56)
+            AND (a.checkInBranchID = ? OR a.checkOutBranchID = ?)) AS earlyCheckout,
 
             -- On leave
            (SELECT COUNT(*)
@@ -253,14 +293,18 @@ class DashboardComponent{
             AND emp.isActive = 1) AS loginnedDevices
         FROM (SELECT 1) AS dummy;";
             $debug_query = str_replace(
-                ['?', '?', '?', '?', '?', '?', '?', '?', '?', '?'],
+                ['?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?'],
                 [   
                     "'" . $this->organisationID . "'",
                     "'" . $this->currentDate . "'",
                     "'" . $this->organisationID . "'",
+                    "'" . $this->organisationID . "'",
+                    "'" . $this->organisationID . "'",
                     "'" . $this->currentDate . "'",
                     "'" . $this->organisationID . "'",
                     "'" . $this->currentDate . "'",
+                    "'" . $this->organisationID . "'",
+                    "'" . $this->organisationID . "'",
                     "'" . $this->organisationID . "'",
                     "'" . $this->currentDate . "'",
                     "'" . $this->organisationID . "'",
@@ -276,17 +320,20 @@ class DashboardComponent{
                 throw new Exception("Database prepare failed");
             }
 
-            mysqli_stmt_bind_param($stmt, "ssssssssss", 
+            mysqli_stmt_bind_param($stmt, "sssssssssssss", 
                 $this->organisationID,  // for checkedInToday
                 $this->currentDate, // for checkedInToday
                 $this->organisationID, // for lateCheckin
                 $this->currentDate, // for lateCheckin
                 $this->organisationID, // for earlyCheckout
                 $this->currentDate, // for earlyCheckout
+                $this->organisationID, // for earlyCheckout (checkInBranchID)
+                $this->organisationID, // for earlyCheckout (checkOutBranchID)
                 $this->organisationID, // for onLeave
                 $this->currentDate, // for onLeave
                 $this->organisationID, // for loginnedDevices
                 $this->organisationID, // for loginnedDevices
+                $this->organisationID  // for loginnedDevices
             );
                 
             if (!mysqli_stmt_execute($stmt)) {
