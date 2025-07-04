@@ -735,25 +735,25 @@ HAVING on_leave > 0;
         try {       
             $data = [];                       
             $queryIndividualNoOfCheckinsInHeadOffice = "SELECT 
-    emp.employeeName,
-    COALESCE(sec.sectionName, b.branchName) AS locationName,
-    emp.employeePhone,
-    COUNT(
-        CASE 
-            WHEN DATE(?) BETWEEN lv.fromDate AND lv.toDate THEN 1 
-            ELSE NULL
-        END
-    ) AS on_leave
-FROM tblEmployee AS emp
-JOIN tblmapEmp AS m ON emp.employeeID = m.employeeID
-LEFT JOIN tblAssignedSection AS assign ON emp.employeeID = assign.employeeID
-LEFT JOIN tblSection AS sec ON assign.sectionID = sec.sectionID AND m.branchID = 1
-LEFT JOIN tblBranch AS b ON m.branchID = b.branchID AND m.branchID <> 1
-JOIN tblApplyLeave AS lv ON emp.employeeID = lv.employeeID
-WHERE lv.status = 'Approved' AND m.organisationID = ? AND emp.employeeID <> 888
-GROUP BY emp.employeeName, locationName, emp.employeePhone
-HAVING on_leave > 0;
-";
+                    emp.employeeName,
+                    COALESCE(sec.sectionName, b.branchName) AS locationName,
+                    emp.employeePhone,
+                    COUNT(
+                        CASE 
+                            WHEN DATE(?) BETWEEN lv.fromDate AND lv.toDate THEN 1 
+                            ELSE NULL
+                        END
+                    ) AS on_leave
+                FROM tblEmployee AS emp
+                JOIN tblmapEmp AS m ON emp.employeeID = m.employeeID
+                LEFT JOIN tblAssignedSection AS assign ON emp.employeeID = assign.employeeID
+                LEFT JOIN tblSection AS sec ON assign.sectionID = sec.sectionID AND m.branchID = 1
+                LEFT JOIN tblBranch AS b ON m.branchID = b.branchID AND m.branchID <> 1
+                JOIN tblApplyLeave AS lv ON emp.employeeID = lv.employeeID
+                WHERE lv.status = 'Approved' AND m.organisationID = ? AND emp.employeeID <> 888
+                GROUP BY emp.employeeName, locationName, emp.employeePhone
+                HAVING on_leave > 0;
+            ";
 
             $debug_query = str_replace(
                 ['?', '?'],
@@ -902,37 +902,7 @@ HAVING on_leave > 0;
         header('Content-Type: application/json');
         try {       
             $data = [];                       
-            $queryIndividualNoOfCheckinsInHeadOffice = "SELECT 
-            emp.employeeName,
-            COALESCE(sec.sectionName, b.branchName) AS locationName,
-            emp.employeePhone,
-            CAST(MIN(att.checkInTime) AS CHAR) AS checkInTime,
-            COUNT(
-                CASE
-                    -- Custom late rule for employeeIDs 72, 73, 75
-                    WHEN emp.employeeID IN (72, 73, 75) AND att.checkInTime > '08:10:00' THEN 1
-
-                    -- Custom late rule for employeeIDs 24, 27
-                    WHEN emp.employeeID IN (24, 27) AND att.checkInTime > '11:10:00' THEN 1
-        
-                    -- Late rule for branches 1
-                    WHEN m.branchID IN (1) AND att.checkInTime > '10:10:00' THEN 1
-        
-                    -- Late rule for branches 2 to 52
-                    WHEN m.branchID BETWEEN 2 AND 52 AND att.checkInTime > '09:25:00' THEN 1
-        
-                    ELSE NULL
-                END
-            ) AS late_checkin
-        FROM tblEmployee AS emp
-        JOIN tblmapEmp AS m ON emp.employeeID = m.employeeID
-        LEFT JOIN tblAssignedSection AS assign ON emp.employeeID = assign.employeeID
-        LEFT JOIN tblSection AS sec ON assign.sectionID = sec.sectionID AND m.branchID = 1
-        LEFT JOIN tblBranch AS b ON m.branchID = b.branchID AND m.branchID <> 1
-        JOIN tblAttendance AS att ON emp.employeeID = att.employeeID
-        WHERE DATE(att.attendanceDate) = ? AND m.organisationID = ? AND emp.employeeID <> 888
-        GROUP BY emp.employeeName, locationName, emp.employeePhone
-        HAVING late_checkin > 0;";
+            $queryIndividualNoOfCheckinsInHeadOffice = "SELECT tblA.employeeID, COALESCE(tblS.SectionName, tblB.branchName) AS locationName, tblA.checkInTime, tblE.employeeName, tblE.employeePhone FROM tblAttendance tblA INNER JOIN tblEmployee tblE on tblE.employeeID = tblA.employeeID LEFT JOIN tblAssignedSection tblAS on tblAS.employeeID = tblA.employeeID LEFT JOIN tblSection tblS on tblS.SectionID = tblAS.sectionID INNER JOIN tblBranch tblB on tblB.branchID = tblA.checkInBranchID WHERE tblA.attendanceDate=? and tblA.organisationID=? and tblA.isLateCheckIN=1;";
         
 
             $debug_query = str_replace(
