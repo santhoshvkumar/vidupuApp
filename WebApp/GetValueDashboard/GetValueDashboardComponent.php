@@ -291,62 +291,47 @@ WHERE emp.isActive = 1
         header('Content-Type: application/json');
         try {
             $data = [];
+
+            $currentDate = mysqli_real_escape_string($connect_var, $this->currentDate);
+            $organisationID = mysqli_real_escape_string($connect_var, $this->organisationID);
             $queryIndividualNoOfCheckinsInHeadOffice = "SELECT 
-    emp.employeeName,
-    COALESCE(b.branchName, sec.sectionName) AS locationName,
-    emp.employeePhone
-FROM tblEmployee AS emp
-LEFT JOIN tblmapEmp AS m ON emp.employeeID = m.employeeID
-LEFT JOIN tblBranch AS b ON m.branchID = b.branchID
-LEFT JOIN tblAssignedSection AS assign ON emp.employeeID = assign.employeeID
-LEFT JOIN tblSection AS sec ON assign.sectionID = sec.sectionID
-LEFT JOIN tblAttendance AS att 
-    ON emp.employeeID = att.employeeID 
-    AND DATE(att.attendanceDate) = ?
-WHERE emp.isActive = 1
-  AND m.organisationID = ?
-  AND att.checkInTime IS NULL
-  AND emp.employeeID NOT IN (
-      SELECT employeeID
-      FROM tblApplyLeave
-      WHERE status = 'Approved' AND employeeID <> 888
-        AND ? BETWEEN fromDate AND toDate
-  );
-";
-
-            $debug_query = str_replace(
-                ['?', '?', '?'],
-                [
-                    "'" . $this->currentDate . "'",
-                    "'" . $this->organisationID . "'",
-                    "'" . $this->currentDate . "'",
-                ],
-                $queryIndividualNoOfCheckinsInHeadOffice
+                emp.employeeName,
+                COALESCE(b.branchName, sec.sectionName) AS locationName,
+                emp.employeePhone
+            FROM tblEmployee AS emp
+            LEFT JOIN tblmapEmp AS m ON emp.employeeID = m.employeeID
+            LEFT JOIN tblBranch AS b ON m.branchID = b.branchID
+            LEFT JOIN tblAssignedSection AS assign ON emp.employeeID = assign.employeeID
+            LEFT JOIN tblSection AS sec ON assign.sectionID = sec.sectionID
+            LEFT JOIN tblAttendance AS att 
+                ON emp.employeeID = att.employeeID 
+                AND DATE(att.attendanceDate) = '$currentDate'
+            WHERE emp.isActive = 1
+            AND emp.organisationID = '$organisationID'
+            AND att.checkInTime IS NULL
+            AND emp.employeeID NOT IN (
+                SELECT employeeID
+                FROM tblApplyLeave
+                WHERE status = 'Approved' AND employeeID <> 888
+                    AND '$currentDate' BETWEEN fromDate AND toDate
             );
-            error_log("Debug Query: " . $debug_query);
-
-            $stmt = mysqli_prepare($connect_var, $queryIndividualNoOfCheckinsInHeadOffice);
-            if (!$stmt) {           
-                throw new Exception("Database prepare failed");
+            ";
+            $rsd = mysqli_query($connect_var, $queryIndividualNoOfCheckinsInHeadOffice);
+            if (!$rsd) {
+                error_log("Query failed: " . mysqli_error($connect_var));
+                throw new Exception("Database query failed");
             }
-
-            mysqli_stmt_bind_param($stmt, "sss", $this->currentDate, $this->organisationID, $this->currentDate);
-
-            if (!mysqli_stmt_execute($stmt)) {  
-                throw new Exception("Database execute failed");
-            }
-
-            $result = mysqli_stmt_get_result($stmt);
             $countEmployee = 0;
-            while ($row = mysqli_fetch_assoc($result)) {
-                $countEmployee++;   
-                $data[] = $row;
+            $resultData = [];
+            while ($row = mysqli_fetch_assoc($rsd)) {
+                $resultData[] = $row;
+                $countEmployee++;
             }
 
             if ($countEmployee > 0) {
                 echo json_encode([
                     "status" => "success",          
-                    "data" => $data
+                    "data" => $resultData
                 ]);
             } else {
                 echo json_encode([
@@ -355,7 +340,6 @@ WHERE emp.isActive = 1
                 ], JSON_FORCE_OBJECT);  
             }
 
-            mysqli_stmt_close($stmt);
             mysqli_close($connect_var);
         } catch (Exception $e) {
             error_log("Error in GetValueDashboardforCheckin: " . $e->getMessage());
