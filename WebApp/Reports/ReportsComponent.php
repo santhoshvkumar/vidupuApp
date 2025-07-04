@@ -431,7 +431,23 @@ WHERE e.isActive = 1 AND e.isTemporary = 0
   AND DATE_ADD(?, INTERVAL n.n DAY) <= ?
 
 GROUP BY e.Designation, n.n
-ORDER BY AttendanceDate, e.Designation;
+ORDER BY 
+    CASE e.Designation
+        WHEN 'Assistant Deputy Manager' THEN 1
+        WHEN 'PA TO EXECUTIVE' THEN 2
+        WHEN 'IT Specialist' THEN 3
+        WHEN 'Deputy General Manager' THEN 4
+        WHEN 'Assistant General Manager' THEN 5
+        WHEN 'Assistant' THEN 6
+        WHEN 'Chief Manager' THEN 7
+        WHEN 'Manager' THEN 8
+        WHEN 'Assistant Manager' THEN 9
+        WHEN 'Sub Staff' THEN 10
+        WHEN 'Sweeper' THEN 11
+        ELSE 12
+    END,
+    e.Designation,
+    AttendanceDate;
 ";
 
             $debug_query = str_replace(
@@ -662,15 +678,18 @@ ORDER BY AttendanceDate, e.Designation;
 
             // Define designation order
             $designationOrder = "CASE e.Designation
-                WHEN 'Deputy General Manager' THEN 1
-                WHEN 'Assistant General Manager' THEN 2
-                WHEN 'Assistant' THEN 3
-                WHEN 'Chief Manager' THEN 4
-                WHEN 'Manager' THEN 5
-                WHEN 'Assistant Manager' THEN 6
-                WHEN 'Sub Staff' THEN 7
-                WHEN 'Sweeper' THEN 8
-                ELSE 9 END";
+                WHEN 'Assistant Deputy Manager' THEN 1
+                WHEN 'PA TO EXECUTIVE' THEN 2
+                WHEN 'IT Specialist' THEN 3
+                WHEN 'Deputy General Manager' THEN 4
+                WHEN 'Assistant General Manager' THEN 5
+                WHEN 'Assistant' THEN 6
+                WHEN 'Chief Manager' THEN 7
+                WHEN 'Manager' THEN 8
+                WHEN 'Assistant Manager' THEN 9
+                WHEN 'Sub Staff' THEN 10
+                WHEN 'Sweeper' THEN 11
+                ELSE 12 END";
 
             // Get leave data for the month
             $query = "
