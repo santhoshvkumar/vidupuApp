@@ -433,19 +433,20 @@ WHERE e.isActive = 1 AND e.isTemporary = 0
 GROUP BY e.Designation, n.n
 ORDER BY 
     CASE e.Designation
-        WHEN 'Assistant Deputy Manager' THEN 1
-        WHEN 'PA TO EXECUTIVE' THEN 2
+        WHEN 'Deputy General Manager' THEN 1
+        WHEN 'Assistant General Manager' THEN 2
         WHEN 'IT Specialist' THEN 3
-        WHEN 'Deputy General Manager' THEN 4
-        WHEN 'Assistant General Manager' THEN 5
-        WHEN 'Assistant' THEN 6
-        WHEN 'Chief Manager' THEN 7
-        WHEN 'Manager' THEN 8
-        WHEN 'Assistant Manager' THEN 9
-        WHEN 'Sub Staff' THEN 10
-        WHEN 'Sweeper' THEN 11
-        ELSE 12
-    END,
+        WHEN 'PA TO EXECUTIVE' THEN 4
+        WHEN 'Chief Manager' THEN 5
+        WHEN 'Manager' THEN 6
+        WHEN 'Assistant Manager' THEN 7
+        WHEN 'Assistant' THEN 8
+        WHEN 'System Admin' THEN 9
+        WHEN 'Teller' THEN 10
+        WHEN 'Sub Staff' THEN 11
+        WHEN 'Sweeper' THEN 12
+        WHEN 'Intern' THEN 13
+        ELSE 14 END,
     e.Designation,
     AttendanceDate;
 ";
@@ -678,60 +679,78 @@ ORDER BY
 
             // Define designation order
             $designationOrder = "CASE e.Designation
-                WHEN 'Assistant Deputy Manager' THEN 1
-                WHEN 'PA TO EXECUTIVE' THEN 2
+                WHEN 'Deputy General Manager' THEN 1
+                WHEN 'Assistant General Manager' THEN 2
                 WHEN 'IT Specialist' THEN 3
-                WHEN 'Deputy General Manager' THEN 4
-                WHEN 'Assistant General Manager' THEN 5
-                WHEN 'Assistant' THEN 6
-                WHEN 'Chief Manager' THEN 7
-                WHEN 'Manager' THEN 8
-                WHEN 'Assistant Manager' THEN 9
-                WHEN 'Sub Staff' THEN 10
-                WHEN 'Sweeper' THEN 11
-                ELSE 12 END";
+                WHEN 'PA TO EXECUTIVE' THEN 4
+                WHEN 'Chief Manager' THEN 5
+                WHEN 'Manager' THEN 6
+                WHEN 'Assistant Manager' THEN 7
+                WHEN 'Assistant' THEN 8
+                WHEN 'System Admin' THEN 9
+                WHEN 'Teller' THEN 10
+                WHEN 'Sub Staff' THEN 11
+                WHEN 'Sweeper' THEN 12
+                WHEN 'Intern' THEN 13
+                ELSE 14 END";
 
             // Get leave data for the month
             $query = "
+                WITH RECURSIVE dates AS (
+                    SELECT 1 as day
+                    UNION ALL
+                    SELECT day + 1
+                    FROM dates
+                    WHERE day < DAY(LAST_DAY(?))
+                ),
+                leave_dates AS (
+                    SELECT 
+                        e.Designation,
+                        DATE(DATE_ADD(?, INTERVAL d.day - 1 DAY)) as leaveDate,
+                        e.employeeID,
+                        e.employeeName,
+                        e.empID,
+                        al.typeOfLeave
+                    FROM 
+                        tblEmployee e
+                    JOIN 
+                        tblApplyLeave al ON e.employeeID = al.employeeID
+                    CROSS JOIN 
+                        dates d
+                    WHERE 
+                        e.organisationID = ? AND
+                        e.isActive = 1 AND
+                        al.status = 'Approved' AND
+                        al.typeOfLeave IN ('Casual Leave', 'Privilege Leave', 'PrivilegeLeave(Medical Grounds)', 'Medical Leave') AND
+                        DATE(DATE_ADD(?, INTERVAL d.day - 1 DAY)) BETWEEN al.fromDate AND al.toDate
+                )
                 SELECT 
-                    e.Designation,
-                    al.fromDate as leaveDate,
-                    COUNT(DISTINCT e.employeeID) as employeeCount,
+                    ld.Designation,
+                    ld.leaveDate,
+                    COUNT(DISTINCT ld.employeeID) as employeeCount,
                     GROUP_CONCAT(
                         DISTINCT 
                         CONCAT(
-                            e.employeeName, 
+                            ld.employeeName, 
                             ' (', 
-                            e.empID, 
+                            ld.empID, 
                             ' - ',
                             CASE 
-                                WHEN al.typeOfLeave = 'PrivilegeLeave(Medical Grounds)' THEN 'PL(Medical)'
-                                ELSE al.typeOfLeave 
+                                WHEN ld.typeOfLeave = 'PrivilegeLeave(Medical Grounds)' THEN 'PL(Medical)'
+                                ELSE ld.typeOfLeave 
                             END,
                             ')'
                         )
-                        ORDER BY e.employeeName ASC
+                        ORDER BY ld.employeeName ASC
                         SEPARATOR ', '
                     ) as employeeDetails
                 FROM 
-                    tblEmployee e
-                JOIN 
-                    tblApplyLeave al ON e.employeeID = al.employeeID
-                WHERE 
-                    e.organisationID = ? AND
-                    e.isActive = 1 AND
-                    al.status = 'Approved' AND
-                    al.typeOfLeave IN ('Casual Leave', 'Privilege Leave', 'PrivilegeLeave(Medical Grounds)', 'Medical Leave') AND
-                    (
-                        (al.fromDate BETWEEN ? AND ?) OR
-                        (al.toDate BETWEEN ? AND ?) OR
-                        (al.fromDate <= ? AND al.toDate >= ?)
-                    )
+                    leave_dates ld
                 GROUP BY 
-                    e.Designation, al.fromDate
+                    ld.Designation, ld.leaveDate
                 ORDER BY 
                     $designationOrder,
-                    al.fromDate";
+                    ld.leaveDate";
 
             error_log("Executing query with params: org=" . $this->organisationID . ", month=" . $this->selectedMonth);
             
@@ -741,14 +760,11 @@ ORDER BY
                 throw new Exception("Database prepare failed: " . mysqli_error($connect_var));
             }
 
-            mysqli_stmt_bind_param($stmt, "issssss", 
+            mysqli_stmt_bind_param($stmt, "ssss", 
+                $this->selectedMonth,
+                $monthStart,
                 $this->organisationID,
-                $monthStart,
-                $monthEnd,
-                $monthStart,
-                $monthEnd,
-                $monthStart,
-                $monthEnd
+                $monthStart
             );
             
             if (!mysqli_stmt_execute($stmt)) {
