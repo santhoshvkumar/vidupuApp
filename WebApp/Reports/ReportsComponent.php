@@ -358,7 +358,7 @@ ORDER BY l.createdOn DESC;";
         try {
             $data = [];
             $queryforGetAttendanceReport = "SELECT
-    e.Designation,
+    e.designation,
     DATE_ADD(?, INTERVAL n.n DAY) AS AttendanceDate,
     SUM(CASE WHEN b.BranchName = 'Head Office' THEN 1 ELSE 0 END) AS HeadOffice_Total,
     SUM(CASE WHEN b.BranchName <> 'Head Office' THEN 1 ELSE 0 END) AS Branch_Total,
@@ -430,9 +430,9 @@ LEFT JOIN tblApplyLeave l
 WHERE e.isActive = 1 AND e.isTemporary = 0
   AND DATE_ADD(?, INTERVAL n.n DAY) <= ?
 
-GROUP BY e.Designation, n.n
+GROUP BY e.designation, n.n
 ORDER BY 
-    CASE e.Designation
+    CASE e.designation
         WHEN 'Deputy General Manager' THEN 1
         WHEN 'Assistant General Manager' THEN 2
         WHEN 'IT Specialist' THEN 3
@@ -447,7 +447,7 @@ ORDER BY
         WHEN 'Sweeper' THEN 12
         WHEN 'Intern' THEN 13
         ELSE 14 END,
-    e.Designation,
+    e.designation,
     AttendanceDate;
 ";
 
@@ -512,7 +512,7 @@ ORDER BY
             $countEmployee = 0;
             while ($row = mysqli_fetch_assoc($result)) {
                 $countEmployee++;
-                $designation[] = $row['Designation'];
+                $designation[] = $row['designation'];
                 $attendanceDate[] = $row['AttendanceDate'];
                 $headOfficePresent[] = $row['HeadOffice_Present'];
                 $branchPresent[] = $row['Branch_Present'];
