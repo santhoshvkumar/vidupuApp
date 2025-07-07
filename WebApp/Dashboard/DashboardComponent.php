@@ -293,13 +293,11 @@ class DashboardComponent{
             AND emp.isActive = 1) AS loginnedDevices
         FROM (SELECT 1) AS dummy;";
             $debug_query = str_replace(
-                ['?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?'],
+                ['?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?'],
                 [   
                     "'" . $this->organisationID . "'",
                     "'" . $this->currentDate . "'",
                     "'" . $this->organisationID . "'",
-                    "'" . $this->organisationID . "'",
-                    "'" . $this->organisationID . "'",
                     "'" . $this->currentDate . "'",
                     "'" . $this->organisationID . "'",
                     "'" . $this->currentDate . "'",
@@ -307,8 +305,7 @@ class DashboardComponent{
                     "'" . $this->organisationID . "'",
                     "'" . $this->organisationID . "'",
                     "'" . $this->currentDate . "'",
-                    "'" . $this->organisationID . "'",
-                    "'" . $this->organisationID . "'",
+                    "'" . $this->organisationID . "'"
                 ],
                 $queryActiveEmployeeDetails
             );
@@ -320,20 +317,18 @@ class DashboardComponent{
                 throw new Exception("Database prepare failed");
             }
 
-            mysqli_stmt_bind_param($stmt, "sssssssssssss", 
-                $this->organisationID,  // for checkedInToday
-                $this->currentDate, // for checkedInToday
-                $this->organisationID, // for lateCheckin
-                $this->currentDate, // for lateCheckin
-                $this->organisationID, // for earlyCheckout
-                $this->currentDate, // for earlyCheckout
-                $this->organisationID, // for earlyCheckout (checkInBranchID)
-                $this->organisationID, // for earlyCheckout (checkOutBranchID)
-                $this->organisationID, // for onLeave
-                $this->currentDate, // for onLeave
-                $this->organisationID, // for loginnedDevices
-                $this->organisationID, // for loginnedDevices
-                $this->organisationID  // for loginnedDevices
+            mysqli_stmt_bind_param($stmt, "sssssssssss", 
+                $this->organisationID,  // 1 for checkedInToday
+                $this->currentDate, // 2 for checkedInToday
+                $this->organisationID, // 3 for lateCheckin
+                $this->currentDate, // 4 for lateCheckin
+                $this->organisationID, // 5 for earlyCheckout
+                $this->currentDate, // 6 for earlyCheckout
+                $this->organisationID, // 7 for earlyCheckout (checkInBranchID)
+                $this->organisationID, // 8 for earlyCheckout (checkOutBranchID)
+                $this->organisationID, // 9 for onLeave
+                $this->currentDate, // 10 for onLeave
+                $this->organisationID //11 for loginnedDevices
             );
                 
             if (!mysqli_stmt_execute($stmt)) {
