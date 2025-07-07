@@ -349,6 +349,9 @@ class DashboardComponent{
             error_log("currentmonth: " . $this->currentmonth);
             error_log("year: " . $this->year);
 
+            $sectionName = mysqli_real_escape_string($connect_var, $this->sectionName);
+            $currentmonth = intval($this->currentmonth);
+            $year = intval($this->year);
             // 1. Total active employees in Head Office
             $queryHOEmployeeAttendanceSectionWise = "
                 SELECT 
@@ -357,7 +360,7 @@ class DashboardComponent{
                      JOIN tblAssignedSection a ON e.employeeID = a.employeeID
                      JOIN tblSection s ON a.sectionID = s.sectionID
                      WHERE a.isActive = 1
-                     AND s.sectionName = ?) AS totalactiveemployeesinsection,
+                     AND s.sectionName = '$sectionName') AS totalactiveemployeesinsection,
 
                     (SELECT COUNT(DISTINCT att.employeeID) 
                      FROM tblAttendance att
@@ -365,9 +368,9 @@ class DashboardComponent{
                      JOIN tblAssignedSection a ON e.employeeID = a.employeeID
                      JOIN tblSection s ON a.sectionID = s.sectionID
                      WHERE a.isActive = 1
-                     AND s.sectionName = ?
-                     AND MONTH(att.attendanceDate) = ?
-                     AND YEAR(att.attendanceDate) = ?) AS totalcheckins,
+                     AND s.sectionName = '$sectionName'
+                     AND MONTH(att.attendanceDate) = $currentmonth
+                     AND YEAR(att.attendanceDate) = $year) AS totalcheckins,
 
                     (SELECT COUNT(DISTINCT att.employeeID) 
                      FROM tblAttendance att
@@ -375,10 +378,10 @@ class DashboardComponent{
                      JOIN tblAssignedSection a ON e.employeeID = a.employeeID
                      JOIN tblSection s ON a.sectionID = s.sectionID
                      WHERE att.checkInTime > '10:10:00'
-                     AND MONTH(att.attendanceDate) = ?
-                     AND YEAR(att.attendanceDate) = ?
+                     AND MONTH(att.attendanceDate) = $currentmonth
+                     AND YEAR(att.attendanceDate) = $year
                      AND a.isActive = 1
-                     AND s.sectionName = ?) AS late_checkin,
+                     AND s.sectionName = '$sectionName') AS late_checkin,
 
                     (SELECT COUNT(DISTINCT att.employeeID) 
                      FROM tblAttendance att
@@ -386,73 +389,30 @@ class DashboardComponent{
                      JOIN tblAssignedSection a ON e.employeeID = a.employeeID
                      JOIN tblSection s ON a.sectionID = s.sectionID
                      WHERE att.checkOutTime < '17:00:00'
-                     AND MONTH(att.attendanceDate) = ?
-                     AND YEAR(att.attendanceDate) = ?
+                     AND MONTH(att.attendanceDate) = $currentmonth
+                     AND YEAR(att.attendanceDate) = $year
                      AND a.isActive = 1
-                     AND s.sectionName = ?) AS early_checkout,
+                     AND s.sectionName = '$sectionName') AS early_checkout,
 
                     (SELECT COUNT(DISTINCT e.employeeID)
                      FROM tblApplyLeave l
                      JOIN tblEmployee e ON l.employeeID = e.employeeID
                      JOIN tblAssignedSection a ON e.employeeID = a.employeeID
                      JOIN tblSection s ON a.sectionID = s.sectionID
-                     WHERE MONTH(l.fromDate) = ?
-                     AND YEAR(l.fromDate) = ?
+                     WHERE MONTH(l.fromDate) = $currentmonth
+                     AND YEAR(l.fromDate) = $year
                      AND a.isActive = 1
-                     AND s.sectionName = ?) AS on_leave";
+                     AND s.sectionName = '$sectionName') AS on_leave";
 
-            // Debug the query with actual values
-            $debug_query = str_replace(
-                ['?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?', '?'],
-                [
-                    "'" . $this->sectionName . "'",
-                    "'" . $this->sectionName . "'",
-                    $this->currentmonth,
-                    $this->year,
-                    $this->currentmonth,
-                    $this->year,
-                    "'" . $this->sectionName . "'",
-                    $this->currentmonth,
-                    $this->year,
-                    "'" . $this->sectionName . "'",
-                    $this->currentmonth,
-                    $this->year,
-                    "'" . $this->sectionName . "'"
-                ],
-                $queryHOEmployeeAttendanceSectionWise
-            );
-            error_log("Debug Query: " . $debug_query);
+            error_log("Debug Query: " . $queryHOEmployeeAttendanceSectionWise);
 
-            $stmt = mysqli_prepare($connect_var, $queryHOEmployeeAttendanceSectionWise);
-            if (!$stmt) {
-                error_log("Prepare failed: " . mysqli_error($connect_var));
-                throw new Exception("Database prepare failed");
+            $result = mysqli_query($connect_var, $queryHOEmployeeAttendanceSectionWise);
+            if (!$result) {
+                error_log("Query failed: " . mysqli_error($connect_var));
+                throw new Exception("Database query failed");
             }
 
-            mysqli_stmt_bind_param($stmt, "ssiisiiisiiis", 
-                $this->sectionName,  // for first subquery
-                $this->sectionName,  // for second subquery
-                $this->currentmonth, // for second subquery
-                $this->year,         // for second subquery
-                $this->currentmonth, // for third subquery
-                $this->year,         // for third subquery
-                $this->sectionName,  // for third subquery
-                $this->currentmonth, // for fourth subquery
-                $this->year,         // for fourth subquery
-                $this->sectionName,  // for fourth subquery
-                $this->currentmonth, // for fifth subquery
-                $this->year,         // for fifth subquery
-                $this->sectionName   // for fifth subquery
-            );
-            
-            if (!mysqli_stmt_execute($stmt)) {
-                error_log("Execute failed: " . mysqli_stmt_error($stmt));
-                throw new Exception("Database execute failed");
-            }
-
-            $result = mysqli_stmt_get_result($stmt);
             $row = mysqli_fetch_assoc($result);
-            
             // Debug the result
             error_log("Query Result: " . print_r($row, true));
             
