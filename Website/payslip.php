@@ -914,22 +914,14 @@ $fallbackDataNote = '';
     <div class="table-column">
       <p class="section-title">Earnings</p>
       <table class="earnings">
-        <tr><td>BASIC</td><td><?php echo isset($earnings['BASIC']) && $earnings['BASIC'] !== '' ? '₹' . number_format($earnings['BASIC'], 2) : ''; ?></td></tr>
-        <tr><td>HRA</td><td><?php echo isset($earnings['HRA']) && $earnings['HRA'] !== '' ? '₹' . number_format($earnings['HRA'], 2) : ''; ?></td></tr>
-        <tr><td>CONVEYANCE</td><td><?php echo isset($earnings['CONVEYANCE']) && $earnings['CONVEYANCE'] !== '' ? '₹' . number_format($earnings['CONVEYANCE'], 2) : ''; ?></td></tr>
-        <tr><td>MEDICAL ALLOWANCE</td><td><?php echo isset($earnings['MEDICAL ALLOWANCE']) && $earnings['MEDICAL ALLOWANCE'] !== '' ? '₹' . number_format($earnings['MEDICAL ALLOWANCE'], 2) : ''; ?></td></tr>
-        <tr><td>OTHER ALLOWANCE</td><td><?php echo isset($earnings['OTHER ALLOWANCE']) && $earnings['OTHER ALLOWANCE'] !== '' ? '₹' . number_format($earnings['OTHER ALLOWANCE'], 2) : ''; ?></td></tr>
         <?php
-          // Display any additional earning types
-          $standard = ['BASIC','HRA','CONVEYANCE','MEDICAL ALLOWANCE','OTHER ALLOWANCE'];
-          $extraEarningsRows = 0;
-          foreach ($earnings as $type => $amount) {
-            if (!in_array($type, $standard)) {
-              echo "<tr><td>".htmlspecialchars($type)."</td><td>" . ($amount !== '' ? '₹' . number_format($amount, 2) : '') . "</td></tr>";
-              $extraEarningsRows++;
+        foreach ($earnings as $type => $amount) {
+            echo "<tr><td>".htmlspecialchars($type)."</td><td>";
+            if ($amount !== '') {
+                echo '₹' . number_format($amount, 2);
             }
-          }
-          $earningsRows = 5 + $extraEarningsRows + 1; // 5 standard + extra + total
+            echo "</td></tr>";
+        }
         ?>
         <tr><td><strong>Total Earnings</strong></td><td><strong><?php echo $totalEarnings !== '' ? '₹' . number_format($totalEarnings, 2) : ''; ?></strong></td></tr>
       </table>
@@ -937,60 +929,30 @@ $fallbackDataNote = '';
     <div class="table-column">
       <p class="section-title">Deductions</p>
       <table class="deductions">
-        <tr><td>PF</td><td><?php echo isset($deductions['PF']) && $deductions['PF'] !== '' ? '₹' . number_format($deductions['PF'], 2) : ''; ?></td></tr>
-        <tr><td>INCOME TAX</td><td><?php echo isset($deductions['INCOME TAX']) && $deductions['INCOME TAX'] !== '' ? '₹' . number_format($deductions['INCOME TAX'], 2) : ''; ?></td></tr>
-        <tr><td>MEDICLAIM</td><td><?php echo isset($deductions['MEDICLAIM']) && $deductions['MEDICLAIM'] !== '' ? '₹' . number_format($deductions['MEDICLAIM'], 2) : ''; ?></td></tr>
         <?php
-          // Display any additional deduction types
-          $standardDeductions = ['PF','INCOME TAX','MEDICLAIM','TOTAL_DED'];
-          $extraDeductionsRows = 0;
-          foreach ($deductions as $type => $amount) {
-            if (!in_array($type, $standardDeductions)) {
-              echo "<tr><td>".htmlspecialchars($type)."</td><td>" . ($amount !== '' ? '₹' . number_format($amount, 2) : '') . "</td></tr>";
-              $extraDeductionsRows++;
+        foreach ($deductions as $type => $amount) {
+            echo "<tr><td>".htmlspecialchars($type)."</td><td>";
+            if ($amount !== '') {
+                echo '₹' . number_format($amount, 2);
             }
-          }
-          $deductionsRows = 3 + $extraDeductionsRows; // 3 standard + extra
+            echo "</td></tr>";
+        }
         ?>
       </table>
 
       <!-- Loan Deductions Table -->
       <p class="section-title">Loan Deductions</p>
       <table class="deductions">
-        <tr><td>Housing Loan 1</td><td><?php echo isset($loanDeductions['HL1']) && $loanDeductions['HL1'] !== '' ? '₹' . number_format($loanDeductions['HL1'], 2) : ''; ?></td></tr>
-        <tr><td>Housing Loan 2</td><td><?php echo isset($loanDeductions['HOUSING LOAN 2']) && $loanDeductions['HOUSING LOAN 2'] !== '' ? '₹' . number_format($loanDeductions['HOUSING LOAN 2'], 2) : ''; ?></td></tr>
-        <tr><td>Vehicle Loan</td><td><?php echo isset($loanDeductions['VEHICLE LOAN']) && $loanDeductions['VEHICLE LOAN'] !== '' ? '₹' . number_format($loanDeductions['VEHICLE LOAN'], 2) : ''; ?></td></tr>
-        <tr><td>Personal Loan</td><td><?php echo isset($loanDeductions['SPL PER.LI']) && $loanDeductions['SPL PER.LI'] !== '' ? '₹' . number_format($loanDeductions['SPL PER.LI'], 2) : ''; ?></td></tr>
-        <tr><td>Other Loan</td><td><?php echo isset($loanDeductions['OTHER LOAN']) && $loanDeductions['OTHER LOAN'] !== '' ? '₹' . number_format($loanDeductions['OTHER LOAN'], 2) : ''; ?></td></tr>
         <?php
-          // Display any additional loan types except HL1 and SPL PER.LI (already mapped above)
-          $standardLoans = ['HL1','HOUSING LOAN 2','VEHICLE LOAN','SPL PER.LI','OTHER LOAN'];
-          $extraLoanRows = 0;
-          foreach ($loanDeductions as $type => $amount) {
-            if (!in_array($type, $standardLoans)) {
-              echo "<tr><td>".htmlspecialchars($type)."</td><td>" . ($amount !== '' ? '₹' . number_format($amount, 2) : '') . "</td></tr>";
-              $extraLoanRows++;
+        foreach ($loanDeductions as $type => $amount) {
+            echo "<tr><td>".htmlspecialchars($type)."</td><td>";
+            if ($amount !== '') {
+                echo '₹' . number_format($amount, 2);
             }
-          }
-          $loanRows = 5 + $extraLoanRows; // 5 standard + extra
+            echo "</td></tr>";
+        }
         ?>
       </table>
-      <?php
-        // Make all tables the same height by adding empty rows
-        $maxRows = max($earningsRows, $deductionsRows, $loanRows);
-        $deductionsPad = $maxRows - $deductionsRows;
-        $loanPad = $maxRows - $loanRows;
-        if ($deductionsPad > 0) {
-          for ($i = 0; $i < $deductionsPad; $i++) {
-            echo '<tr><td>&nbsp;</td><td>&nbsp;</td></tr>';
-          }
-        }
-        if ($loanPad > 0) {
-          for ($i = 0; $i < $loanPad; $i++) {
-            echo '<tr><td>&nbsp;</td><td>&nbsp;</td></tr>';
-          }
-        }
-      ?>
     </div>
   </div>
 
