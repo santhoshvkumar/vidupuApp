@@ -110,8 +110,8 @@ class DashboardComponent{
             // 1. Total active employees
             $queryActiveEmployeeDetails =   "SELECT
 
-                -- Total employees
-                (select count(*) from tblEmployee tblE INNER JOIN tblmapEmp tblMap on tblMap.employeeID = tblE.employeeID WHERE tblE.organisationID='$organisationID' and tblE.isActive=1) AS totalEmployees,
+                -- Total employees (filtered by branch)
+                (select count(*) from tblEmployee tblE INNER JOIN tblmapEmp tblMap on tblMap.employeeID = tblE.employeeID WHERE tblE.organisationID='$organisationID' and tblE.isActive=1 AND tblMap.branchID='$branchID') AS totalEmployees,
 
                 (SELECT count(*) FROM tblAttendance WHERE attendanceDate='$currentDate'  and checkInBranchID='$branchID') As checkedInToday,
 
@@ -132,40 +132,47 @@ class DashboardComponent{
                 AND m.branchID NOT IN (55, 56)
                 AND (a.checkInBranchID = '$branchID' OR a.checkOutBranchID = '$branchID')) AS earlyCheckout,
 
-                -- On Leave
+                -- On Leave (filtered by branch)
                 (SELECT COUNT(*)
                         FROM tblApplyLeave AS l
                         JOIN tblmapEmp AS map ON l.employeeID = map.employeeID
                         WHERE '$currentDate' BETWEEN l.fromDate AND l.toDate 
                         AND map.organisationID = '$organisationID'
+                        AND map.branchID = '$branchID'
                         AND l.status = 'Approved') AS onLeave,
 
-                -- Logged-in devices
+                -- Logged-in devices (filtered by branch)
                 (SELECT COUNT(*)
                 FROM tblEmployee AS emp
                 JOIN tblmapEmp AS map ON emp.employeeID = map.employeeID
                 WHERE emp.deviceFingerprint IS NOT NULL 
                 AND emp.deviceFingerprint <> ''
                 AND emp.organisationID = '$organisationID'
+                AND map.branchID = '$branchID'
                 AND emp.isActive = 1) AS loginnedDevices,
 
-                -- Absentees (without branch filter)
+                -- Absentees (filtered by branch)
                 (SELECT COUNT(DISTINCT e.employeeID)
                 FROM tblEmployee e
                 JOIN tblmapEmp m ON e.employeeID = m.employeeID
                 WHERE e.isActive = 1
                 AND m.organisationID = '$organisationID'
+                AND m.branchID = '$branchID'
                 AND e.employeeID NOT IN (
-                    -- Not checked in
+                    -- Not checked in (branch-specific)
                     SELECT DISTINCT a.employeeID 
                     FROM tblAttendance a 
+                    JOIN tblmapEmp map ON a.employeeID = map.employeeID
                     WHERE a.attendanceDate = '$currentDate'
+                    AND map.branchID = '$branchID'
                     UNION
-                    -- Not on approved leave
+                    -- Not on approved leave (branch-specific)
                     SELECT DISTINCT l.employeeID
                     FROM tblApplyLeave l
+                    JOIN tblmapEmp map ON l.employeeID = map.employeeID
                     WHERE '$currentDate' BETWEEN l.fromDate AND l.toDate 
                     AND l.status = 'Approved'
+                    AND map.branchID = '$branchID'
                 )) AS absentees
 
             FROM (SELECT 1) AS dummy;";
