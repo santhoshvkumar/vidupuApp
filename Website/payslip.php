@@ -994,6 +994,12 @@ $fallbackDataNote = '';
   <!-- Footer -->
   <div style="z-index:-1; ">
     <p style="color: #666; font-size: 13px; font-style: italic; margin: 0;">This is a computer generated payslip and does not require a signature.</p>
+    <p id="generated-datetime" style="color: #666; font-size: 13px; font-style: italic; margin: 0;"></p>
+    <script>
+      // Display system generated date and time
+      document.getElementById('generated-datetime').textContent =
+        'System Generated on: ' + new Date().toLocaleString();
+    </script>
   </div>
     <button id="download-pdf-btn" style="margin: 10px 0; padding: 8px 16px; font-size: 15px; background: #1a6600; color: #fff; border: none; border-radius: 4px; cursor: pointer;">
     Download PDF
