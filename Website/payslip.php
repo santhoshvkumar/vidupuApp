@@ -1004,7 +1004,7 @@ document.getElementById('download-pdf-btn').addEventListener('click', function (
     // Hide the download button while generating PDF
     document.getElementById('download-pdf-btn').style.display = 'none';
     alert("This is called");
-    var path = <?php echo $empID . "_" .$monthName . "_" . $year; ?>;
+    var path = MATH.rand(1,99);
     // Select the payslip container
     var element = document.getElementById('payslip-container');
     var opt = {
