@@ -1009,7 +1009,7 @@ document.getElementById('download-pdf-btn').addEventListener('click', function (
     var element = document.getElementById('payslip-container');
     var opt = {
         margin:       0.2,
-        filename:     'Payslip_'_+path+'.pdf',
+        filename:     'Payslip_'+path+'.pdf',
         image:        { type: 'jpeg', quality: 0.98 },
         html2canvas:  { scale: 2 },
         jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
