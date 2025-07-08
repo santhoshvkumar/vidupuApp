@@ -1003,6 +1003,7 @@ $fallbackDataNote = '';
 document.getElementById('download-pdf-btn').addEventListener('click', function () {
     // Hide the download button while generating PDF
     document.getElementById('download-pdf-btn').style.display = 'none';
+    alert("This is called");
     var path = <?php echo $empID . "_" .$monthName . "_" . $year; ?>;
     // Select the payslip container
     var element = document.getElementById('payslip-container');
