@@ -133,7 +133,6 @@ class DashboardComponent{
                 AND (a.checkInBranchID = '$branchID' OR a.checkOutBranchID = '$branchID')) AS earlyCheckout,
 
                 -- On Leave (filtered by branch)
-                -- On Leave (filtered by branch)
                 (SELECT COUNT(*)
                         FROM tblApplyLeave AS l
                         JOIN tblmapEmp AS map ON l.employeeID = map.employeeID
@@ -141,8 +140,6 @@ class DashboardComponent{
                         AND map.organisationID = '$organisationID'
                         AND map.branchID = '$branchID'
                         AND l.status = 'Approved') AS onLeave,
-
-                -- Logged-in devices (filtered by branch)
                 -- Logged-in devices (filtered by branch)
                 (SELECT COUNT(*)
                 FROM tblEmployee AS emp
@@ -154,7 +151,6 @@ class DashboardComponent{
                 AND map.branchID = '$branchID'
                 AND emp.isActive = 1) AS loginnedDevices,
 
-                -- Absentees (filtered by branch)
                 -- Absentees (filtered by branch)
                 (SELECT COUNT(DISTINCT e.employeeID)
                 FROM tblEmployee e
@@ -174,7 +170,6 @@ class DashboardComponent{
                     -- Not on approved leave (branch-specific)
                     SELECT DISTINCT l.employeeID
                     FROM tblApplyLeave l
-                    JOIN tblmapEmp map ON l.employeeID = map.employeeID
                     JOIN tblmapEmp map ON l.employeeID = map.employeeID
                     WHERE '$currentDate' BETWEEN l.fromDate AND l.toDate 
                     AND map.branchID = '$branchID'
