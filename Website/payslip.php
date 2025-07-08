@@ -233,7 +233,7 @@ echo "<!-- LOP Days: $lopDays -->";
 $logoWebPath = '';
 if (!empty($orgLogo)) {
   // Direct path - use the orgLogo value as is
-  $logoWebPath = $orgLogo;
+  $logoWebPath = "https://vidupuapi.kapiital.com/".$orgLogo;
 }
 
 echo "<!-- orgLogo: $orgLogo -->";
