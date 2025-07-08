@@ -38,12 +38,9 @@ class TransferEmployeeComponent{
             try {
                 $data = [];
                 $currentDate = date('Y-m-d');
-                $isActive = 1;
+                $isActive = 1;  // All transfers should be active when created
                 $lastInsertId=0;
                 $getIsImmediateTransfer = $this->isImmediate;
-                if($getIsImmediateTransfer === "1") {
-                    $isActive = 0;           
-                }
     
                 // Check for duplicate transfer - employee should not have overlapping transfer dates
                 $queryCheckDuplicate = "SELECT COUNT(*) as count FROM tblTransferHistory 
@@ -183,6 +180,8 @@ class TransferEmployeeComponent{
                     $transfer['status'] = 'returned';
                     $allProcessedTransfers[] = $transfer;
                     $transfersProcessed++;
+                }
+
                 // Then process new/active transfers for current date
                 $queryActiveTransfers = "SELECT transferHistoryID, fromBranch, toBranch, employeeID, toDate, transferType 
                     FROM tblTransferHistory 
@@ -242,7 +241,6 @@ class TransferEmployeeComponent{
                     ));
                 }
                 mysqli_close($connect_var);
-            }
             } catch (Exception $e) {
                 echo json_encode([
                     "status" => "error", 
