@@ -861,9 +861,11 @@ $fallbackDataNote = '';
       font-style: italic;
     }
   </style>
+  <!-- Add html2pdf.js from CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
-<div class="container">
+<div id="payslip-container" class="container">
   <div class="org-header">
     <div class="org-title-row">
       <?php if (!empty($logoWebPath)) { ?>
@@ -994,6 +996,30 @@ $fallbackDataNote = '';
     <p style="color: #666; font-size: 13px; font-style: italic; margin: 0;">This is a computer generated payslip and does not require a signature.</p>
   </div>
 </div>
+<button id="download-pdf-btn" style="margin: 10px 0; padding: 8px 16px; font-size: 15px; background: #1a6600; color: #fff; border: none; border-radius: 4px; cursor: pointer;">
+  Download PDF
+</button>
+<script>
+document.getElementById('download-pdf-btn').addEventListener('click', function () {
+    // Hide the download button while generating PDF
+    document.getElementById('download-pdf-btn').style.display = 'none';
+
+    // Select the payslip container
+    var element = document.getElementById('payslip-container');
+    var opt = {
+        margin:       0.2,
+        filename:     'Payslip_<?php echo $empID . \"_\" . $monthName . \"_\" . $year; ?>.pdf',
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2 },
+        jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+    };
+
+    html2pdf().set(opt).from(element).save().then(() => {
+        // Show the button again after download
+        document.getElementById('download-pdf-btn').style.display = 'inline-block';
+    });
+});
+</script>
 </body>
 </html>
  
