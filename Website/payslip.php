@@ -654,6 +654,9 @@ echo "<!-- DEBUG: Total Loan Deductions: $totalLoanDeductions -->";
 
 // Function to convert number to words
 function numberToWords($number) {
+    // Convert to integer to avoid float to int conversion warnings
+    $number = (int) floor($number);
+    
     $ones = array(
         0 => "", 1 => "One", 2 => "Two", 3 => "Three", 4 => "Four", 5 => "Five",
         6 => "Six", 7 => "Seven", 8 => "Eight", 9 => "Nine", 10 => "Ten",
