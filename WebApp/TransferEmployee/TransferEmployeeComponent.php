@@ -14,17 +14,31 @@ class TransferEmployeeComponent{
     public $dataOfTransfer;
     
     public function loadTransferEmployeeDetails(array $data){       
-        if (isset($data['employeeID']) && isset($data['fromBranch']) && isset($data['toBranch']) && isset($data['fromDate']) && isset($data['toDate']) && isset($data['transferType']) && isset($data['organisationID']) && isset($data['createdBy']) && isset($data['isActive']) && isset($data['isImmediate'])) {
+        // Check required fields
+        if (isset($data['employeeID']) && isset($data['fromBranch']) && isset($data['toBranch']) && isset($data['fromDate']) && isset($data['transferType']) && isset($data['organisationID']) && isset($data['createdBy']) && isset($data['isActive']) && isset($data['isImmediate'])) {
+            
             $this->employeeID = $data['employeeID'];
             $this->fromBranch = $data['fromBranch'];
             $this->toBranch = $data['toBranch'];
             $this->fromDate = $data['fromDate'];
-            $this->toDate = $data['toDate'];        
             $this->isPermanentTransfer = $data['transferType'];
             $this->organisationID = $data['organisationID'];    
             $this->createdBy = $data['createdBy'];
             $this->isActive = $data['isActive'];
             $this->isImmediate = $data['isImmediate'];
+            
+            // For permanent transfers, toDate is optional (can be NULL)
+            if ($data['transferType'] === 'Permanent') {
+                $this->toDate = null;
+            } else {
+                // For temporary transfers, toDate is required
+                if (isset($data['toDate'])) {
+                    $this->toDate = $data['toDate'];
+                } else {
+                    return false; // toDate is required for temporary transfers
+                }
+            }
+            
             return true;
         } else {
             return false;
@@ -43,17 +57,33 @@ class TransferEmployeeComponent{
                 $getIsImmediateTransfer = $this->isImmediate;
     
                 // Check for duplicate transfer - employee should not have overlapping transfer dates
-                $queryCheckDuplicate = "SELECT COUNT(*) as count FROM tblTransferHistory 
-                    WHERE employeeID = ? AND organisationID = ? 
-                    AND ((fromDate <= ? AND toDate >= ?) OR (fromDate <= ? AND toDate >= ?) OR (fromDate >= ? AND toDate <= ?))";
-                $stmtCheck = mysqli_prepare($connect_var, $queryCheckDuplicate);
-                mysqli_stmt_bind_param($stmtCheck, "ssssssss", 
-                    $this->employeeID, 
-                    $this->organisationID, 
-                    $this->fromDate, $this->fromDate, 
-                    $this->toDate, $this->toDate, 
-                    $this->fromDate, $this->toDate
-                );
+                if ($this->isPermanentTransfer === 'Permanent') {
+                    // For permanent transfers, check if employee already has an active transfer from the same date
+                    $queryCheckDuplicate = "SELECT COUNT(*) as count FROM tblTransferHistory 
+                        WHERE employeeID = ? AND organisationID = ? AND isActive = 1
+                        AND (fromDate >= ? OR transferType = 'Permanent')";
+                    $stmtCheck = mysqli_prepare($connect_var, $queryCheckDuplicate);
+                    mysqli_stmt_bind_param($stmtCheck, "sss", 
+                        $this->employeeID, 
+                        $this->organisationID, 
+                        $this->fromDate
+                    );
+                } else {
+                    // For temporary transfers, check for overlapping dates
+                    $queryCheckDuplicate = "SELECT COUNT(*) as count FROM tblTransferHistory 
+                        WHERE employeeID = ? AND organisationID = ? AND isActive = 1
+                        AND ((fromDate <= ? AND (toDate >= ? OR toDate IS NULL)) 
+                        OR (fromDate <= ? AND (toDate >= ? OR toDate IS NULL)) 
+                        OR (fromDate >= ? AND fromDate <= ?))";
+                    $stmtCheck = mysqli_prepare($connect_var, $queryCheckDuplicate);
+                    mysqli_stmt_bind_param($stmtCheck, "ssssssss", 
+                        $this->employeeID, 
+                        $this->organisationID, 
+                        $this->fromDate, $this->fromDate, 
+                        $this->toDate, $this->toDate, 
+                        $this->fromDate, $this->toDate
+                    );
+                }
                 mysqli_stmt_execute($stmtCheck);
                 $resultCheck = mysqli_stmt_get_result($stmtCheck);
                 $duplicateCount = mysqli_fetch_assoc($resultCheck)['count'];
@@ -183,9 +213,10 @@ class TransferEmployeeComponent{
                 }
 
                 // Then process new/active transfers for current date
+                // Handle both permanent transfers (toDate IS NULL) and temporary transfers
                 $queryActiveTransfers = "SELECT transferHistoryID, fromBranch, toBranch, employeeID, toDate, transferType 
                     FROM tblTransferHistory 
-                    WHERE DATE(?) BETWEEN DATE(fromDate) AND DATE(toDate)
+                    WHERE DATE(fromDate) = DATE(?) 
                     AND isActive = 1 
                     AND organisationID = ?";
                 $stmtActive = mysqli_prepare($connect_var, $queryActiveTransfers);
