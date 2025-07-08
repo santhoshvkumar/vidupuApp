@@ -1004,7 +1004,7 @@ document.getElementById('download-pdf-btn').addEventListener('click', function (
     // Hide the download button while generating PDF
     document.getElementById('download-pdf-btn').style.display = 'none';
     alert("This is called");
-    var path = <?php echo $_GET['Month']; ?>;
+    var path = "<?php echo $_GET['Month']; ?>";
     // Select the payslip container
     var element = document.getElementById('payslip-container');
     var opt = {
