@@ -233,7 +233,7 @@ echo "<!-- LOP Days: $lopDays -->";
 $logoWebPath = '';
 if (!empty($orgLogo)) {
   // Direct path - use the orgLogo value as is
-  $logoWebPath = '/vidupuApi/' . $orgLogo;
+  $logoWebPath = "https://vidupuapi.kapiital.com/".$orgLogo;
 }
 
 echo "<!-- orgLogo: $orgLogo -->";
@@ -992,18 +992,24 @@ $fallbackDataNote = '';
   </div>
 
   <!-- Footer -->
-  <div style="position: fixed; bottom: 20px; left: 0; right: 0; text-align: center; background-color: rgba(217, 237, 247, 0.9); padding: 10px; z-index:-1; ">
+  <div style="z-index:-1; ">
     <p style="color: #666; font-size: 13px; font-style: italic; margin: 0;">This is a computer generated payslip and does not require a signature.</p>
+    <p id="generated-datetime" style="color: #666; font-size: 13px; font-style: italic; margin: 0;"></p>
+    <script>
+      // Display system generated date and time
+      document.getElementById('generated-datetime').textContent =
+        'System Generated on: ' + new Date().toLocaleString();
+    </script>
   </div>
+    <button id="download-pdf-btn" style="margin: 10px 0; padding: 8px 16px; font-size: 15px; background: #1a6600; color: #fff; border: none; border-radius: 4px; cursor: pointer;">
+    Download PDF
+  </button>
 </div>
-<button id="download-pdf-btn" style="margin: 10px 0; padding: 8px 16px; font-size: 15px; background: #1a6600; color: #fff; border: none; border-radius: 4px; cursor: pointer;">
-  Download PDF
-</button>
+
 <script>
 document.getElementById('download-pdf-btn').addEventListener('click', function () {
     // Hide the download button while generating PDF
     document.getElementById('download-pdf-btn').style.display = 'none';
-    alert("This is called");
     var path = "<?php echo $_GET['Month']; ?>";
     // Select the payslip container
     var element = document.getElementById('payslip-container');
