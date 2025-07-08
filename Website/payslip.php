@@ -992,7 +992,7 @@ $fallbackDataNote = '';
   </div>
 
   <!-- Footer -->
-  <div style="position: fixed; bottom: 20px; left: 0; right: 0; text-align: center; background-color: rgba(217, 237, 247, 0.9); padding: 10px;">
+  <div style="position: fixed; bottom: 20px; left: 0; right: 0; text-align: center; background-color: rgba(217, 237, 247, 0.9); padding: 10px; z-index:-1; ">
     <p style="color: #666; font-size: 13px; font-style: italic; margin: 0;">This is a computer generated payslip and does not require a signature.</p>
   </div>
 </div>
@@ -1003,12 +1003,13 @@ $fallbackDataNote = '';
 document.getElementById('download-pdf-btn').addEventListener('click', function () {
     // Hide the download button while generating PDF
     document.getElementById('download-pdf-btn').style.display = 'none';
-
+    alert("This is called");
+    var path = "<?php echo $_GET['Month']; ?>";
     // Select the payslip container
     var element = document.getElementById('payslip-container');
     var opt = {
         margin:       0.2,
-        filename:     'Payslip_<?php echo $empID . \"_\" . $monthName . \"_\" . $year; ?>.pdf',
+        filename:     'Payslip_'+path+'.pdf',
         image:        { type: 'jpeg', quality: 0.98 },
         html2canvas:  { scale: 2 },
         jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
