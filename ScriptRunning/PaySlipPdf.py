@@ -1,6 +1,7 @@
 import mysql.connector
 from jinja2 import Template
 import pdfkit
+import calendar
 
 # Step 1: Input parameters
 EmpID = 10199
@@ -15,28 +16,88 @@ conn = mysql.connector.connect(
 cursor = conn.cursor(dictionary=True)
 
 # Step 3: Convert Month name to number
-import calendar
 month_num = list(calendar.month_name).index(Month)
 
 # Step 4: Fetch Organisation Details
 cursor.execute(f"SELECT * FROM tblOrganisation WHERE organisationID = {OrgID}")
 org = cursor.fetchone()
 
-# Step 5: Fetch Employee Details
+# Step 5: Fetch Employee Details with all required fields
 cursor.execute(f"""
-    SELECT empID, bankAccountNumber, PANNumber, PFNumber, PFUAN 
-    FROM tblEmployee 
-    WHERE empID = {EmpID}
+    SELECT e.empID, e.employeeName, e.joiningDate, e.designation, e.department,
+           e.bankAccountNumber, e.PANNumber, e.PFNumber, e.PFUAN, e.bankName,
+           b.branchName
+    FROM tblEmployee e
+    LEFT JOIN tblmapEmp m ON e.employeeID = m.employeeID
+    LEFT JOIN tblBranch b ON m.branchID = b.branchID
+    WHERE e.empID = {EmpID}
 """)
 emp = cursor.fetchone()
 
-# Step 6: Render HTML from Template
+# Step 6: Fetch payroll data (mock data for demonstration)
+# In a real implementation, you would fetch from tblAccounts based on the month/year
+earnings = {
+    "Basic Salary": 25000.00,
+    "House Rent Allowance": 12500.00,
+    "Conveyance Allowance": 2000.00,
+    "Medical Allowance": 1500.00,
+    "Special Allowance": 5000.00
+}
+
+deductions = {
+    "Provident Fund": 3000.00,
+    "Professional Tax": 200.00,
+    "Income Tax": 2500.00,
+    "ESI": 150.00
+}
+
+loan_deductions = {
+    "Personal Loan": 1000.00,
+    "Vehicle Loan": 500.00
+}
+
+# Calculate totals
+total_earnings = sum(earnings.values())
+total_deductions = sum(deductions.values())
+total_loan_deductions = sum(loan_deductions.values())
+net_pay = total_earnings - total_deductions - total_loan_deductions
+
+# Working days calculation (mock data)
+working_days = 22
+lop_days = 0
+
+# Convert net pay to words (simplified)
+def number_to_words(amount):
+    # This is a simplified version - you might want to use a proper library
+    return f"Rupees {int(amount)} and {int((amount % 1) * 100)} Paise Only"
+
+net_pay_words = number_to_words(net_pay)
+
+# Step 7: Prepare template data
+template_data = {
+    'org': org,
+    'emp': emp,
+    'month': Month,
+    'year': Year,
+    'earnings': earnings,
+    'deductions': deductions,
+    'loan_deductions': loan_deductions,
+    'total_earnings': total_earnings,
+    'total_deductions': total_deductions,
+    'total_loan_deductions': total_loan_deductions,
+    'net_pay': net_pay,
+    'net_pay_words': net_pay_words,
+    'working_days': working_days,
+    'lop_days': lop_days
+}
+
+# Step 8: HTML Template with Jinja2 syntax
 html_template = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Payslip - <?php echo $orgName; ?></title>
+  <title>Payslip - {{ org.organisationName }}</title>
   <style>
     body {
       margin: 0;
@@ -124,7 +185,6 @@ html_template = """
       width: 100%;
       border-collapse: collapse;
     }
-    /* Ensure tables are side by side */
     .tables-container {
       display: flex;
       gap: 10px;
@@ -142,7 +202,6 @@ html_template = """
         padding: 10px;
       }
     }
-    /* Total Deductions line */
     .total-deductions {
       margin: 4px 0;
       width: 100%;
@@ -150,7 +209,6 @@ html_template = """
       display: flex;
       justify-content: flex-end;
     }
-    /* Net Pay Box */
     .net-pay-box {
       margin: 4px 0;
       display: flex;
@@ -163,12 +221,10 @@ html_template = """
       font-size: 15px;
       font-weight: bold;
     }
-    /* Amount in words */
     .amount-words {
       margin: 4px 0;
       font-size: 14px;
     }
-    /* Footer */
     .footer-text {
       margin-top: 8px;
       color: #666;
@@ -176,55 +232,54 @@ html_template = """
       font-style: italic;
     }
   </style>
-  <!-- Add html2pdf.js from CDN -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
 <div id="payslip-container" class="container">
   <div class="org-header">
     <div class="org-title-row">
-      <?php if (!empty($logoWebPath)) { ?>
+      {% if org.organisationLogo %}
         <img src="{{ org.organisationLogo }}" alt="Logo" class="org-logo">
-      <?php } ?>
+      {% endif %}
       <div class="org-details">
-        <h2><?php echo $orgName; ?></h2>
-        <div class="org-meta"><?php echo $orgAddress1; ?><?php if($orgAddress2) echo ', ' . $orgAddress2; ?></div>
-        <div class="org-meta"><?php echo $orgCity; ?><?php if($orgState) echo ', ' . $orgState; ?></div>
-        <div class="org-meta">Phone: <?php echo $orgPhone; ?><?php if($orgWebsite) echo ' | Website: ' . $orgWebsite; ?></div>
+        <h2>{{ org.organisationName }}</h2>
+        <div class="org-meta">{{ org.address1 }}{% if org.address2 %}, {{ org.address2 }}{% endif %}</div>
+        <div class="org-meta">{{ org.city }}{% if org.state %}, {{ org.state }}{% endif %}</div>
+        <div class="org-meta">Phone: {{ org.phone }}{% if org.website %} | Website: {{ org.website }}{% endif %}</div>
       </div>
     </div>
   </div>
 
-  <h3>Payslip for the month of <?php echo $monthName; ?> - <?php echo $year; ?></h3>
+  <h3>Payslip for the month of {{ month }} - {{ year }}</h3>
 
   <!-- Employee Details Table -->
   <table class="details">
     <tr>
-      <td><strong>Name:</strong> <?php echo $employeeName ? $employeeName : ''; ?></td>
-      <td><strong>Employee No:</strong> <?php echo $empID ? $empID : ''; ?></td>
+      <td><strong>Name:</strong> {{ emp.employeeName or '' }}</td>
+      <td><strong>Employee No:</strong> {{ emp.empID or '' }}</td>
     </tr>
     <tr>
-      <td><strong>Joining Date:</strong> <?php echo $joiningDate ? date('d-m-Y', strtotime($joiningDate)) : ''; ?></td>
-      <td><strong>Bank Name:</strong> <?php echo $bankName ? $bankName : ''; ?></td>
+      <td><strong>Joining Date:</strong> {% if emp.joiningDate %}{{ emp.joiningDate.strftime('%d-%m-%Y') }}{% endif %}</td>
+      <td><strong>Bank Name:</strong> {{ emp.bankName or '' }}</td>
     </tr>
     <tr>
-      <td><strong>Designation:</strong> <?php echo $designation ? $designation : ''; ?></td>
-      <td><strong>Bank Account No:</strong> <?php echo $bankAccountNumber ? $bankAccountNumber : ''; ?></td>
+      <td><strong>Designation:</strong> {{ emp.designation or '' }}</td>
+      <td><strong>Bank Account No:</strong> {{ emp.bankAccountNumber or '' }}</td>
     </tr>
     <tr>
-      <td><strong>Department:</strong> <?php echo $department ? $department : ''; ?></td>
-      <td><strong>PAN Number:</strong> <?php echo $panNumber ? $panNumber : ''; ?></td>
+      <td><strong>Department:</strong> {{ emp.department or '' }}</td>
+      <td><strong>PAN Number:</strong> {{ emp.PANNumber or '' }}</td>
     </tr>
     <tr>
-      <td><strong>Location:</strong> <?php echo $branchName ? $branchName : ''; ?></td>
-      <td><strong>PF No:</strong> <?php echo $pfNumber ? $pfNumber : ''; ?></td>
+      <td><strong>Location:</strong> {{ emp.branchName or '' }}</td>
+      <td><strong>PF No:</strong> {{ emp.PFNumber or '' }}</td>
     </tr>
     <tr>
-      <td><strong>Effective Work Days:</strong> <?php echo $workingDays; ?></td>
-      <td><strong>PF UAN:</strong> <?php echo $pfUAN ? $pfUAN : ''; ?></td>
+      <td><strong>Effective Work Days:</strong> {{ working_days }}</td>
+      <td><strong>PF UAN:</strong> {{ emp.PFUAN or '' }}</td>
     </tr>
     <tr>
-      <td><strong>LOP:</strong> <?php echo $lopDays; ?></td>
+      <td><strong>LOP:</strong> {{ lop_days }}</td>
       <td></td>
     </tr>
   </table>
@@ -234,44 +289,38 @@ html_template = """
     <div class="table-column">
       <p class="section-title">Earnings</p>
       <table class="earnings">
-        <?php
-        foreach ($earnings as $type => $amount) {
-            echo "<tr><td>".htmlspecialchars($type)."</td><td>";
-            if ($amount !== '') {
-                echo '₹' . number_format($amount, 2);
-            }
-            echo "</td></tr>";
-        }
-        ?>
-        <tr><td><strong>Total Earnings</strong></td><td><strong><?php echo $totalEarnings !== '' ? '₹' . number_format($totalEarnings, 2) : ''; ?></strong></td></tr>
+        {% for type, amount in earnings.items() %}
+        <tr>
+          <td>{{ type }}</td>
+          <td>{% if amount %}₹{{ "{:,.2f}".format(amount) }}{% endif %}</td>
+        </tr>
+        {% endfor %}
+        <tr>
+          <td><strong>Total Earnings</strong></td>
+          <td><strong>{% if total_earnings %}₹{{ "{:,.2f}".format(total_earnings) }}{% endif %}</strong></td>
+        </tr>
       </table>
     </div>
     <div class="table-column">
       <p class="section-title">Deductions</p>
       <table class="deductions">
-        <?php
-        foreach ($deductions as $type => $amount) {
-            echo "<tr><td>".htmlspecialchars($type)."</td><td>";
-            if ($amount !== '') {
-                echo '₹' . number_format($amount, 2);
-            }
-            echo "</td></tr>";
-        }
-        ?>
+        {% for type, amount in deductions.items() %}
+        <tr>
+          <td>{{ type }}</td>
+          <td>{% if amount %}₹{{ "{:,.2f}".format(amount) }}{% endif %}</td>
+        </tr>
+        {% endfor %}
       </table>
 
       <!-- Loan Deductions Table -->
       <p class="section-title">Loan Deductions</p>
       <table class="deductions">
-        <?php
-        foreach ($loanDeductions as $type => $amount) {
-            echo "<tr><td>".htmlspecialchars($type)."</td><td>";
-            if ($amount !== '') {
-                echo '₹' . number_format($amount, 2);
-            }
-            echo "</td></tr>";
-        }
-        ?>
+        {% for type, amount in loan_deductions.items() %}
+        <tr>
+          <td>{{ type }}</td>
+          <td>{% if amount %}₹{{ "{:,.2f}".format(amount) }}{% endif %}</td>
+        </tr>
+        {% endfor %}
       </table>
     </div>
   </div>
@@ -282,10 +331,10 @@ html_template = """
     <div style="flex: 1;">
       <div style="border: 2px solid #000; background: #e6ffe6; padding: 8px 16px; display: inline-block; margin-bottom: 8px;">
         <span style="font-size: 15px; font-weight: bold;">Net Pay for the month: </span>
-        <span style="font-size: 15px; font-weight: bold; color: #1a6600;"><?php echo $netPay !== '' ? '₹' . number_format($netPay, 2) : ''; ?></span>
+        <span style="font-size: 15px; font-weight: bold; color: #1a6600;">{% if net_pay %}₹{{ "{:,.2f}".format(net_pay) }}{% endif %}</span>
       </div>
       <div style="margin-left: 8px; display: inline-block;">
-        <span style="font-size: 14px;"><strong>(in words):</strong> <?php echo $netPayInWords; ?></span>
+        <span style="font-size: 14px;"><strong>(in words):</strong> {{ net_pay_words }}</span>
       </div>
     </div>
 
@@ -293,40 +342,42 @@ html_template = """
     <div style="width: 40%;">
       <div class="total-deductions">
         <span style="text-align:right; flex: 1;">Total Deductions</span>
-        <span style="text-align:right; width: 120px; padding-left: 12px;"><?php echo $totalDeductions !== '' ? '₹' . number_format($totalDeductions, 2) : ''; ?></span>
+        <span style="text-align:right; width: 120px; padding-left: 12px;">{% if total_deductions %}₹{{ "{:,.2f}".format(total_deductions) }}{% endif %}</span>
       </div>
       <div class="total-deductions">
         <span style="text-align:right; flex: 1;">Total Loan Deductions</span>
-        <span style="text-align:right; width: 120px; padding-left: 12px;"><?php echo $totalLoanDeductions !== '' ? '₹' . number_format($totalLoanDeductions, 2) : ''; ?></span>
+        <span style="text-align:right; width: 120px; padding-left: 12px;">{% if total_loan_deductions %}₹{{ "{:,.2f}".format(total_loan_deductions) }}{% endif %}</span>
       </div>
       <div class="total-deductions" style="font-weight: bold; margin-bottom: 12px;">
         <span style="text-align:right; flex: 1;">Total (Deductions + Loan Deductions)</span>
-        <span style="text-align:right; width: 120px; padding-left: 12px;"><?php echo ($totalDeductions !== '' || $totalLoanDeductions !== '') ? '₹' . number_format($totalDeductions + $totalLoanDeductions, 2) : ''; ?></span>
+        <span style="text-align:right; width: 120px; padding-left: 12px;">₹{{ "{:,.2f}".format(total_deductions + total_loan_deductions) }}</span>
       </div>
     </div>
   </div>
 
   <!-- Footer -->
-  <div style="z-index:-1; ">
+  <div style="z-index:-1;">
     <p style="color: #666; font-size: 13px; font-style: italic; margin: 0;">This is a computer generated payslip and does not require a signature.</p>
     <p id="generated-datetime" style="color: #666; font-size: 13px; font-style: italic; margin: 0;"></p>
     <script>
-      // Display system generated date and time
       document.getElementById('generated-datetime').textContent =
         'System Generated on: ' + new Date().toLocaleString();
     </script>
   </div>
 </div>
-</script>
 </body>
 </html>
-
 """
 
+# Step 9: Render HTML from Template
 template = Template(html_template)
-html_out = template.render(emp=emp, org=org, month=Month, year=Year)
+html_out = template.render(**template_data)
 
-# Step 7: Export to PDF
-pdfkit.from_string(html_out, "payslip_output.pdf") 
+# Step 10: Export to PDF
+pdfkit.from_string(html_out, "payslip_output.pdf")
 
 print("✅ Payslip generated successfully!")
+
+# Close database connection
+cursor.close()
+conn.close()
