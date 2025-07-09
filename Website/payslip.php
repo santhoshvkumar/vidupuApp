@@ -172,7 +172,7 @@ if ($workingDays == 0) {
     }
 }
 
-// Calculate LOP (Loss of Pay) - days with no check-in and check-out
+// Calculate LOP (Loss of Pay) - days with no check-in and check-out.
 $lopDays = 0;
 if ($employee) {
     $employeeID = $employee['employeeID'];
