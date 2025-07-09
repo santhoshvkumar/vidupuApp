@@ -12,7 +12,7 @@ OrgID = 1
 # Step 2: Connect to MySQL
 
 conn = mysql.connector.connect(
-    host="localhost", user="vsk", password="Password#1", database="tnscVidupuApp"
+    host="localhost", user="root", password="root", database="tnscVidupuApp", port=8889
 )
 cursor = conn.cursor(dictionary=True)
 
