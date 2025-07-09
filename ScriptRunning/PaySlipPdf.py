@@ -4,7 +4,7 @@ import pdfkit
 import calendar
 
 # Step 1: Input parameters
-EmpID = 706
+employeeID = 706
 Month = "June"
 Year = 2025
 OrgID = 1
@@ -25,7 +25,7 @@ if monthNameUpper == 'ARPIL':
 month_names = [name.upper() for name in calendar.month_name]
 month = month_names.index(monthNameUpper)  # 1-based month number
 
-print(f"<!-- Employee ID: {EmpID} -->")
+print(f"<!-- Employee ID: {employeeID} -->")
 print(f"<!-- Organisation ID: {OrgID} -->")
 print(f"<!-- Month: {Month}, Month Number: {month}, Year: {Year} -->")
 
@@ -56,7 +56,7 @@ if org_result:
 # Step 5: Add a direct check for the employee data
 checkQuery = f"""SELECT empID, bankAccountNumber, PANNumber, PFNumber, PFUAN 
                  FROM tblEmployee 
-                 WHERE empID = '{EmpID}'"""
+                 WHERE empID = '{employeeID}'"""
 cursor.execute(checkQuery)
 checkData = cursor.fetchone()
 print(f"<!-- DEBUG: Check Query: {checkQuery} -->")
@@ -82,18 +82,18 @@ LEFT JOIN tblAssignedSection a ON e.employeeID = a.employeeID AND a.isActive = 1
 LEFT JOIN tblSection s ON a.sectionID = s.SectionID 
 LEFT JOIN tblmapEmp m ON e.employeeID = m.employeeID
 LEFT JOIN tblBranch b ON m.branchID = b.branchID
-WHERE e.empID = '{EmpID}'"""
+WHERE e.empID = '{employeeID}'"""
 
 cursor.execute(queryEmp)
 employee = cursor.fetchone()
 
 print(f"<!-- DEBUG: Query: {queryEmp} -->")
-print(f"<!-- DEBUG: Employee ID being searched: {EmpID} -->")
+print(f"<!-- DEBUG: Employee ID being searched: {employeeID} -->")
 print(f"<!-- DEBUG: Raw employee data: {employee} -->")
 
 # Initialize employee variables
 employeeName = ''
-empID = ''
+empIDFromDB = ''
 joiningDate = ''
 bankName = ''
 bankAccountNumber = ''
@@ -106,7 +106,7 @@ department = ''
 
 if employee:
     employeeName = employee['employeeName'] or ''
-    empID = employee['empID'] or ''
+    empIDFromDB = employee['empID'] or ''
     joiningDate = employee['joiningDate'] or ''
     bankName = employee['bankName'] or ''
     bankAccountNumber = employee['bankAccountNumber'] or ''
@@ -146,7 +146,7 @@ if workingDays == 0:
 # Step 8: Calculate LOP (Loss of Pay) - days with no check-in and check-out
 lopDays = 0
 if employee:
-    employeeID = employee['employeeID']
+    employeeIDFromDB = employee['employeeID']
     
     # Use proper date parsing for month start and end
     monthStart = f"{Year}-{month:02d}-01"
@@ -159,7 +159,7 @@ if employee:
                   FROM (
                     SELECT DATE(attendanceDate) as workDate
                     FROM tblAttendance 
-                    WHERE employeeID = '{employeeID}' 
+                    WHERE employeeID = '{employeeIDFromDB}' 
                     AND organisationID = '{OrgID}'
                     AND attendanceDate BETWEEN '{monthStart}' AND '{monthEnd}'
                     AND (checkInTime IS NULL OR checkOutTime IS NULL)
@@ -183,12 +183,12 @@ print(f"<!-- Current Organisation ID: {OrgID} -->")
 earnings = {}
 totalEarnings = 0
 
-print(f"<!-- DEBUG: empID used in query: {empID} -->")
+print(f"<!-- DEBUG: empID used in query: {empIDFromDB} -->")
 print(f"<!-- DEBUG: month: {Month}, year: {Year} -->")
 print(f"<!-- DEBUG: month number: {month} -->")
 
 # First, let's check if the employee exists in tblAccounts
-checkEmpQuery = f"SELECT COUNT(*) as count FROM tblAccounts WHERE TRIM(empID) = '{empID}'"
+checkEmpQuery = f"SELECT COUNT(*) as count FROM tblAccounts WHERE TRIM(empID) = '{empIDFromDB}'"
 cursor.execute(checkEmpQuery)
 empCount = cursor.fetchone()
 print(f"<!-- DEBUG: Employee records in tblAccounts: {empCount['count']} -->")
@@ -196,7 +196,7 @@ print(f"<!-- DEBUG: Employee records in tblAccounts: {empCount['count']} -->")
 # Check for any accounts data for this employee
 checkAccountsQuery = f"""SELECT month, year, COUNT(*) as count 
                        FROM tblAccounts 
-                       WHERE TRIM(empID) = '{empID}' 
+                       WHERE TRIM(empID) = '{empIDFromDB}' 
                        GROUP BY month, year 
                        ORDER BY year DESC, month DESC 
                        LIMIT 5"""
@@ -218,7 +218,7 @@ for row in accountTypes:
 checkActualDataQuery = f"""SELECT a.empID, a.month, a.year, a.amount, t.accountTypeName, t.typeOfAccount 
                          FROM tblAccounts a 
                          JOIN tblAccountType t ON a.accountTypeID = t.accountTypeID 
-                         WHERE a.empID = '{empID}' 
+                         WHERE a.empID = '{empIDFromDB}' 
                          ORDER BY a.year DESC, a.month DESC 
                          LIMIT 10"""
 cursor.execute(checkActualDataQuery)
@@ -231,7 +231,7 @@ queryEarnings = f"""
     SELECT t.accountTypeName, a.amount
     FROM tblAccounts a
     JOIN tblAccountType t ON a.accountTypeID = t.accountTypeID
-    WHERE TRIM(a.empID) = '{empID}'
+    WHERE TRIM(a.empID) = '{empIDFromDB}'
       AND a.month = {month}
       AND a.year = {Year}
       AND t.typeOfAccount = 'earnings'
@@ -256,7 +256,7 @@ if not earnings:
         SELECT t.accountTypeName, a.amount
         FROM tblAccounts a
         JOIN tblAccountType t ON a.accountTypeID = t.accountTypeID
-        WHERE a.empID = '{empID}'
+        WHERE a.empID = '{empIDFromDB}'
           AND a.month = {month}
           AND a.year = {Year}
           AND t.typeOfAccount = 'earnings'
@@ -277,7 +277,7 @@ if not earnings:
             SELECT t.accountTypeName, a.amount
             FROM tblAccounts a
             JOIN tblAccountType t ON a.accountTypeID = t.accountTypeID
-            WHERE a.empID = '{empID}'
+            WHERE a.empID = '{empIDFromDB}'
               AND a.month = '{month}'
               AND a.year = '{Year}'
               AND t.typeOfAccount = 'earnings'
@@ -299,7 +299,7 @@ if not earnings:
             SELECT t.accountTypeName, a.amount, a.month, a.year
             FROM tblAccounts a
             JOIN tblAccountType t ON a.accountTypeID = t.accountTypeID
-            WHERE a.empID = '{empID}'
+            WHERE a.empID = '{empIDFromDB}'
               AND t.typeOfAccount = 'earnings'
             ORDER BY a.year DESC, a.month DESC
             LIMIT 10
@@ -330,13 +330,13 @@ print(f"<!-- DEBUG: Total Earnings: {totalEarnings} -->")
 deductions = {}
 totalDeductions = 0
 
-print(f"<!-- DEBUG: Fetching deductions for empID: {empID}, month: {month}, year: {Year} -->")
+print(f"<!-- DEBUG: Fetching deductions for empID: {empIDFromDB}, month: {month}, year: {Year} -->")
 
 queryDeductions = f"""
     SELECT t.accountTypeName, a.amount
     FROM tblAccounts a
     JOIN tblAccountType t ON a.accountTypeID = t.accountTypeID
-    WHERE TRIM(a.empID) = '{empID}'
+    WHERE TRIM(a.empID) = '{empIDFromDB}'
       AND a.month = {month}
       AND a.year = {Year}
       AND t.typeOfAccount = 'deductions'
@@ -361,7 +361,7 @@ if not deductions:
         SELECT t.accountTypeName, a.amount
         FROM tblAccounts a
         JOIN tblAccountType t ON a.accountTypeID = t.accountTypeID
-        WHERE a.empID = '{empID}'
+        WHERE a.empID = '{empIDFromDB}'
           AND a.month = {month}
           AND a.year = {Year}
           AND t.typeOfAccount = 'deductions'
@@ -382,7 +382,7 @@ if not deductions:
             SELECT t.accountTypeName, a.amount
             FROM tblAccounts a
             JOIN tblAccountType t ON a.accountTypeID = t.accountTypeID
-            WHERE a.empID = '{empID}'
+            WHERE a.empID = '{empIDFromDB}'
               AND a.month = '{month}'
               AND a.year = '{Year}'
               AND t.typeOfAccount = 'deductions'
@@ -404,7 +404,7 @@ if not deductions:
             SELECT t.accountTypeName, a.amount, a.month, a.year
             FROM tblAccounts a
             JOIN tblAccountType t ON a.accountTypeID = t.accountTypeID
-            WHERE a.empID = '{empID}'
+            WHERE a.empID = '{empIDFromDB}'
               AND t.typeOfAccount = 'deductions'
             ORDER BY a.year DESC, a.month DESC
             LIMIT 10
@@ -427,13 +427,13 @@ print(f"<!-- DEBUG: Total Deductions: {totalDeductions} -->")
 loanDeductions = {}
 totalLoanDeductions = 0
 
-print(f"<!-- DEBUG: Fetching loan deductions for empID: {empID}, month: {month}, year: {Year} -->")
+print(f"<!-- DEBUG: Fetching loan deductions for empID: {empIDFromDB}, month: {month}, year: {Year} -->")
 
 queryLoanDeductions = f"""
     SELECT t.accountTypeName, a.amount
     FROM tblAccounts a
     JOIN tblAccountType t ON a.accountTypeID = t.accountTypeID
-    WHERE TRIM(a.empID) = '{empID}'
+    WHERE TRIM(a.empID) = '{empIDFromDB}'
       AND a.month = {month}
       AND a.year = {Year}
       AND t.typeOfAccount = 'loans'
@@ -458,7 +458,7 @@ if not loanDeductions:
         SELECT t.accountTypeName, a.amount
         FROM tblAccounts a
         JOIN tblAccountType t ON a.accountTypeID = t.accountTypeID
-        WHERE a.empID = '{empID}'
+        WHERE a.empID = '{empIDFromDB}'
           AND a.month = {month}
           AND a.year = {Year}
           AND t.typeOfAccount = 'loans'
@@ -479,7 +479,7 @@ if not loanDeductions:
             SELECT t.accountTypeName, a.amount
             FROM tblAccounts a
             JOIN tblAccountType t ON a.accountTypeID = t.accountTypeID
-            WHERE a.empID = '{empID}'
+            WHERE a.empID = '{empIDFromDB}'
               AND a.month = '{month}'
               AND a.year = '{Year}'
               AND t.typeOfAccount = 'loans'
@@ -501,7 +501,7 @@ if not loanDeductions:
             SELECT t.accountTypeName, a.amount, a.month, a.year
             FROM tblAccounts a
             JOIN tblAccountType t ON a.accountTypeID = t.accountTypeID
-            WHERE a.empID = '{empID}'
+            WHERE a.empID = '{empIDFromDB}'
               AND t.typeOfAccount = 'loans'
             ORDER BY a.year DESC, a.month DESC
             LIMIT 10
@@ -588,7 +588,7 @@ template_data = {
     'monthName': Month,
     'year': Year,
     'employeeName': employeeName,
-    'empID': empID,
+    'empID': empIDFromDB,
     'joiningDate': joiningDate,
     'bankName': bankName,
     'bankAccountNumber': bankAccountNumber,
