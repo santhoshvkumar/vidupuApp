@@ -170,12 +170,6 @@ if employee:
     if lopResult:
         lopDays = lopResult['absentDays']
 
-print(f"<!-- Working Days Query: {queryWorkingDays} -->")
-print(f"<!-- Working Days Result: {workingDaysResult} -->")
-print(f"<!-- LOP Query: {queryLOP} -->")
-print(f"<!-- LOP Days: {lopDays} -->")
-print(f"<!-- Month Start: {monthStart}, Month End: {monthEnd} -->")
-
 # Step 9: Logo path handling
 logoWebPath = ''
 if orgLogo:
