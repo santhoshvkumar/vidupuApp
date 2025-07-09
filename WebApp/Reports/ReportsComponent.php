@@ -690,7 +690,7 @@ ORDER BY
                 'Sweeper'
             ];
 
-            // Get leave data for the month - using a simpler approach
+            // Get leave data for the month - using dashboard logic (count ALL approved leaves)
             $query = "
                 SELECT 
                     e.Designation,
@@ -708,7 +708,6 @@ ORDER BY
                     e.organisationID = ? AND
                     e.isActive = 1 AND
                     al.status = 'Approved' AND
-                    al.typeOfLeave IN ('Casual Leave', 'Privilege Leave', 'PrivilegeLeave(Medical Grounds)', 'Medical Leave') AND
                     (
                         (al.fromDate >= ? AND al.fromDate <= ?) OR
                         (al.toDate >= ? AND al.toDate <= ?) OR
