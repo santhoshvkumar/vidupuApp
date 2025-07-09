@@ -4,7 +4,7 @@ import pdfkit
 import calendar
 
 # Step 1: Input parameters
-EmpID = 10199
+EmpID = 706
 Month = "June"
 Year = 2025
 OrgID = 1
