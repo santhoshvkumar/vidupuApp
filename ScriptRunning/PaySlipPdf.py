@@ -804,7 +804,7 @@ def generate_payslip(employeeID, Month, Year, OrgID):
     html_out = template.render(**template_data)
 
     # Step 18: Save HTML and PDF output to uploads/<OrgID>/<employeeID>/<Month>-Payslip.pdf
-    output_dir = os.path.join("../uploads", str(OrgID), str(employeeIDPrimaryKey), str(Month))
+    output_dir = os.path.join("../uploads/Organisation", str(OrgID), str(employeeIDPrimaryKey), str(Month))
     os.makedirs(output_dir, exist_ok=True)
     pdf_filename = "Payslip.pdf"
     pdf_path = os.path.join(output_dir, pdf_filename)
