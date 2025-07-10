@@ -2,6 +2,7 @@ import mysql.connector
 from jinja2 import Template
 import pdfkit
 import calendar
+import argparse
 
 def generate_payslip(employeeID, Month, Year, OrgID):
     # Step 2: Connect to MySQL
@@ -814,10 +815,17 @@ def generate_payslip(employeeID, Month, Year, OrgID):
     conn.close()
 
 if __name__ == "__main__":
-    # Default parameters
+    parser = argparse.ArgumentParser(description="Generate Employee Payslip PDF")
+    parser.add_argument("--employeeID", type=int, required=False, default=706, help="Employee ID")
+    parser.add_argument("--Month", type=str, required=False, default="June", help="Month name (e.g., June)")
+    parser.add_argument("--Year", type=int, required=False, default=2025, help="Year (e.g., 2025)")
+    parser.add_argument("--OrgID", type=int, required=False, default=1, help="Organisation ID")
+
+    args = parser.parse_args()
+
     generate_payslip(
-        employeeID=706,
-        Month="June",
-        Year=2025,
-        OrgID=1
+        employeeID=args.employeeID,
+        Month=args.Month,
+        Year=args.Year,
+        OrgID=args.OrgID
     )
