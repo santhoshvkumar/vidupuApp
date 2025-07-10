@@ -76,7 +76,7 @@ DB_CONFIG = {
 }
 
 # Excel file path (GLOBAL)
-EXCEL_FILE_PATH = r'C:/MAMP/htdocs/Vidupu/vidupuApi/ScriptRunning/Sal_slip.xlsx'
+EXCEL_FILE_PATH = r'/ScriptRunning/Sal_slip.xlsx'
 
 # Direct pay type to category mapping
 PAY_TYPE_MAPPING = {
