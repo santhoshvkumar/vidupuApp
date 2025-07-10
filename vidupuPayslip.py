@@ -517,6 +517,15 @@ class SimplePayslipProcessor:
                     # Create mapping and insert record
                     self.create_account_mapping(emp_id, account_type_id)
                     self.insert_account_record(employee_id, emp_id, account_type_id, amount, month, year)
+
+                    # Call the generate_payslip function directly
+                    from ScriptRunning.PaySlipPdf import generate_payslip
+                    generate_payslip(
+                        employeeID=employee_id,
+                        Month=month,
+                        Year=year,
+                        OrgID=1
+                    )
                     
                     processed_count += 1
                     
