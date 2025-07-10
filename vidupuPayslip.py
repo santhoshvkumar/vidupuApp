@@ -372,7 +372,7 @@ class SimplePayslipProcessor:
             else:
                 # Insert new record
                 logging.info(
-                    "Inserting new record into tblAccounts: employeeID=%s, empID=%s, accountTypeID=%s, amount=%s, month=%s, year=%s",
+                    "INSERT INTO tblAccounts (employeeID, empID, accountTypeID, amount, month, year) VALUES (%s, %s, %s, %s, %s, %s)",
                     employee_id, emp_id, account_type_id, amount, month, year
                 )
                 cursor.execute(
