@@ -89,6 +89,7 @@ def generate_payslip(employeeID, Month, Year, OrgID):
 
     # Initialize employee variables
     employeeName = ''
+    employeeIDPrimaryKey = ''
     empIDFromDB = ''
     joiningDate = ''
     bankName = ''
@@ -102,6 +103,7 @@ def generate_payslip(employeeID, Month, Year, OrgID):
 
     if employee:
         employeeName = employee['employeeName'] or ''
+        employeeIDPrimaryKey = employee['employeeID'] or ''
         empIDFromDB = employee['empID'] or ''
         joiningDate = employee['joiningDate'] or ''
         bankName = employee['bankName'] or ''
@@ -802,24 +804,17 @@ def generate_payslip(employeeID, Month, Year, OrgID):
     html_out = template.render(**template_data)
 
     # Step 18: Save HTML and PDF output to uploads/<OrgID>/<employeeID>/<Month>-Payslip.pdf
-    output_dir = os.path.join("uploads", str(OrgID), str(employeeID))
+    output_dir = os.path.join("../uploads", str(OrgID), str(employeeIDPrimaryKey), str(Month))
     os.makedirs(output_dir, exist_ok=True)
-    pdf_filename = f"{Month}-Payslip.pdf"
-    html_filename = f"{Month}-Payslip.html"
+    pdf_filename = "Payslip.pdf"
     pdf_path = os.path.join(output_dir, pdf_filename)
-    html_path = os.path.join(output_dir, html_filename)
-
-    with open(html_path, "w", encoding="utf-8") as f:
-        f.write(html_out)
-    print(f"✅ HTML payslip generated successfully! Check {html_path}")
 
     try:
         pdfkit.from_string(html_out, pdf_path)
         print(f"✅ PDF payslip generated successfully! Check {pdf_path}")
     except Exception as e:
         print(f"⚠️ PDF generation failed: {e}")
-        print(f"📄 You can open {html_path} in your browser to view the payslip")
-
+  
     # Close database connection
     cursor.close()
     conn.close()
