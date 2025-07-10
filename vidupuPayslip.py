@@ -495,11 +495,11 @@ class SimplePayslipProcessor:
                     logger.error(f"Error processing row {index + 1}: {e}")
                     skipped_count += 1
                     continue
-            # Call the generate_payslip function directly
-            logger.info(f"Starting payslip generation for employeeID={employee_id}, empID={emp_id}, month={month}, year={year}")
-            generate_payslip(employee_id, month, year, 1)
-            logger.info(f"Payslip generated for employeeID={employee_id}, empID={emp_id}, month={month}, year={year}")
-            
+                # Call the generate_payslip function directly
+                logger.info(f"Starting payslip generation for employeeID={employee_id}, empID={emp_id}, month={month}, year={year}")
+                generate_payslip(employee_id, month, year, 1)
+                logger.info(f"Payslip generated for employeeID={employee_id}, empID={emp_id}, month={month}, year={year}")
+                
         except Exception as e:
             logger.error(f"Error processing Excel file: {e}")
             raise
