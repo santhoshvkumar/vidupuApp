@@ -578,8 +578,8 @@ def generate_payslip(employeeID, Month, Year, OrgID):
                      WHERE empID = '{employeeID}'"""
     cursor.execute(checkQuery)
     checkData = cursor.fetchone()
-    print(f"<!-- DEBUG: Check Query: {checkQuery} -->")
-    print(f"<!-- DEBUG: Check Data: {checkData} -->")
+    logger.info(f"<!-- DEBUG: Check Query: {checkQuery} -->")
+    logger.info(f"<!-- DEBUG: Check Data: {checkData} -->")
 
     # Step 6: Fetch employee details with section and branch information
     queryEmp = f"""SELECT 
@@ -606,9 +606,9 @@ def generate_payslip(employeeID, Month, Year, OrgID):
     cursor.execute(queryEmp)
     employee = cursor.fetchone()
 
-    print(f"<!-- DEBUG: Query: {queryEmp} -->")
-    print(f"<!-- DEBUG: Employee ID being searched: {employeeID} -->")
-    print(f"<!-- DEBUG: Raw employee data: {employee} -->")
+    logger.info(f"<!-- DEBUG: Query: {queryEmp} -->")
+    logger.info(f"<!-- DEBUG: Employee ID being searched: {employeeID} -->")
+    logger.info(f"<!-- DEBUG: Raw employee data: {employee} -->")
 
     # Initialize employee variables
     employeeName = ''
@@ -637,10 +637,10 @@ def generate_payslip(employeeID, Month, Year, OrgID):
         pfUAN = employee['pfUAN'] or ''
         department = employee['SectionName'] or ''
         branchName = employee['branchName'] or ''
-        print(f"<!-- DEBUG: Bank Account Number from DB: {bankAccountNumber} -->")
-        print(f"<!-- DEBUG: PAN Number from DB: {panNumber} -->")
-        print(f"<!-- DEBUG: PF Number from DB: {pfNumber} -->")
-        print(f"<!-- DEBUG: PF UAN from DB: {pfUAN} -->")
+        logger.info(f"<!-- DEBUG: Bank Account Number from DB: {bankAccountNumber} -->")
+        logger.info(f"<!-- DEBUG: PAN Number from DB: {panNumber} -->")
+        logger.info(f"<!-- DEBUG: PF Number from DB: {pfNumber} -->")
+        logger.info(f"<!-- DEBUG: PF UAN from DB: {pfUAN} -->")
 
     # Step 7: Fetch working days for the specified month and year
     queryWorkingDays = f"SELECT noOfWorkingDays FROM tblworkingdays WHERE monthName = '{month}' AND year = '{Year}'"
