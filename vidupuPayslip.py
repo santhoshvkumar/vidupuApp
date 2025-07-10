@@ -484,15 +484,7 @@ class SimplePayslipProcessor:
                     self.create_account_mapping(emp_id, account_type_id)
                     self.insert_account_record(employee_id, emp_id, account_type_id, amount, month, year)
 
-                    # Call the generate_payslip function directly
-                    logger.info(f"Starting payslip generation for employeeID={employee_id}, empID={emp_id}, month={month}, year={year}")
-                    generate_payslip(
-                        employeeID=employee_id,
-                        Month=month,
-                        Year=year,
-                        OrgID=1
-                    )
-                    logger.info(f"Payslip generated for employeeID={employee_id}, empID={emp_id}, month={month}, year={year}")
+                  
                     processed_count += 1
                     
                     # Track employee for PDF generation
@@ -502,7 +494,15 @@ class SimplePayslipProcessor:
                     logger.error(f"Error processing row {index + 1}: {e}")
                     skipped_count += 1
                     continue
-            
+                # Call the generate_payslip function directly
+                logger.info(f"Starting payslip generation for employeeID={employee_id}, empID={emp_id}, month={month}, year={year}")
+                generate_payslip(
+                    employeeID=employee_id,
+                    Month=month,
+                    Year=year,
+                    OrgID=1
+                )
+                logger.info(f"Payslip generated for employeeID={employee_id}, empID={emp_id}, month={month}, year={year}")
             
         except Exception as e:
             logger.error(f"Error processing Excel file: {e}")
