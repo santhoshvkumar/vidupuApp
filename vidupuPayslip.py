@@ -489,17 +489,27 @@ class SimplePayslipProcessor:
                     processed_count += 1
                     
                     # Track employee for PDF generation
-                    employees_processed.add((emp_id, month, year))
+                    employees_processed.add((employee_id, month, year))
                         
                 except Exception as e:
                     logger.error(f"Error processing row {index + 1}: {e}")
                     skipped_count += 1
                     continue
             # Call the generate_payslip function directly
-            logger.info(f"Starting payslip generation for employeeID={employee_id}, empID={emp_id}, month={month}, year={year}")
-            generate_payslip(employee_id, month, year, 1)
-            logger.info(f"Payslip generated for employeeID={employee_id}, empID={emp_id}, month={month}, year={year}")
-            
+           
+            organisation_id = 1  # or get this dynamically if needed
+
+            for employee_id, month, year in employees_processed:
+                # If month is an int, convert to month name
+                logger.info(f"Starting payslip generation for employeeID={employee_id},  month={month}, year={year}")
+                month_name = calendar.month_name[month] if isinstance(month, int) else month
+                generate_payslip(
+                    employeeID=employee_id,
+                    Month=month_name,
+                    Year=year,
+                    OrgID=organisation_id
+                )
+                logger.info(f"Payslip generated for employeeID={employee_id}, empID={emp_id}, month={month}, year={year}")
         except Exception as e:
             logger.error(f"Error processing Excel file: {e}")
             raise
