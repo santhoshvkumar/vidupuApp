@@ -70,12 +70,13 @@ logger = logging.getLogger(__name__)
 # Database configuration
 DB_CONFIG = {
     'host': 'localhost',
-    'user': 'root',
-    'password': 'root',
-    'database': 'tnscvidupuapp',
-    'port': 8889,
-    'charset': 'utf8'
+    'user': 'vsk',
+    'password': 'Password#1',
+    'database': 'tnscVidupuApp',
 }
+
+# Excel file path (GLOBAL)
+EXCEL_FILE_PATH = r'C:/MAMP/htdocs/Vidupu/vidupuApi/ScriptRunning/Sal_slip.xlsx'
 
 # Direct pay type to category mapping
 PAY_TYPE_MAPPING = {
@@ -97,15 +98,6 @@ class SimplePayslipProcessor:
     def __init__(self):
         self.connection = None
         self.account_types = {}
-        self.payslip_dir = "Uploads/EMP/PaySlips"
-        self.base_url = "http://localhost:8888/Vidupu/vidupuApi/Website/payslip.php"
-        # Alternative URLs to try if the main one fails
-        self.alternative_urls = [
-            "http://localhost:8888/vidupuApi/Website/payslip.php",
-            "http://localhost:8888/Vidupu/vidupuApi/Website/payslip.php",
-            "http://localhost:8888/Website/payslip.php"
-        ]
-        
     def connect_db(self):
         """Connect to MySQL database"""
         try:
@@ -256,38 +248,6 @@ class SimplePayslipProcessor:
         except Exception as e:
             logger.error(f"Error generating payslip for {emp_id}: {e}")
             return None
-    
-    def test_web_server(self):
-        """Test if the web server is accessible"""
-        logger.info("Testing web server connectivity...")
-        
-        test_urls = [
-            "http://localhost:8888/Vidupu/vidupuApi/Website/payslip.php",
-            "http://localhost:8888/vidupuApi/Website/payslip.php",
-            "http://localhost:8888/Website/payslip.php"
-        ]
-        
-        for url in test_urls:
-            try:
-                response = requests.get(url, timeout=10)
-                if response.status_code == 200:
-                    logger.info(f"✓ Web server accessible at: {url}")
-                    return url
-                else:
-                    logger.warning(f"✗ URL {url} returned status {response.status_code}")
-            except requests.exceptions.ConnectionError:
-                logger.error(f"✗ Connection refused for {url}")
-                logger.error("   This means MAMP's Apache server is not running!")
-                logger.error("   Please start MAMP and ensure Apache is running.")
-            except Exception as e:
-                logger.warning(f"✗ URL {url} failed: {e}")
-        
-        logger.error("✗ All web server URLs failed. Please check:")
-        logger.error("  1. MAMP is running")
-        logger.error("  2. Apache web server is started in MAMP")
-        logger.error("  3. payslip.php file exists at the correct path")
-        logger.error("  4. Try accessing http://localhost:8888 in your browser")
-        return None
     
     def open_payslip_in_browser(self, html_filepath):
         """Open payslip HTML file in default browser"""
@@ -597,21 +557,11 @@ def main():
         # Create payslip directory
         processor.create_payslip_directory()
         
-        # Test web server connectivity
-        working_url = processor.test_web_server()
-        if working_url:
-            processor.base_url = working_url
-            logger.info(f"Using web server URL: {working_url}")
-        else:
-            logger.warning("Web server not accessible. PDF generation may fail.")
-            logger.warning("Run 'python check_mamp.py' to diagnose MAMP issues.")
-        
         # Clear existing data
         processor.clear_existing_data()
         
-        # Process Excel file
-        excel_file = "Payslip/Sal_slip_062025.xlsx"
-        processor.process_excel_file(excel_file)
+        # Process Excel file (use global EXCEL_FILE_PATH)
+        processor.process_excel_file(EXCEL_FILE_PATH)
         
         logger.info("SUCCESS: Payslip processing completed!")
         logger.info(f"PDF payslips saved to: {processor.payslip_dir}")
