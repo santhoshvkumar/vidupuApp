@@ -78,11 +78,12 @@ DB_CONFIG = {
     'host': 'localhost',
     'user': 'vsk',
     'password': 'Password#1',
-    'database': 'tnscVidupuApp',
+    'database': 'tnscVidupuApp'
 }
 
 # Excel file path (GLOBAL)
 EXCEL_FILE_PATH = r'/data/server/live/API/public_html/vidupuApp/ScriptRunning/Sal_slip.xlsx'
+# EXCEL_FILE_PATH = r'C:/MAMP/htdocs/Vidupu/vidupuApi/ScriptRunning/Sal_slip.xlsx'
 
 # Direct pay type to category mapping
 PAY_TYPE_MAPPING = {
@@ -229,7 +230,7 @@ class SimplePayslipProcessor:
                     <p><strong>Solution:</strong></p>
                     <ul>
                         <li>Ensure MAMP is running</li>
-                        <li>Check that payslip.php is accessible at: http://localhost:8888/Vidupu/vidupuApi/Website/payslip.php</li>
+    
                         <li>Verify the file path is correct</li>
                     </ul>
                 </div>
@@ -518,7 +519,7 @@ def main():
         processor.process_excel_file(EXCEL_FILE_PATH)
         
         logger.info("SUCCESS: Payslip processing completed!")
-        logger.info(f"PDF payslips saved to: {processor.payslip_dir}")
+        logger.info("PDF payslips generated successfully!")
         
     except Exception as e:
         logger.error(f"FAILED: {e}")
@@ -531,12 +532,15 @@ def generate_payslip(employeeID, Month, Year, OrgID):
     logger.info("inisde Function")
     # Step 2: Connect to MySQL
     conn = mysql.connector.connect(
-        host="localhost", user="vsk", password="Password#1", database="tnscVidupuApp"
+            host="localhost", user="vsk", password="Password#1", database="tnscVidupuApp"
     )
     cursor = conn.cursor(dictionary=True)
 
-    # Step 3: Fix month name handling - convert to proper format for date parsing
-    monthNameUpper = Month.upper()
+    # Handle Month as int or str
+    if isinstance(Month, int):
+        monthNameUpper = calendar.month_name[Month].upper()
+    else:
+        monthNameUpper = str(Month).upper()
     if monthNameUpper == 'ARPIL':
         monthNameUpper = 'APRIL'  # Fix the typo for date parsing
 
@@ -560,7 +564,7 @@ def generate_payslip(employeeID, Month, Year, OrgID):
     orgCity = ''
     orgState = ''
     orgWebsite = ''
-    orgPhone = ''
+    orgPhone = ''   
 
     if org_result:
         orgName = org_result['organisationName'] or ''
@@ -575,7 +579,7 @@ def generate_payslip(employeeID, Month, Year, OrgID):
     # Step 5: Add a direct check for the employee data
     checkQuery = f"""SELECT empID, bankAccountNumber, PANNumber, PFNumber, PFUAN 
                      FROM tblEmployee 
-                     WHERE empID = '{employeeID}'"""
+                     WHERE employeeID = '{employeeID}'"""
     cursor.execute(checkQuery)
     checkData = cursor.fetchone()
     logger.info(f"<!-- DEBUG: Check Query: {checkQuery} -->")
@@ -601,7 +605,7 @@ def generate_payslip(employeeID, Month, Year, OrgID):
     LEFT JOIN tblSection s ON a.sectionID = s.SectionID 
     LEFT JOIN tblmapEmp m ON e.employeeID = m.employeeID
     LEFT JOIN tblBranch b ON m.branchID = b.branchID
-    WHERE e.empID = '{employeeID}'"""
+    WHERE e.employeeID = '{employeeID}'"""
 
     cursor.execute(queryEmp)
     employee = cursor.fetchone()
@@ -652,7 +656,10 @@ def generate_payslip(employeeID, Month, Year, OrgID):
 
     # If not found with month number, try with month name
     if workingDays == 0:
-        dbMonthName = Month.upper()
+        if isinstance(Month, int):
+            dbMonthName = calendar.month_name[Month].upper()
+        else:
+            dbMonthName = str(Month).upper()
         if dbMonthName == 'APRIL':
             dbMonthName = 'ARPIL'  # Fix the typo for database query
         queryWorkingDaysByName = f"SELECT noOfWorkingDays FROM tblworkingdays WHERE monthName = '{dbMonthName}' AND year = '{Year}'"
