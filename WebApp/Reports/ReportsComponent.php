@@ -79,22 +79,6 @@ ORDER BY
     e.empID, attendanceDate;
 ";
 
-            $debug_query = str_replace(
-                array_fill(0, 8, '?'),
-                [
-                    "'" . $this->startDate . "'",
-                    "'" . $this->startDate . "'",
-                    "'" . $this->endDate . "'",
-                    "'" . $this->startDate . "'",
-                    "'" . $this->startDate . "'",
-                    "'" . $this->startDate . "'",
-                    "'" . $this->startDate . "'",
-                    "'" . $this->endDate . "'"
-                ],
-                $queryforGetAttendanceReport
-            );
-            error_log("Debug Query: " . $debug_query);
-
             $stmt = mysqli_prepare($connect_var, $queryforGetAttendanceReport);
             if (!$stmt) {
                 throw new Exception("Database prepare failed");
@@ -137,7 +121,6 @@ ORDER BY
             mysqli_stmt_close($stmt);
             mysqli_close($connect_var);
         } catch (Exception $e) {
-            error_log("Error in GetValueDashboardforCheckin: " . $e->getMessage());     
             echo json_encode([
                 "status" => "error",
                 "message_text" => $e->getMessage()
@@ -203,22 +186,6 @@ ORDER BY
     e.empID, attendanceDate;
 ";
 
-            $debug_query = str_replace(
-                array_fill(0, 7, '?'),
-                [
-                    "'" . $this->startDate . "'",
-                    "'" . $this->startDate . "'",
-                    "'" . $this->endDate . "'",
-                    "'" . $this->startDate . "'",
-                    "'" . $this->startDate . "'",
-                    "'" . $this->startDate . "'",
-                    "'" . $this->startDate . "'",
-                    "'" . $this->endDate . "'"
-                ],
-                $queryforGetAttendanceReport
-            );
-            error_log("Debug Query: " . $debug_query);
-
             $stmt = mysqli_prepare($connect_var, $queryforGetAttendanceReport);
             if (!$stmt) {
                 throw new Exception("Database prepare failed");
@@ -261,7 +228,6 @@ ORDER BY
             mysqli_stmt_close($stmt);
             mysqli_close($connect_var);
         } catch (Exception $e) {
-            error_log("Error in GetValueDashboardforCheckin: " . $e->getMessage());     
             echo json_encode([
                 "status" => "error",
                 "message_text" => $e->getMessage()
@@ -292,22 +258,8 @@ JOIN tblmapEmp AS m ON e.employeeID = m.employeeID
 JOIN tblBranch AS b ON m.branchID = b.branchID
 WHERE l.createdOn BETWEEN ? AND ?
 ORDER BY l.createdOn DESC;";
-            error_log("Start Date: " . $this->startDate);
-            error_log("End Date: " . $this->endDate);
-
-            $debug_query = str_replace(
-                array_fill(0, 2, '?'),
-                [
-                    "'" . $this->startDate . "'",
-                    "'" . $this->endDate . "'"
-                ],
-                $queryforGetLeaveReport
-            );
-            error_log("Debug Query: " . $debug_query);
-
             $stmt = mysqli_prepare($connect_var, $queryforGetLeaveReport);
             if (!$stmt) {
-                error_log("Prepare failed: " . mysqli_error($connect_var));
                 throw new Exception("Database prepare failed");
             }
 
@@ -317,7 +269,6 @@ ORDER BY l.createdOn DESC;";
             );
 
             if (!mysqli_stmt_execute($stmt)) {
-                error_log("Execute failed: " . mysqli_stmt_error($stmt));
                 throw new Exception("Database execute failed");
             }
 
@@ -327,8 +278,6 @@ ORDER BY l.createdOn DESC;";
                 $countEmployee++;
                 $data[] = $row;
             }
-
-            error_log("Number of records found: " . $countEmployee);
 
             if ($countEmployee > 0) {
                 echo json_encode([
@@ -345,7 +294,6 @@ ORDER BY l.createdOn DESC;";
             mysqli_stmt_close($stmt);
             mysqli_close($connect_var);
         } catch (Exception $e) {
-            error_log("Error in GetLeaveReport: " . $e->getMessage());     
             echo json_encode([
                 "status" => "error",
                 "message_text" => $e->getMessage()
@@ -451,28 +399,6 @@ ORDER BY
     AttendanceDate;
 ";
 
-            $debug_query = str_replace(
-                array_fill(0, 12, '?'),
-                [
-                    "'" . $this->startDate . "'",
-                    "'" . $this->startDate . "'",
-                    "'" . $this->startDate . "'",
-                    "'" . $this->startDate . "'",
-                    "'" . $this->startDate . "'",
-                    "'" . $this->startDate . "'",
-                    "'" . $this->startDate . "'",
-                    "'" . $this->startDate . "'",
-                    "'" . $this->startDate . "'",
-                    "'" . $this->startDate . "'",
-                    "'" . $this->startDate . "'",
-                    "'" . $this->startDate . "'",
-                    "'" . $this->endDate . "'",
-                    
-                ],
-                $queryforGetAttendanceReport
-            );
-            error_log("Debug Query: " . $debug_query);
-
             $stmt = mysqli_prepare($connect_var, $queryforGetAttendanceReport);
             if (!$stmt) {
                 throw new Exception("Database prepare failed");
@@ -557,7 +483,6 @@ ORDER BY
             mysqli_stmt_close($stmt);
             mysqli_close($connect_var);
         } catch (Exception $e) {
-            error_log("Error in GetValueDashboardforCheckin: " . $e->getMessage());     
             echo json_encode([
                 "status" => "error",
                 "message_text" => $e->getMessage()
@@ -569,11 +494,9 @@ ORDER BY
         include(dirname(__FILE__) . '/../../config.inc');
         header('Content-Type: application/json');
         try {
-            error_log("GetManagementLeaveReport called with month: " . $this->selectedMonth . " and orgID: " . $this->organisationID);
             
             // Convert single month number to YYYY-MM format
             $formattedMonth = '2025-' . str_pad($this->selectedMonth, 2, '0', STR_PAD_LEFT);
-            error_log("Formatted month: " . $formattedMonth);
             
             $query = "
                 SELECT 
@@ -615,22 +538,17 @@ ORDER BY
                 ) subquery,
                 (SELECT @row_number := 0) r";
 
-            error_log("Preparing query: " . $query);
             $stmt = mysqli_prepare($connect_var, $query);
             if (!$stmt) {
-                error_log("Database prepare failed: " . mysqli_error($connect_var));
                 throw new Exception("Database prepare failed: " . mysqli_error($connect_var));
             }
 
-            error_log("Binding parameters: " . $formattedMonth . ", " . $this->organisationID);
             mysqli_stmt_bind_param($stmt, "si", 
                 $formattedMonth,
                 $this->organisationID
             );
             
-            error_log("Executing query");
             if (!mysqli_stmt_execute($stmt)) {
-                error_log("Database execute failed: " . mysqli_error($connect_var));
                 throw new Exception("Database execute failed: " . mysqli_error($connect_var));
             }
 
@@ -639,7 +557,6 @@ ORDER BY
             while ($row = mysqli_fetch_assoc($result)) {
                 $leaveReport[] = $row;
             }
-            error_log("Found " . count($leaveReport) . " records");
 
             mysqli_stmt_close($stmt);
 
@@ -647,11 +564,9 @@ ORDER BY
                 "status" => "success",
                 "data" => $leaveReport
             ];
-            error_log("Sending response: " . json_encode($response));
             echo json_encode($response);
 
         } catch (Exception $e) {
-            error_log("Error in GetManagementLeaveReport: " . $e->getMessage());
             echo json_encode([
                 "status" => "error",
                 "message_text" => $e->getMessage()
@@ -732,7 +647,6 @@ ORDER BY
             );
             
             if (!mysqli_stmt_execute($stmt)) {
-                error_log("Database execute failed: " . mysqli_error($connect_var));
                 throw new Exception("Database execute failed: " . mysqli_error($connect_var));
             }
 
@@ -807,6 +721,130 @@ ORDER BY
             
             echo json_encode($response);
 
+        } catch (Exception $e) {
+            echo json_encode([
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ], JSON_FORCE_OBJECT);
+        }
+    }
+
+    public function GetMonthlyAttendanceSummaryReport() {
+        include(dirname(__FILE__) . '/../../config.inc');
+        header('Content-Type: application/json');
+        try {
+            // Get year and month
+            $currentYear = date('Y');
+            $selectedMonth = str_pad($this->selectedMonth, 2, '0', STR_PAD_LEFT);
+            $monthStart = "$currentYear-$selectedMonth-01";
+            $monthEnd = date('Y-m-t', strtotime($monthStart));
+
+            // Get month name for display
+            $monthNames = [
+                1 => 'JANUARY', 2 => 'FEBRUARY', 3 => 'MARCH', 4 => 'ARPIL',
+                5 => 'MAY', 6 => 'JUNE', 7 => 'JULY', 8 => 'AUGUST',
+                9 => 'SEPTEMBER', 10 => 'OCTOBER', 11 => 'NOVEMBER', 12 => 'DECEMBER'
+            ];
+            $monthName = $monthNames[$this->selectedMonth] ?? '';
+
+            // 1. Get working days for the month
+            $workingDaysQuery = "SELECT noOfWorkingDays FROM tblworkingdays WHERE monthName = ? AND year = ?";
+            $stmt = mysqli_prepare($connect_var, $workingDaysQuery);
+            mysqli_stmt_bind_param($stmt, "ss", $monthName, $currentYear);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+            $workingDaysData = mysqli_fetch_assoc($result);
+            $workingDays = $workingDaysData['noOfWorkingDays'] ?? 0;
+            mysqli_stmt_close($stmt);
+
+            // 2. Get all active, non-temporary employees for the org
+            $employeeQuery = "SELECT employeeID FROM tblEmployee WHERE organisationID = ? AND isActive = 1 AND isTemporary = 0";
+            $stmt = mysqli_prepare($connect_var, $employeeQuery);
+            mysqli_stmt_bind_param($stmt, "i", $this->organisationID);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+            $employeeIDs = [];
+            while ($row = mysqli_fetch_assoc($result)) {
+                $employeeIDs[] = $row['employeeID'];
+            }
+            mysqli_stmt_close($stmt);
+            $totalEmployees = count($employeeIDs);
+
+            // 3. Fetch all attendance records for these employees in the month
+            $attendanceQuery = "SELECT employeeID, attendanceDate, checkInTime FROM tblAttendance WHERE employeeID IN (" . implode(",", array_fill(0, count($employeeIDs), '?')) . ") AND attendanceDate BETWEEN ? AND ?";
+            $types = str_repeat('i', count($employeeIDs)) . 'ss';
+            $params = array_merge($employeeIDs, [$monthStart, $monthEnd]);
+            $stmt = mysqli_prepare($connect_var, $attendanceQuery);
+            mysqli_stmt_bind_param($stmt, $types, ...$params);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+            $attendanceMap = [];
+            while ($row = mysqli_fetch_assoc($result)) {
+                $attendanceMap[$row['employeeID'] . '_' . $row['attendanceDate']] = $row['checkInTime'];
+            }
+            mysqli_stmt_close($stmt);
+
+            // 4. Fetch all approved leaves for these employees in the month
+            $leaveQuery = "SELECT employeeID, fromDate, toDate FROM tblApplyLeave WHERE employeeID IN (" . implode(",", array_fill(0, count($employeeIDs), '?')) . ") AND status = 'Approved' AND ((fromDate <= ? AND toDate >= ?) OR (fromDate >= ? AND fromDate <= ?))";
+            $types = str_repeat('i', count($employeeIDs)) . 'ssss';
+            $params = array_merge($employeeIDs, [$monthEnd, $monthStart, $monthStart, $monthEnd]);
+            $stmt = mysqli_prepare($connect_var, $leaveQuery);
+            mysqli_stmt_bind_param($stmt, $types, ...$params);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+            $leaveMap = [];
+            while ($row = mysqli_fetch_assoc($result)) {
+                $from = $row['fromDate'];
+                $to = $row['toDate'];
+                $emp = $row['employeeID'];
+                $period = new DatePeriod(new DateTime($from), new DateInterval('P1D'), (new DateTime($to))->modify('+1 day'));
+                foreach ($period as $date) {
+                    $d = $date->format('Y-m-d');
+                    $leaveMap[$emp . '_' . $d] = true;
+                }
+            }
+            mysqli_stmt_close($stmt);
+
+            // 5. Calculate counts
+            $presentCount = 0;
+            $leaveCount = 0;
+            $absentCount = 0;
+            $totalManDays = $totalEmployees * $workingDays;
+            for ($day = 1; $day <= $workingDays; $day++) {
+                $date = date('Y-m-d', strtotime("$currentYear-$selectedMonth-$day"));
+                foreach ($employeeIDs as $emp) {
+                    $key = $emp . '_' . $date;
+                    if (isset($attendanceMap[$key]) && $attendanceMap[$key]) {
+                        $presentCount++;
+                    } elseif (isset($leaveMap[$key])) {
+                        $leaveCount++;
+                    } else {
+                        $absentCount++;
+                    }
+                }
+            }
+
+            // 6. Calculate percentages
+            $presentPercentage = $totalManDays > 0 ? number_format(($presentCount / $totalManDays) * 100, 2, '.', '') : "0.00";
+            $absentPercentage = $totalManDays > 0 ? number_format(($absentCount / $totalManDays) * 100, 2, '.', '') : "0.00";
+            $leavePercentage = $totalManDays > 0 ? number_format(($leaveCount / $totalManDays) * 100, 2, '.', '') : "0.00";
+
+            $response = [
+                "status" => "success",
+                "data" => [
+                    "month" => $monthName,
+                    "totalEmployees" => $totalEmployees,
+                    "workingDays" => $workingDays,
+                    "totalManDays" => $totalManDays,
+                    "presentCount" => $presentCount,
+                    "absentCount" => $absentCount,
+                    "leaveCount" => $leaveCount,
+                    "presentPercentage" => $presentPercentage,
+                    "absentPercentage" => $absentPercentage,
+                    "leavePercentage" => $leavePercentage
+                ]
+            ];
+            echo json_encode($response);
         } catch (Exception $e) {
             echo json_encode([
                 "status" => "error",
