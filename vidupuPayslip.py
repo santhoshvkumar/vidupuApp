@@ -20,6 +20,7 @@ import sys
 import subprocess
 import importlib.util
 import mysql.connector
+import logging
 
 def check_and_install_requirements():
     """Check and install required packages"""
@@ -370,6 +371,10 @@ class SimplePayslipProcessor:
                 )
             else:
                 # Insert new record
+                logging.info(
+                    "Inserting new record into tblAccounts: employeeID=%s, empID=%s, accountTypeID=%s, amount=%s, month=%s, year=%s",
+                    employee_id, emp_id, account_type_id, amount, month, year
+                )
                 cursor.execute(
                     "INSERT INTO tblAccounts (employeeID, empID, accountTypeID, amount, month, year) VALUES (%s, %s, %s, %s, %s, %s)",
                     (employee_id, emp_id, account_type_id, amount, month, year)
