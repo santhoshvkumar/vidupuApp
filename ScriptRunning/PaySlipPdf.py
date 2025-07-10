@@ -7,7 +7,7 @@ import argparse
 def generate_payslip(employeeID, Month, Year, OrgID):
     # Step 2: Connect to MySQL
     conn = mysql.connector.connect(
-        host="localhost", user="root", password="root", database="tnscVidupuApp", port=8889
+        host="localhost", user="vsk", password="Password#1", database="tnscVidupuApp"
     )
     cursor = conn.cursor(dictionary=True)
 
