@@ -127,11 +127,6 @@ class SimplePayslipProcessor:
             self.connection.close()
             logger.info("Database connection closed")
     
-    def create_payslip_directory(self):
-        """Create payslip directory if it doesn't exist"""
-        if not os.path.exists(self.payslip_dir):
-            os.makedirs(self.payslip_dir, exist_ok=True)
-            logger.info(f"Created directory: {self.payslip_dir}")
     
     def get_organisation_id(self, emp_id):
         """Get organisation ID for an employee"""
@@ -554,9 +549,6 @@ def main():
     try:
         # Connect to database
         processor.connect_db()
-        
-        # Create payslip directory
-        processor.create_payslip_directory()
         
         # Clear existing data
         processor.clear_existing_data()
