@@ -496,12 +496,7 @@ class SimplePayslipProcessor:
                     continue
                 # Call the generate_payslip function directly
                 logger.info(f"Starting payslip generation for employeeID={employee_id}, empID={emp_id}, month={month}, year={year}")
-                generate_payslip(
-                    employeeID=employee_id,
-                    Month=month,
-                    Year=year,
-                    OrgID=1
-                )
+                generate_payslip(employee_id, month, year, 1)
                 logger.info(f"Payslip generated for employeeID={employee_id}, empID={emp_id}, month={month}, year={year}")
             
         except Exception as e:
