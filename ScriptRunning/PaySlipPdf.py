@@ -1,3 +1,4 @@
+import os
 import mysql.connector
 from jinja2 import Template
 import pdfkit
@@ -799,17 +800,26 @@ def generate_payslip(employeeID, Month, Year, OrgID):
     # Step 17: Render HTML from Template
     template = Template(html_template)
     html_out = template.render(**template_data)
-    # Step 18: Save HTML output first
-    with open("payslip_output.html", "w", encoding="utf-8") as f:
+
+    # Step 18: Save HTML and PDF output to uploads/<OrgID>/<employeeID>/<Month>-Payslip.pdf
+    output_dir = os.path.join("uploads", str(OrgID), str(employeeID))
+    os.makedirs(output_dir, exist_ok=True)
+    pdf_filename = f"{Month}-Payslip.pdf"
+    html_filename = f"{Month}-Payslip.html"
+    pdf_path = os.path.join(output_dir, pdf_filename)
+    html_path = os.path.join(output_dir, html_filename)
+
+    with open(html_path, "w", encoding="utf-8") as f:
         f.write(html_out)
-    print("✅ HTML payslip generated successfully! Check payslip_output.html")
-    # Step 19: Export to PDF (requires wkhtmltopdf)
+    print(f"✅ HTML payslip generated successfully! Check {html_path}")
+
     try:
-        pdfkit.from_string(html_out, "payslip_output.pdf")
-        print("✅ PDF payslip generated successfully!")
+        pdfkit.from_string(html_out, pdf_path)
+        print(f"✅ PDF payslip generated successfully! Check {pdf_path}")
     except Exception as e:
         print(f"⚠️ PDF generation failed: {e}")
-        print("📄 You can open payslip_output.html in your browser to view the payslip")
+        print(f"📄 You can open {html_path} in your browser to view the payslip")
+
     # Close database connection
     cursor.close()
     conn.close()
