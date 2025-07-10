@@ -493,50 +493,6 @@ class SimplePayslipProcessor:
                     skipped_count += 1
                     continue
             
-            # Generate PDF payslips for unique employees
-            logger.info("=" * 50)
-            logger.info("GENERATING PDF PAYSLIPS")
-            logger.info("=" * 50)
-            
-            html_files_generated = []
-            
-            for emp_id, month, year in employees_processed:
-                try:
-                    # Get organisation ID for this employee
-                    org_id = self.get_organisation_id(emp_id)
-                    if org_id:
-                        html_path = self.generate_payslip_pdf(emp_id, month, year, org_id)
-                        if html_path:
-                            pdf_generated_count += 1
-                            html_files_generated.append(html_path)
-                        time.sleep(0.5)  # Small delay between requests
-                    else:
-                        logger.warning(f"No organisation ID found for employee {emp_id}")
-                except Exception as e:
-                    logger.error(f"Error generating PDF for employee {emp_id}: {e}")
-            
-            # Provide instructions for PDF generation
-            if html_files_generated:
-                logger.info("=" * 50)
-                logger.info("PDF GENERATION INSTRUCTIONS")
-                logger.info("=" * 50)
-                logger.info("HTML payslip files have been generated. To create PDFs:")
-                logger.info("1. Open each HTML file in your web browser")
-                logger.info("2. Click the 'Download PDF' button on each page")
-                logger.info("3. Save the PDFs to the same directory")
-                logger.info("=" * 50)
-                logger.info(f"Generated HTML files:")
-                for html_file in html_files_generated:
-                    logger.info(f"  - {html_file}")
-                logger.info("=" * 50)
-            
-            logger.info("=" * 50)
-            logger.info("PROCESSING COMPLETE")
-            logger.info("=" * 50)
-            logger.info(f"Total rows processed: {processed_count}")
-            logger.info(f"Total rows skipped: {skipped_count}")
-            logger.info(f"PDF payslips generated: {pdf_generated_count}")
-            logger.info(f"Success rate: {(processed_count/(processed_count+skipped_count)*100):.1f}%")
             
         except Exception as e:
             logger.error(f"Error processing Excel file: {e}")
