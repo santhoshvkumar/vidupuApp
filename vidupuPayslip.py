@@ -19,6 +19,7 @@ Also generates PDF payslips for each employee and saves them to Uploads/EMP/PayS
 import sys
 import subprocess
 import importlib.util
+import mysql.connector
 
 def check_and_install_requirements():
     """Check and install required packages"""
@@ -101,7 +102,7 @@ class SimplePayslipProcessor:
     def connect_db(self):
         """Connect to MySQL database"""
         try:
-            self.connection = pymysql.connect(**DB_CONFIG)
+            self.connection =  mysql.connector.connect(host="localhost", user="vsk", password="Password#1", database="tnscVidupuApp")
             logger.info("Database connection established")
             self.load_account_types()
         except Exception as e:
@@ -113,7 +114,7 @@ class SimplePayslipProcessor:
         try:
             if self.connection:
                 self.connection.close()
-            self.connection = pymysql.connect(**DB_CONFIG)
+            self.connection =  mysql.connector.connect(host="localhost", user="vsk", password="Password#1", database="tnscVidupuApp")
             logger.info("Database reconnected")
             return True
         except Exception as e:
