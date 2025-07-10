@@ -345,7 +345,8 @@ class SimplePayslipProcessor:
                     (emp_id, account_type_id, datetime.now(), 1, 1)
                 )
                 self.connection.commit()
-                
+                logger.info(f"Created new account mapping: empID={emp_id}, accountTypeID={account_type_id}")
+            
         except Exception as e:
             logger.error(f"Error creating mapping for {emp_id}: {e}")
             self.connection.rollback()
@@ -480,6 +481,7 @@ class SimplePayslipProcessor:
                     self.insert_account_record(employee_id, emp_id, account_type_id, amount, month, year)
 
                     # Call the generate_payslip function directly
+                    logger.info(f"Starting payslip generation for employeeID={employee_id}, empID={emp_id}, month={month}, year={year}")
                     from ScriptRunning.PaySlipPdf import generate_payslip
                     generate_payslip(
                         employeeID=employee_id,
@@ -487,7 +489,7 @@ class SimplePayslipProcessor:
                         Year=year,
                         OrgID=1
                     )
-                    
+                    logger.info(f"Payslip generated for employeeID={employee_id}, empID={emp_id}, month={month}, year={year}")
                     processed_count += 1
                     
                     # Track employee for PDF generation
