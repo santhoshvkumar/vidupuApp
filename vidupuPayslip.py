@@ -544,9 +544,9 @@ def generate_payslip(employeeID, Month, Year, OrgID):
     month_names = [name.upper() for name in calendar.month_name]
     month = month_names.index(monthNameUpper)  # 1-based month number
 
-    print(f"<!-- Employee ID: {employeeID} -->")
-    print(f"<!-- Organisation ID: {OrgID} -->")
-    print(f"<!-- Month: {Month}, Month Number: {month}, Year: {Year} -->")
+    logger.info(f"<!-- Employee ID: {employeeID} -->")
+    logger.info(f"<!-- Organisation ID: {OrgID} -->")
+    logger.info(f"<!-- Month: {Month}, Month Number: {month}, Year: {Year} -->")
 
     # Step 4: Fetch organisation details
     queryOrg = f"SELECT * FROM tblOrganisation WHERE organisationID = '{OrgID}'"
