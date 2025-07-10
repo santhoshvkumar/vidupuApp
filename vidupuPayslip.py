@@ -528,6 +528,7 @@ def main():
         processor.close_db()
 
 def generate_payslip(employeeID, Month, Year, OrgID):
+    logger.info("inisde Function")
     # Step 2: Connect to MySQL
     conn = mysql.connector.connect(
         host="localhost", user="vsk", password="Password#1", database="tnscVidupuApp"
