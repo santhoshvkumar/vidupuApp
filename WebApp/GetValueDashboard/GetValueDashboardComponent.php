@@ -247,16 +247,23 @@ WHERE emp.isActive = 1
       FROM tblApplyLeave
       WHERE status = 'Approved' AND employeeID <> 888
         AND ? BETWEEN fromDate AND toDate
+  )
+  AND emp.employeeID NOT IN (
+      SELECT employeeID
+      FROM tblApplyLeave
+      WHERE status = 'Yet To Be Approved' AND employeeID <> 888
+        AND ? BETWEEN fromDate AND toDate
   );
 
 ";
 
             $debug_query = str_replace(
-                ['?', '?', '?', '?'],
+                ['?', '?', '?', '?', '?'],
                 [
                     "'" . $this->currentDate . "'",
                     "'" . $this->branchID . "'",
                     "'" . $this->organisationID . "'",
+                    "'" . $this->currentDate . "'",
                     "'" . $this->currentDate . "'",
                 ],
                 $queryIndividualNoOfCheckinsInHeadOffice
@@ -268,7 +275,7 @@ WHERE emp.isActive = 1
                 throw new Exception("Database prepare failed");
             }
 
-            mysqli_stmt_bind_param($stmt, "ssss", $this->currentDate, $this->branchID, $this->organisationID, $this->currentDate);
+            mysqli_stmt_bind_param($stmt, "sssss", $this->currentDate, $this->branchID, $this->organisationID, $this->currentDate, $this->currentDate);
 
             if (!mysqli_stmt_execute($stmt)) {  
                 throw new Exception("Database execute failed");
@@ -330,6 +337,12 @@ WHERE emp.isActive = 1
                 SELECT employeeID
                 FROM tblApplyLeave
                 WHERE status = 'Approved' AND employeeID <> 888
+                    AND '$currentDate' BETWEEN fromDate AND toDate
+            )
+            AND emp.employeeID NOT IN (
+                SELECT employeeID
+                FROM tblApplyLeave
+                WHERE status = 'Yet To Be Approved' AND employeeID <> 888
                     AND '$currentDate' BETWEEN fromDate AND toDate
             );
             ";

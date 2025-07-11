@@ -829,49 +829,113 @@ ORDER BY
             
             // For current month, only count up to today
             if ($isCurrentMonth) {
-                // Calculate working days up to today only
                 $workingDaysUpToToday = 0;
+                $saturdayCount = 0;
                 for ($day = 1; $day <= $currentDay; $day++) {
                     $date = date('Y-m-d', strtotime("$currentYear-$selectedMonth-$day"));
-                    // Check if it's a working day (Monday to Friday)
-                    $dayOfWeek = date('N', strtotime($date));
+                    $dayOfWeek = date('N', strtotime($date)); // 6 = Saturday, 7 = Sunday
+                    $isWorkingDay = false;
                     if ($dayOfWeek >= 1 && $dayOfWeek <= 5) {
+                        $isWorkingDay = true;
+                        error_log("Working day: $date (Weekday)");
+                    } elseif ($dayOfWeek == 6) {
+                        $saturdayCount++;
+                        if ($saturdayCount == 1 || $saturdayCount == 3) {
+                            $isWorkingDay = true;
+                            error_log("Working day: $date (Saturday, Nth $saturdayCount)");
+                        }
+                    }
+                    if ($isWorkingDay && !$this->isHoliday($date, $connect_var)) {
                         $workingDaysUpToToday++;
+                    } else if ($isWorkingDay) {
+                        error_log("Holiday: $date");
                     }
                 }
                 $workingDays = $workingDaysUpToToday;
                 $totalManDays = $totalEmployees * $workingDays;
-                
-                // Only count attendance and leave for days up to today
-                for ($day = 1; $day <= $currentDay; $day++) {
-                    $date = date('Y-m-d', strtotime("$currentYear-$selectedMonth-$day"));
-                    foreach ($employeeIDs as $emp) {
-                        $key = $emp . '_' . $date;
-                        if (isset($attendanceMap[$key]) && $attendanceMap[$key]) {
-                            $presentCount++;
-                        } elseif (isset($leaveMap[$key])) {
-                            $leaveCount++;
-                        } else {
-                            $absentCount++;
+                // Only count attendance and leave for working days up to today
+                $presentCount = 0;
+                $leaveCount = 0;
+                foreach ($employeeIDs as $emp) {
+                    $saturdayCount = 0;
+                    for ($day = 1; $day <= $currentDay; $day++) {
+                        $date = date('Y-m-d', strtotime("$currentYear-$selectedMonth-$day"));
+                        $dayOfWeek = date('N', strtotime($date));
+                        $isWorkingDay = false;
+                        if ($dayOfWeek >= 1 && $dayOfWeek <= 5) {
+                            $isWorkingDay = true;
+                        } elseif ($dayOfWeek == 6) {
+                            $saturdayCount++;
+                            if ($saturdayCount == 1 || $saturdayCount == 3) {
+                                $isWorkingDay = true;
+                            }
+                        }
+                        if ($isWorkingDay && !$this->isHoliday($date, $connect_var)) {
+                            $key = $emp . '_' . $date;
+                            if (isset($attendanceMap[$key]) && $attendanceMap[$key]) {
+                                $presentCount++;
+                            } elseif (isset($leaveMap[$key])) {
+                                $leaveCount++;
+                            }
                         }
                     }
                 }
+                $absentCount = $totalManDays - $presentCount - $leaveCount;
+                if ($absentCount < 0) $absentCount = 0;
             } else {
-                // For past months, use full month data
-                $totalManDays = $totalEmployees * $workingDays;
-                for ($day = 1; $day <= date('t', strtotime($monthStart)); $day++) {
+                $daysInMonth = date('t', strtotime($monthStart));
+                $workingDaysFullMonth = 0;
+                $saturdayCount = 0;
+                for ($day = 1; $day <= $daysInMonth; $day++) {
                     $date = date('Y-m-d', strtotime("$currentYear-$selectedMonth-$day"));
-                    foreach ($employeeIDs as $emp) {
-                        $key = $emp . '_' . $date;
-                        if (isset($attendanceMap[$key]) && $attendanceMap[$key]) {
-                            $presentCount++;
-                        } elseif (isset($leaveMap[$key])) {
-                            $leaveCount++;
-                        } else {
-                            $absentCount++;
+                    $dayOfWeek = date('N', strtotime($date));
+                    $isWorkingDay = false;
+                    if ($dayOfWeek >= 1 && $dayOfWeek <= 5) {
+                        $isWorkingDay = true;
+                        error_log("Working day: $date (Weekday)");
+                    } elseif ($dayOfWeek == 6) {
+                        $saturdayCount++;
+                        if ($saturdayCount == 1 || $saturdayCount == 3) {
+                            $isWorkingDay = true;
+                            error_log("Working day: $date (Saturday, Nth $saturdayCount)");
+                        }
+                    }
+                    if ($isWorkingDay && !$this->isHoliday($date, $connect_var)) {
+                        $workingDaysFullMonth++;
+                    } else if ($isWorkingDay) {
+                        error_log("Holiday: $date");
+                    }
+                }
+                $workingDays = $workingDaysFullMonth;
+                $totalManDays = $totalEmployees * $workingDays;
+                $presentCount = 0;
+                $leaveCount = 0;
+                foreach ($employeeIDs as $emp) {
+                    $saturdayCount = 0;
+                    for ($day = 1; $day <= $daysInMonth; $day++) {
+                        $date = date('Y-m-d', strtotime("$currentYear-$selectedMonth-$day"));
+                        $dayOfWeek = date('N', strtotime($date));
+                        $isWorkingDay = false;
+                        if ($dayOfWeek >= 1 && $dayOfWeek <= 5) {
+                            $isWorkingDay = true;
+                        } elseif ($dayOfWeek == 6) {
+                            $saturdayCount++;
+                            if ($saturdayCount == 1 || $saturdayCount == 3) {
+                                $isWorkingDay = true;
+                            }
+                        }
+                        if ($isWorkingDay && !$this->isHoliday($date, $connect_var)) {
+                            $key = $emp . '_' . $date;
+                            if (isset($attendanceMap[$key]) && $attendanceMap[$key]) {
+                                $presentCount++;
+                            } elseif (isset($leaveMap[$key])) {
+                                $leaveCount++;
+                            }
                         }
                     }
                 }
+                $absentCount = $totalManDays - $presentCount - $leaveCount;
+                if ($absentCount < 0) $absentCount = 0;
             }
 
             // 6. Calculate percentages
@@ -894,6 +958,9 @@ ORDER BY
             error_log("Present Count: " . $presentCount);
             error_log("Absent Count: " . $absentCount);
             error_log("Leave Count: " . $leaveCount);
+            error_log("Present %: " . $presentPercentage);
+            error_log("Absent %: " . $absentPercentage);
+            error_log("Leave %: " . $leavePercentage);
 
             $response = [
                 "status" => "success",
@@ -908,7 +975,13 @@ ORDER BY
                     "presentPercentage" => $presentPercentage,
                     "absentPercentage" => $absentPercentage,
                     "leavePercentage" => $leavePercentage,
-                    "isCurrentMonth" => $isCurrentMonth
+                    "isCurrentMonth" => $isCurrentMonth,
+                    // For pie chart
+                    "pieChart" => [
+                        ["label" => "Present", "value" => (float)$presentPercentage],
+                        ["label" => "Leave", "value" => (float)$leavePercentage],
+                        ["label" => "Absent", "value" => (float)$absentPercentage],
+                    ]
                 ]
             ];
             echo json_encode($response);
@@ -926,6 +999,18 @@ ORDER BY
             return true;
         }
         return false;
+    }
+
+    private function isHoliday($date, $connect_var) {
+        $formattedDate = date('Y-m-d', strtotime($date));
+        $sql = "SELECT COUNT(*) as count FROM tblHoliday WHERE date = ?";
+        $stmt = mysqli_prepare($connect_var, $sql);
+        mysqli_stmt_bind_param($stmt, "s", $formattedDate);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
+        $row = mysqli_fetch_assoc($result);
+        mysqli_stmt_close($stmt);
+        return $row['count'] > 0;
     }
 }
 function GetAttendanceReport($decoded_items) {
