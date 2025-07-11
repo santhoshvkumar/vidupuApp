@@ -151,7 +151,7 @@ class DashboardComponent{
                 AND map.branchID = '$branchID'
                 AND emp.isActive = 1) AS loginnedDevices,
 
-                -- Absentees (filtered by branch)
+                -- Absentees (filtered by branch) - excluding pending leave requests
                 (SELECT COUNT(DISTINCT e.employeeID)
                 FROM tblEmployee e
                 JOIN tblmapEmp m ON e.employeeID = m.employeeID
@@ -174,6 +174,15 @@ class DashboardComponent{
                     WHERE '$currentDate' BETWEEN l.fromDate AND l.toDate 
                     AND map.branchID = '$branchID'
                     AND l.status = 'Approved'
+                    AND map.branchID = '$branchID'
+                    UNION
+                    -- Not on pending leave (branch-specific)
+                    SELECT DISTINCT l.employeeID
+                    FROM tblApplyLeave l
+                    JOIN tblmapEmp map ON l.employeeID = map.employeeID
+                    WHERE '$currentDate' BETWEEN l.fromDate AND l.toDate 
+                    AND map.branchID = '$branchID'
+                    AND l.status = 'Yet To Be Approved'
                     AND map.branchID = '$branchID'
                 )) AS absentees,
 
@@ -236,6 +245,13 @@ class DashboardComponent{
                 $data['loginnedDevices'] = isset($row['loginnedDevices']) ? intval($row['loginnedDevices']) : 0;
                 $data['absenteesinHO'] = isset($row['absentees']) ? intval($row['absentees']) : 0;
                 $data['pendingLeaveRequests'] = isset($row['pendingLeaveRequests']) ? intval($row['pendingLeaveRequests']) : 0;
+                
+                // Calculate actual absences (excluding pending leave requests)
+                $data['actualAbsent'] = $data['absenteesinHO'];
+                
+                // Calculate total absent (including pending leave requests) for display
+                $data['totalAbsent'] = $data['actualAbsent'] + $data['pendingLeaveRequests'];
+                
                 // Debug final data
                 error_log("Final Data: " . print_r($data, true));                
                 echo json_encode([
@@ -345,8 +361,19 @@ class DashboardComponent{
                 $data['earlyCheckout'] = isset($row['earlyCheckout']) ? intval($row['earlyCheckout']) : 0;
                 $data['onLeave'] = isset($row['onLeave']) ? intval($row['onLeave']) : 0;
                 $data['loginnedDevices'] = isset($row['loginnedDevices']) ? intval($row['loginnedDevices']) : 0;
+                
+                // Calculate absent count excluding pending leave requests
                 $data['absenteesinHO'] = $data['totalEmployees'] - ($data['checkedInToday'] + $data['onLeave']);
+                
+                // Get pending leave count
                 $data['pendingLeaveRequests'] = isset($row['pendingLeaveRequests']) ? intval($row['pendingLeaveRequests']) : 0;
+                
+                // Subtract pending leave from absent count to get actual absences
+                $data['actualAbsent'] = max(0, $data['absenteesinHO'] - $data['pendingLeaveRequests']);
+                
+                // Calculate total absent (including pending leave requests) for display
+                $data['totalAbsent'] = $data['actualAbsent'] + $data['pendingLeaveRequests'];
+                
                 // Debug final data
                 error_log("Final Data: " . print_r($data, true));                
                 echo json_encode([
