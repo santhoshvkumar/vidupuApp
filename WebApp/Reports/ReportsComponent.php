@@ -738,6 +738,16 @@ ORDER BY
             $selectedMonth = str_pad($this->selectedMonth, 2, '0', STR_PAD_LEFT);
             $monthStart = "$currentYear-$selectedMonth-01";
             $monthEnd = date('Y-m-t', strtotime($monthStart));
+            
+            // Get current date to limit data "as of today"
+            $currentDate = date('Y-m-d');
+            $currentDay = (int)date('d');
+            $isCurrentMonth = (date('Y-m') === "$currentYear-$selectedMonth");
+            
+            // If we're in the selected month, limit to today's date
+            if ($isCurrentMonth) {
+                $monthEnd = min($monthEnd, $currentDate);
+            }
 
             // Get month name for display
             $monthNames = [
@@ -754,7 +764,10 @@ ORDER BY
             mysqli_stmt_execute($stmt);
             $result = mysqli_stmt_get_result($stmt);
             $workingDaysData = mysqli_fetch_assoc($result);
-            $workingDays = $workingDaysData['noOfWorkingDays'] ?? 0;
+            $totalWorkingDays = $workingDaysData['noOfWorkingDays'] ?? 0;
+            
+            // Working days will be calculated later based on current month or full month
+            $workingDays = $totalWorkingDays;
             mysqli_stmt_close($stmt);
 
             // 2. Get all active, non-temporary employees for the org
@@ -770,7 +783,7 @@ ORDER BY
             mysqli_stmt_close($stmt);
             $totalEmployees = count($employeeIDs);
 
-            // 3. Fetch all attendance records for these employees in the month
+            // 3. Fetch all attendance records for these employees up to today
             $attendanceQuery = "SELECT employeeID, attendanceDate, checkInTime FROM tblAttendance WHERE employeeID IN (" . implode(",", array_fill(0, count($employeeIDs), '?')) . ") AND attendanceDate BETWEEN ? AND ?";
             $types = str_repeat('i', count($employeeIDs)) . 'ss';
             $params = array_merge($employeeIDs, [$monthStart, $monthEnd]);
@@ -784,7 +797,7 @@ ORDER BY
             }
             mysqli_stmt_close($stmt);
 
-            // 4. Fetch all approved leaves for these employees in the month
+            // 4. Fetch all approved leaves for these employees up to today
             $leaveQuery = "SELECT employeeID, fromDate, toDate FROM tblApplyLeave WHERE employeeID IN (" . implode(",", array_fill(0, count($employeeIDs), '?')) . ") AND status = 'Approved' AND ((fromDate <= ? AND toDate >= ?) OR (fromDate >= ? AND fromDate <= ?))";
             $types = str_repeat('i', count($employeeIDs)) . 'ssss';
             $params = array_merge($employeeIDs, [$monthEnd, $monthStart, $monthStart, $monthEnd]);
@@ -800,26 +813,63 @@ ORDER BY
                 $period = new DatePeriod(new DateTime($from), new DateInterval('P1D'), (new DateTime($to))->modify('+1 day'));
                 foreach ($period as $date) {
                     $d = $date->format('Y-m-d');
+                    // Only count leaves up to today for current month
+                    if (date('Y-m') === "$currentYear-$selectedMonth" && $d > $currentDate) {
+                        continue;
+                    }
                     $leaveMap[$emp . '_' . $d] = true;
                 }
             }
             mysqli_stmt_close($stmt);
 
-            // 5. Calculate counts
+            // 5. Calculate counts up to today
             $presentCount = 0;
             $leaveCount = 0;
             $absentCount = 0;
-            $totalManDays = $totalEmployees * $workingDays;
-            for ($day = 1; $day <= $workingDays; $day++) {
-                $date = date('Y-m-d', strtotime("$currentYear-$selectedMonth-$day"));
-                foreach ($employeeIDs as $emp) {
-                    $key = $emp . '_' . $date;
-                    if (isset($attendanceMap[$key]) && $attendanceMap[$key]) {
-                        $presentCount++;
-                    } elseif (isset($leaveMap[$key])) {
-                        $leaveCount++;
-                    } else {
-                        $absentCount++;
+            
+            // For current month, only count up to today
+            if ($isCurrentMonth) {
+                // Calculate working days up to today only
+                $workingDaysUpToToday = 0;
+                for ($day = 1; $day <= $currentDay; $day++) {
+                    $date = date('Y-m-d', strtotime("$currentYear-$selectedMonth-$day"));
+                    // Check if it's a working day (Monday to Friday)
+                    $dayOfWeek = date('N', strtotime($date));
+                    if ($dayOfWeek >= 1 && $dayOfWeek <= 5) {
+                        $workingDaysUpToToday++;
+                    }
+                }
+                $workingDays = $workingDaysUpToToday;
+                $totalManDays = $totalEmployees * $workingDays;
+                
+                // Only count attendance and leave for days up to today
+                for ($day = 1; $day <= $currentDay; $day++) {
+                    $date = date('Y-m-d', strtotime("$currentYear-$selectedMonth-$day"));
+                    foreach ($employeeIDs as $emp) {
+                        $key = $emp . '_' . $date;
+                        if (isset($attendanceMap[$key]) && $attendanceMap[$key]) {
+                            $presentCount++;
+                        } elseif (isset($leaveMap[$key])) {
+                            $leaveCount++;
+                        } else {
+                            $absentCount++;
+                        }
+                    }
+                }
+            } else {
+                // For past months, use full month data
+                $totalManDays = $totalEmployees * $workingDays;
+                for ($day = 1; $day <= date('t', strtotime($monthStart)); $day++) {
+                    $date = date('Y-m-d', strtotime("$currentYear-$selectedMonth-$day"));
+                    foreach ($employeeIDs as $emp) {
+                        $key = $emp . '_' . $date;
+                        if (isset($attendanceMap[$key]) && $attendanceMap[$key]) {
+                            $presentCount++;
+                        } elseif (isset($leaveMap[$key])) {
+                            $leaveCount++;
+                        } else {
+                            $absentCount++;
+                        }
                     }
                 }
             }
@@ -829,10 +879,26 @@ ORDER BY
             $absentPercentage = $totalManDays > 0 ? number_format(($absentCount / $totalManDays) * 100, 2, '.', '') : "0.00";
             $leavePercentage = $totalManDays > 0 ? number_format(($leaveCount / $totalManDays) * 100, 2, '.', '') : "0.00";
 
+            // Add "as of" indicator for current month
+            $asOfText = $isCurrentMonth ? " (as of " . date('d M Y') . ")" : "";
+
+            // Debug logging
+            error_log("Monthly Attendance Summary Debug:");
+            error_log("Current Date: " . $currentDate);
+            error_log("Current Day: " . $currentDay);
+            error_log("Selected Month: " . $selectedMonth);
+            error_log("Is Current Month: " . ($isCurrentMonth ? 'Yes' : 'No'));
+            error_log("Working Days (Total): " . $totalWorkingDays);
+            error_log("Working Days (Final): " . $workingDays);
+            error_log("Total Man Days: " . $totalManDays);
+            error_log("Present Count: " . $presentCount);
+            error_log("Absent Count: " . $absentCount);
+            error_log("Leave Count: " . $leaveCount);
+
             $response = [
                 "status" => "success",
                 "data" => [
-                    "month" => $monthName,
+                    "month" => $monthName . $asOfText,
                     "totalEmployees" => $totalEmployees,
                     "workingDays" => $workingDays,
                     "totalManDays" => $totalManDays,
@@ -841,7 +907,8 @@ ORDER BY
                     "leaveCount" => $leaveCount,
                     "presentPercentage" => $presentPercentage,
                     "absentPercentage" => $absentPercentage,
-                    "leavePercentage" => $leavePercentage
+                    "leavePercentage" => $leavePercentage,
+                    "isCurrentMonth" => $isCurrentMonth
                 ]
             ];
             echo json_encode($response);
