@@ -58,34 +58,26 @@ class TransferEmployeeComponent{
     
                 // Check for duplicate transfer - employee should not have overlapping transfer dates
                 if ($this->isPermanentTransfer === 'Permanent') {
-                    // For permanent transfers, check if employee already has an active transfer that overlaps with the new transfer date
+                    // For permanent transfers, only check if there's another transfer on the exact same date
                     $queryCheckDuplicate = "SELECT COUNT(*) as count FROM tblTransferHistory 
                         WHERE employeeID = ? AND organisationID = ? AND isActive = 1
-                        AND (
-                            (fromDate <= ? AND (toDate >= ? OR toDate IS NULL))
-                            OR (fromDate >= ? AND fromDate <= ?)
-                        )";
+                        AND fromDate = ?";
                     $stmtCheck = mysqli_prepare($connect_var, $queryCheckDuplicate);
-                    mysqli_stmt_bind_param($stmtCheck, "ssssss", 
+                    mysqli_stmt_bind_param($stmtCheck, "sss", 
                         $this->employeeID, 
                         $this->organisationID, 
-                        $this->fromDate, $this->fromDate,
-                        $this->fromDate, $this->fromDate
+                        $this->fromDate
                     );
                 } else {
-                    // For temporary transfers, check for overlapping dates
+                    // For temporary transfers, only check if there's another transfer on the exact same date
                     $queryCheckDuplicate = "SELECT COUNT(*) as count FROM tblTransferHistory 
                         WHERE employeeID = ? AND organisationID = ? AND isActive = 1
-                        AND ((fromDate <= ? AND (toDate >= ? OR toDate IS NULL)) 
-                        OR (fromDate <= ? AND (toDate >= ? OR toDate IS NULL)) 
-                        OR (fromDate >= ? AND fromDate <= ?))";
+                        AND fromDate = ?";
                     $stmtCheck = mysqli_prepare($connect_var, $queryCheckDuplicate);
-                    mysqli_stmt_bind_param($stmtCheck, "ssssssss", 
+                    mysqli_stmt_bind_param($stmtCheck, "sss", 
                         $this->employeeID, 
                         $this->organisationID, 
-                        $this->fromDate, $this->fromDate, 
-                        $this->toDate, $this->toDate, 
-                        $this->fromDate, $this->toDate
+                        $this->fromDate
                     );
                 }
                 mysqli_stmt_execute($stmtCheck);
