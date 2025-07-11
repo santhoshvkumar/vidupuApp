@@ -175,7 +175,16 @@ class DashboardComponent{
                     AND map.branchID = '$branchID'
                     AND l.status = 'Approved'
                     AND map.branchID = '$branchID'
-                )) AS absentees
+                )) AS absentees,
+
+                -- Pending leave requests (Yet To Be Approved)
+                (SELECT COUNT(*)
+                FROM tblApplyLeave l
+                JOIN tblEmployee e ON l.employeeID = e.employeeID
+                JOIN tblmapEmp m ON e.employeeID = m.employeeID
+                WHERE l.status = 'Yet To Be Approved'
+                AND e.organisationID = '$organisationID'
+                AND m.branchID = '$branchID') AS pendingLeaveRequests
 
             FROM (SELECT 1) AS dummy;";
 
@@ -224,6 +233,7 @@ class DashboardComponent{
                 $data['onLeave'] = isset($row['onLeave']) ? intval($row['onLeave']) : 0;
                 $data['loginnedDevices'] = isset($row['loginnedDevices']) ? intval($row['loginnedDevices']) : 0;
                 $data['absenteesinHO'] = isset($row['absentees']) ? intval($row['absentees']) : 0;
+                $data['pendingLeaveRequests'] = isset($row['pendingLeaveRequests']) ? intval($row['pendingLeaveRequests']) : 0;
                 // Debug final data
                 error_log("Final Data: " . print_r($data, true));                
                 echo json_encode([
@@ -302,7 +312,15 @@ class DashboardComponent{
             WHERE emp.deviceFingerprint IS NOT NULL 
             AND emp.deviceFingerprint <> '' 
             AND emp.organisationID = '$organisationID'
-            AND emp.isActive = 1) AS loginnedDevices
+            AND emp.isActive = 1) AS loginnedDevices,
+
+            -- Pending leave requests (Yet To Be Approved)
+            (SELECT COUNT(*)
+            FROM tblApplyLeave l
+            JOIN tblEmployee e ON l.employeeID = e.employeeID
+            JOIN tblmapEmp m ON e.employeeID = m.employeeID
+            WHERE l.status = 'Yet To Be Approved'
+            AND e.organisationID = '$organisationID') AS pendingLeaveRequests
         FROM (SELECT 1) AS dummy;";
             error_log("Debug Query: " . $queryActiveEmployeeDetails);
 
@@ -324,6 +342,7 @@ class DashboardComponent{
                 $data['onLeave'] = isset($row['onLeave']) ? intval($row['onLeave']) : 0;
                 $data['loginnedDevices'] = isset($row['loginnedDevices']) ? intval($row['loginnedDevices']) : 0;
                 $data['absenteesinHO'] = $data['totalEmployees'] - ($data['checkedInToday'] + $data['onLeave']);
+                $data['pendingLeaveRequests'] = isset($row['pendingLeaveRequests']) ? intval($row['pendingLeaveRequests']) : 0;
                 // Debug final data
                 error_log("Final Data: " . print_r($data, true));                
                 echo json_encode([
@@ -484,6 +503,108 @@ class DashboardComponent{
             ], JSON_FORCE_OBJECT);
         }
     }
+
+    public function GetPendingLeaveRequestsList() {
+        include('config.inc');
+        header('Content-Type: application/json');
+        
+        try {
+            $branchID = mysqli_real_escape_string($connect_var, $this->branchID);
+            $organisationID = mysqli_real_escape_string($connect_var, $this->organisationID);
+            
+            // Get detailed list of pending leave requests
+            $queryPendingLeaves = "
+                SELECT 
+                    e.employeeName,
+                    e.empID,
+                    e.employeePhone,
+                    e.Designation,
+                    l.typeOfLeave,
+                    b.branchName as locationName,
+                    mng.employeeName AS managerName,
+                    mng.empID AS managerID
+                FROM tblApplyLeave l
+                JOIN tblEmployee e ON l.employeeID = e.employeeID
+                JOIN tblmapEmp m ON e.employeeID = m.employeeID
+                JOIN tblBranch b ON m.branchID = b.branchID
+                LEFT JOIN tblEmployee mng ON e.managerID = mng.employeeID
+                WHERE l.status = 'Yet To Be Approved'
+                AND e.organisationID = '$organisationID'
+                AND m.branchID = '$branchID'
+                ORDER BY l.createdOn DESC";
+            
+            $result = mysqli_query($connect_var, $queryPendingLeaves);
+            if (!$result) {
+                throw new Exception("Database query failed: " . mysqli_error($connect_var));
+            }
+            
+            $pendingLeaves = [];
+            while ($row = mysqli_fetch_assoc($result)) {
+                $pendingLeaves[] = $row;
+            }
+            
+            echo json_encode([
+                "status" => "success",
+                "data" => $pendingLeaves
+            ]);
+            
+        } catch (Exception $e) {
+            echo json_encode([
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ], JSON_FORCE_OBJECT);
+        }
+    }
+
+    public function GetPendingLeaveRequestsListForAll() {
+        include('config.inc');
+        header('Content-Type: application/json');
+        
+        try {
+            $organisationID = mysqli_real_escape_string($connect_var, $this->organisationID);
+            
+            // Get detailed list of pending leave requests for all branches
+            $queryPendingLeaves = "
+                SELECT 
+                    e.employeeName,
+                    e.empID,
+                    e.employeePhone,
+                    e.Designation,
+                    l.typeOfLeave,
+                    b.branchName as locationName,
+                    mng.employeeName AS managerName,
+                    mng.empID AS managerID
+                FROM tblApplyLeave l
+                JOIN tblEmployee e ON l.employeeID = e.employeeID
+                JOIN tblmapEmp m ON e.employeeID = m.employeeID
+                JOIN tblBranch b ON m.branchID = b.branchID
+                LEFT JOIN tblEmployee mng ON e.managerID = mng.employeeID
+                WHERE l.status = 'Yet To Be Approved'
+                AND e.organisationID = '$organisationID'
+                ORDER BY l.createdOn DESC";
+            
+            $result = mysqli_query($connect_var, $queryPendingLeaves);
+            if (!$result) {
+                throw new Exception("Database query failed: " . mysqli_error($connect_var));
+            }
+            
+            $pendingLeaves = [];
+            while ($row = mysqli_fetch_assoc($result)) {
+                $pendingLeaves[] = $row;
+            }
+            
+            echo json_encode([
+                "status" => "success",
+                "data" => $pendingLeaves
+            ]);
+            
+        } catch (Exception $e) {
+            echo json_encode([
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ], JSON_FORCE_OBJECT);
+        }
+    }
 } 
 function DashboardAttendanceDetails($decoded_items) {
     $dashboardComponent = new DashboardComponent();
@@ -509,6 +630,24 @@ function DashboardAttendanceDetailsforAll() {
     $dashboardComponent = new DashboardComponent();
     if ($dashboardComponent->loadDashboardAttendanceDetailsforAll()) {
         $dashboardComponent->DashboardAttendanceDetailsforAll();
+    } else {
+        echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
+    }
+}
+
+function GetPendingLeaveRequestsList($decoded_items) {
+    $dashboardComponent = new DashboardComponent();
+    if ($dashboardComponent->loadDashboardAttendanceDetails($decoded_items)) {
+        $dashboardComponent->GetPendingLeaveRequestsList();
+    } else {
+        echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
+    }
+}
+
+function GetPendingLeaveRequestsListForAll($decoded_items) {
+    $dashboardComponent = new DashboardComponent();
+    if ($dashboardComponent->loadDashboardAttendanceDetailsforAll($decoded_items)) {
+        $dashboardComponent->GetPendingLeaveRequestsListForAll();
     } else {
         echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
     }
