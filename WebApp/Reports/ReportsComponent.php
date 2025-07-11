@@ -741,16 +741,16 @@ ORDER BY
 
             // Get month name for display
             $monthNames = [
-                1 => 'JANUARY', 2 => 'FEBRUARY', 3 => 'MARCH', 4 => 'ARPIL',
+                1 => 'JANUARY', 2 => 'FEBRUARY', 3 => 'MARCH', 4 => 'APRIL',
                 5 => 'MAY', 6 => 'JUNE', 7 => 'JULY', 8 => 'AUGUST',
                 9 => 'SEPTEMBER', 10 => 'OCTOBER', 11 => 'NOVEMBER', 12 => 'DECEMBER'
             ];
             $monthName = $monthNames[$this->selectedMonth] ?? '';
 
-            // 1. Get working days for the month
+            // 1. Get working days for the month - use numeric month format
             $workingDaysQuery = "SELECT noOfWorkingDays FROM tblworkingdays WHERE monthName = ? AND year = ?";
             $stmt = mysqli_prepare($connect_var, $workingDaysQuery);
-            mysqli_stmt_bind_param($stmt, "ss", $monthName, $currentYear);
+            mysqli_stmt_bind_param($stmt, "ss", $selectedMonth, $currentYear);
             mysqli_stmt_execute($stmt);
             $result = mysqli_stmt_get_result($stmt);
             $workingDaysData = mysqli_fetch_assoc($result);
