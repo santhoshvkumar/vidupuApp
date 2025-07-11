@@ -58,15 +58,19 @@ class TransferEmployeeComponent{
     
                 // Check for duplicate transfer - employee should not have overlapping transfer dates
                 if ($this->isPermanentTransfer === 'Permanent') {
-                    // For permanent transfers, check if employee already has an active transfer from the same date
+                    // For permanent transfers, check if employee already has an active transfer that overlaps with the new transfer date
                     $queryCheckDuplicate = "SELECT COUNT(*) as count FROM tblTransferHistory 
                         WHERE employeeID = ? AND organisationID = ? AND isActive = 1
-                        AND (fromDate >= ? OR transferType = 'Permanent')";
+                        AND (
+                            (fromDate <= ? AND (toDate >= ? OR toDate IS NULL))
+                            OR (fromDate >= ? AND fromDate <= ?)
+                        )";
                     $stmtCheck = mysqli_prepare($connect_var, $queryCheckDuplicate);
-                    mysqli_stmt_bind_param($stmtCheck, "sss", 
+                    mysqli_stmt_bind_param($stmtCheck, "ssssss", 
                         $this->employeeID, 
                         $this->organisationID, 
-                        $this->fromDate
+                        $this->fromDate, $this->fromDate,
+                        $this->fromDate, $this->fromDate
                     );
                 } else {
                     // For temporary transfers, check for overlapping dates
@@ -96,6 +100,19 @@ class TransferEmployeeComponent{
                     ));
                     return;
                 }
+
+                // Deactivate any previous active transfers for this employee
+                $queryDeactivatePrevious = "UPDATE tblTransferHistory 
+                    SET isActive = 0 
+                    WHERE employeeID = ? AND organisationID = ? AND isActive = 1";
+                $stmtDeactivate = mysqli_prepare($connect_var, $queryDeactivatePrevious);
+                mysqli_stmt_bind_param($stmtDeactivate, "ss", 
+                    $this->employeeID, 
+                    $this->organisationID
+                );
+                mysqli_stmt_execute($stmtDeactivate);
+                mysqli_stmt_close($stmtDeactivate);
+
 //insert transfer history
                 $queryInsertTransferHistory = "INSERT INTO tblTransferHistory ( employeeID, fromBranch, toBranch, fromDate, toDate, transferType, organisationID, createdOn, createdBy, isActive, isImmediateTransfer) VALUES (?,?,?,?,?,?,?,?,?,?,?);";
                 $queryStatement = mysqli_prepare($connect_var, $queryInsertTransferHistory);
@@ -244,13 +261,9 @@ class TransferEmployeeComponent{
 
                     // If permanent transfer, deactivate it
                     if ($transfer['transferType'] === 'Permanent') {
-                        $updateTransferHistory = "UPDATE tblTransferHistory 
-                            SET isActive = 0 
-                            WHERE transferHistoryID = ?";
-                        $stmtUpdateHistory = mysqli_prepare($connect_var, $updateTransferHistory);
-                        mysqli_stmt_bind_param($stmtUpdateHistory, "s", $transfer['transferHistoryID']);
-                        mysqli_stmt_execute($stmtUpdateHistory);
-                        mysqli_stmt_close($stmtUpdateHistory);
+                        // For permanent transfers, we don't deactivate immediately
+                        // They remain active until the employee gets another transfer
+                        // or until manually deactivated
                     }
 
                     $transfer['status'] = 'transferred';
