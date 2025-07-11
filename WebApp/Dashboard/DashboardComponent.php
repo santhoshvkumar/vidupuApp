@@ -184,7 +184,9 @@ class DashboardComponent{
                 JOIN tblmapEmp m ON e.employeeID = m.employeeID
                 WHERE l.status = 'Yet To Be Approved'
                 AND e.organisationID = '$organisationID'
-                AND m.branchID = '$branchID') AS pendingLeaveRequests
+                AND m.branchID = '$branchID'
+                AND '$currentDate' BETWEEN l.fromDate AND l.toDate
+                ) AS pendingLeaveRequests
 
             FROM (SELECT 1) AS dummy;";
 
@@ -314,13 +316,15 @@ class DashboardComponent{
             AND emp.organisationID = '$organisationID'
             AND emp.isActive = 1) AS loginnedDevices,
 
-            -- Pending leave requests (Yet To Be Approved)
+            -- Pending leave requests (Yet To Be Approved) for all branches
             (SELECT COUNT(*)
             FROM tblApplyLeave l
             JOIN tblEmployee e ON l.employeeID = e.employeeID
             JOIN tblmapEmp m ON e.employeeID = m.employeeID
             WHERE l.status = 'Yet To Be Approved'
-            AND e.organisationID = '$organisationID') AS pendingLeaveRequests
+            AND e.organisationID = '$organisationID'
+            AND '$currentDate' BETWEEN l.fromDate AND l.toDate
+            ) AS pendingLeaveRequests
         FROM (SELECT 1) AS dummy;";
             error_log("Debug Query: " . $queryActiveEmployeeDetails);
 
@@ -630,24 +634,6 @@ function DashboardAttendanceDetailsforAll() {
     $dashboardComponent = new DashboardComponent();
     if ($dashboardComponent->loadDashboardAttendanceDetailsforAll()) {
         $dashboardComponent->DashboardAttendanceDetailsforAll();
-    } else {
-        echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
-    }
-}
-
-function GetPendingLeaveRequestsList($decoded_items) {
-    $dashboardComponent = new DashboardComponent();
-    if ($dashboardComponent->loadDashboardAttendanceDetails($decoded_items)) {
-        $dashboardComponent->GetPendingLeaveRequestsList();
-    } else {
-        echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
-    }
-}
-
-function GetPendingLeaveRequestsListForAll($decoded_items) {
-    $dashboardComponent = new DashboardComponent();
-    if ($dashboardComponent->loadDashboardAttendanceDetailsforAll($decoded_items)) {
-        $dashboardComponent->GetPendingLeaveRequestsListForAll();
     } else {
         echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
     }

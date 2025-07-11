@@ -63,6 +63,23 @@ class GetValueDashboardComponent {
         $this->organisationID = $data['organisationID'];
         return true;
     }
+    public function loadGetPendingLeaveRequestsList(array $data) {
+        if (!isset($data['currentDate']) || !isset($data['branchID']) || !isset($data['organisationID'])) {
+            return false;
+        }
+        $this->currentDate = $data['currentDate'];
+        $this->branchID = $data['branchID'];
+        $this->organisationID = $data['organisationID'];
+        return true;
+    }
+    public function loadGetPendingLeaveRequestsListForAll(array $data) {
+        if (!isset($data['currentDate']) || !isset($data['organisationID'])) {
+            return false;
+        }
+        $this->currentDate = $data['currentDate'];
+        $this->organisationID = $data['organisationID'];
+        return true;
+    }
     public function GetAllActiveEmployeesDetails() {    
         include('config.inc');
         header('Content-Type: application/json');
@@ -988,6 +1005,96 @@ WHERE a.attendanceDate = ?
             ], JSON_FORCE_OBJECT);
         }
     }
+    public function GetPendingLeaveRequestsListDetails() {
+        include('config.inc');
+        header('Content-Type: application/json');
+        try {
+            $branchID = mysqli_real_escape_string($connect_var, $this->branchID);
+            $organisationID = mysqli_real_escape_string($connect_var, $this->organisationID);
+            $currentDate = mysqli_real_escape_string($connect_var, $this->currentDate);
+            $queryPendingLeaves = "
+                SELECT 
+                    e.employeeName,
+                    e.empID,
+                    e.employeePhone,
+                    e.Designation,
+                    l.typeOfLeave,
+                    b.branchName as locationName,
+                    mng.employeeName AS managerName,
+                    mng.empID AS managerID
+                FROM tblApplyLeave l
+                JOIN tblEmployee e ON l.employeeID = e.employeeID
+                JOIN tblmapEmp m ON e.employeeID = m.employeeID
+                JOIN tblBranch b ON m.branchID = b.branchID
+                LEFT JOIN tblEmployee mng ON e.managerID = mng.employeeID
+                WHERE l.status = 'Yet To Be Approved'
+                AND e.organisationID = '$organisationID'
+                AND m.branchID = '$branchID'
+                AND '$currentDate' BETWEEN l.fromDate AND l.toDate
+                ORDER BY l.createdOn DESC";
+            $result = mysqli_query($connect_var, $queryPendingLeaves);
+            if (!$result) {
+                throw new Exception("Database query failed: " . mysqli_error($connect_var));
+            }
+            $pendingLeaves = [];
+            while ($row = mysqli_fetch_assoc($result)) {
+                $pendingLeaves[] = $row;
+            }
+            echo json_encode([
+                "status" => "success",
+                "data" => $pendingLeaves
+            ]);
+        } catch (Exception $e) {
+            echo json_encode([
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ], JSON_FORCE_OBJECT);
+        }
+    }
+    public function GetPendingLeaveRequestsListDetailsForAll() {
+        include('config.inc');
+        header('Content-Type: application/json');
+        try {
+            $organisationID = mysqli_real_escape_string($connect_var, $this->organisationID);
+            $currentDate = mysqli_real_escape_string($connect_var, $this->currentDate);
+            $queryPendingLeaves = "
+                SELECT 
+                    e.employeeName,
+                    e.empID,
+                    e.employeePhone,
+                    e.Designation,
+                    l.typeOfLeave,
+                    b.branchName as locationName,
+                    mng.employeeName AS managerName,
+                    mng.empID AS managerID
+                FROM tblApplyLeave l
+                JOIN tblEmployee e ON l.employeeID = e.employeeID
+                JOIN tblmapEmp m ON e.employeeID = m.employeeID
+                JOIN tblBranch b ON m.branchID = b.branchID
+                LEFT JOIN tblEmployee mng ON e.managerID = mng.employeeID
+                WHERE l.status = 'Yet To Be Approved'
+                AND e.organisationID = '$organisationID'
+                AND '$currentDate' BETWEEN l.fromDate AND l.toDate
+                ORDER BY l.createdOn DESC";
+            $result = mysqli_query($connect_var, $queryPendingLeaves);
+            if (!$result) {
+                throw new Exception("Database query failed: " . mysqli_error($connect_var));
+            }
+            $pendingLeaves = [];
+            while ($row = mysqli_fetch_assoc($result)) {
+                $pendingLeaves[] = $row;
+            }
+            echo json_encode([
+                "status" => "success",
+                "data" => $pendingLeaves
+            ]);
+        } catch (Exception $e) {
+            echo json_encode([
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ], JSON_FORCE_OBJECT);
+        }
+    }
 }
 
 function GetAllCheckInMembers($decoded_items) {
@@ -1100,6 +1207,22 @@ function GetAllAbesentEmployeesforAll($decoded_items) {
     if ($GetValueDashboardObject->loadGetAllAbesentEmployeesforAll($decoded_items)) {
         $GetValueDashboardObject->GetAllAbesentEmployeesDetailsforAll();
     } else {        
+        echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
+    }
+}
+function GetPendingLeaveRequestsList($decoded_items) {
+    $obj = new GetValueDashboardComponent();
+    if ($obj->loadGetPendingLeaveRequestsList($decoded_items)) {
+        $obj->GetPendingLeaveRequestsListDetails();
+    } else {
+        echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
+    }
+}
+function GetPendingLeaveRequestsListForAll($decoded_items) {
+    $obj = new GetValueDashboardComponent();
+    if ($obj->loadGetPendingLeaveRequestsListForAll($decoded_items)) {
+        $obj->GetPendingLeaveRequestsListDetailsForAll();
+    } else {
         echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
     }
 }
