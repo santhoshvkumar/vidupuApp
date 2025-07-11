@@ -714,39 +714,8 @@ def generate_payslip(employeeID, Month, Year, OrgID):
     print(f"<!-- DEBUG: empID used in query: {empIDFromDB} -->")
     print(f"<!-- DEBUG: month: {Month}, year: {Year} -->")
     print(f"<!-- DEBUG: month number: {month} -->")
-    checkEmpQuery = f"SELECT COUNT(*) as count FROM tblAccounts WHERE TRIM(empID) = '{empIDFromDB}'"
-    cursor.execute(checkEmpQuery)
-    empCount = cursor.fetchone()
-    print(f"<!-- DEBUG: Employee records in tblAccounts: {empCount['count']} -->")
-    checkAccountsQuery = f"""SELECT month, year, COUNT(*) as count 
-                           FROM tblAccounts 
-                           WHERE TRIM(empID) = '{empIDFromDB}' 
-                           GROUP BY month, year 
-                           ORDER BY year DESC, month DESC 
-                           LIMIT 5"""
-    cursor.execute(checkAccountsQuery)
-    accountsData = cursor.fetchall()
-    print("<!-- DEBUG: Recent accounts data for employee: -->")
-    for row in accountsData:
-        print(f"<!-- Month: {row['month']}, Year: {row['year']}, Count: {row['count']} -->")
-    checkAccountTypesQuery = "SELECT accountTypeID, accountTypeName, typeOfAccount FROM tblAccountType WHERE typeOfAccount = 'earnings'"
-    cursor.execute(checkAccountTypesQuery)
-    accountTypes = cursor.fetchall()
-    print("<!-- DEBUG: Available earnings account types: -->")
-    for row in accountTypes:
-        print(f"<!-- ID: {row['accountTypeID']}, Name: {row['accountTypeName']}, Type: {row['typeOfAccount']} -->")
-    checkActualDataQuery = f"""SELECT a.empID, a.month, a.year, a.amount, t.accountTypeName, t.typeOfAccount 
-                             FROM tblAccounts a 
-                             JOIN tblAccountType t ON a.accountTypeID = t.accountTypeID 
-                             WHERE a.empID = '{empIDFromDB}' 
-                             ORDER BY a.year DESC, a.month DESC 
-                             LIMIT 10"""
-    cursor.execute(checkActualDataQuery)
-    actualData = cursor.fetchall()
-    print("<!-- DEBUG: Actual accounts data for employee: -->")
-    for row in actualData:
-        print(f"<!-- EmpID: {row['empID']}, Month: {row['month']}, Year: {row['year']}, Amount: {row['amount']}, Type: {row['accountTypeName']} -->")
-    queryEarnings = f"""
+    queries = [
+        f"""
         SELECT t.accountTypeName, a.amount
         FROM tblAccounts a
         JOIN tblAccountType t ON a.accountTypeID = t.accountTypeID
@@ -754,18 +723,8 @@ def generate_payslip(employeeID, Month, Year, OrgID):
           AND a.month = {month}
           AND a.year = {Year}
           AND t.typeOfAccount = 'earnings'
-    """
-    print(f"<!-- DEBUG: Earnings Query: {queryEarnings} -->")
-    cursor.execute(queryEarnings)
-    earningsResult = cursor.fetchall()
-    print(f"<!-- DEBUG: Earnings query returned {len(earningsResult)} rows -->")
-    for row in earningsResult:
-        print(f"<!-- Row: {row} -->")
-        earnings[row['accountTypeName']] = row['amount']
-        totalEarnings += row['amount']
-    if not earnings:
-        print("<!-- DEBUG: No earnings found, trying alternative queries -->")
-        altQuery1 = f"""
+        """,
+        f"""
             SELECT t.accountTypeName, a.amount
             FROM tblAccounts a
             JOIN tblAccountType t ON a.accountTypeID = t.accountTypeID
@@ -773,17 +732,8 @@ def generate_payslip(employeeID, Month, Year, OrgID):
               AND a.month = {month}
               AND a.year = {Year}
               AND t.typeOfAccount = 'earnings'
-        """
-        print(f"<!-- DEBUG: Alternative Query 1: {altQuery1} -->")
-        cursor.execute(altQuery1)
-        altResult1 = cursor.fetchall()
-        print(f"<!-- DEBUG: Alternative query 1 returned {len(altResult1)} rows -->")
-        for row in altResult1:
-            print(f"<!-- Alt Row 1: {row} -->")
-            earnings[row['accountTypeName']] = row['amount']
-            totalEarnings += row['amount']
-        if not earnings:
-            altQuery2 = f"""
+        """,
+        f"""
                 SELECT t.accountTypeName, a.amount
                 FROM tblAccounts a
                 JOIN tblAccountType t ON a.accountTypeID = t.accountTypeID
@@ -791,18 +741,8 @@ def generate_payslip(employeeID, Month, Year, OrgID):
                   AND a.month = '{month}'
                   AND a.year = '{Year}'
                   AND t.typeOfAccount = 'earnings'
-            """
-            print(f"<!-- DEBUG: Alternative Query 2: {altQuery2} -->")
-            cursor.execute(altQuery2)
-            altResult2 = cursor.fetchall()
-            print(f"<!-- DEBUG: Alternative query 2 returned {len(altResult2)} rows -->")
-            for row in altResult2:
-                print(f"<!-- Alt Row 2: {row} -->")
-                earnings[row['accountTypeName']] = row['amount']
-                totalEarnings += row['amount']
-        if not earnings:
-            print("<!-- DEBUG: No data found for requested month, trying to get most recent data -->")
-            fallbackQuery = f"""
+            """,
+        f"""
                 SELECT t.accountTypeName, a.amount, a.month, a.year
                 FROM tblAccounts a
                 JOIN tblAccountType t ON a.accountTypeID = t.accountTypeID
@@ -811,28 +751,25 @@ def generate_payslip(employeeID, Month, Year, OrgID):
                 ORDER BY a.year DESC, a.month DESC
                 LIMIT 10
             """
-            print(f"<!-- DEBUG: Fallback Query: {fallbackQuery} -->")
-            cursor.execute(fallbackQuery)
-            fallbackResult = cursor.fetchall()
-            print(f"<!-- DEBUG: Fallback query returned {len(fallbackResult)} rows -->")
-            fallbackMonth = ''
-            fallbackYear = ''
-            for row in fallbackResult:
-                print(f"<!-- Fallback Row: {row} -->")
-                if not fallbackMonth:
-                    fallbackMonth = row['month']
-                    fallbackYear = row['year']
+    ]
+    for q in queries:
+        cursor.execute(q)
+        result = cursor.fetchall()
+        if result:
+            earnings.clear()
+            totalEarnings = 0
+            for row in result:
                 earnings[row['accountTypeName']] = row['amount']
                 totalEarnings += row['amount']
-            if earnings:
-                print(f"<!-- DEBUG: Using fallback data from month {fallbackMonth}, year {fallbackYear} -->")
+            break
     print(f"<!-- DEBUG: Final Earnings Array: {earnings} -->")
     print(f"<!-- DEBUG: Total Earnings: {totalEarnings} -->")
     # Step 11: Fetch all deductions for the employee for the given month/year
     deductions = {}
     totalDeductions = 0
     print(f"<!-- DEBUG: Fetching deductions for empID: {empIDFromDB}, month: {month}, year: {Year} -->")
-    queryDeductions = f"""
+    deduction_queries = [
+        f"""
         SELECT t.accountTypeName, a.amount
         FROM tblAccounts a
         JOIN tblAccountType t ON a.accountTypeID = t.accountTypeID
@@ -840,18 +777,8 @@ def generate_payslip(employeeID, Month, Year, OrgID):
           AND a.month = {month}
           AND a.year = {Year}
           AND t.typeOfAccount = 'deductions'
-    """
-    print(f"<!-- DEBUG: Deductions Query: {queryDeductions} -->")
-    cursor.execute(queryDeductions)
-    deductionsResult = cursor.fetchall()
-    print(f"<!-- DEBUG: Deductions query returned {len(deductionsResult)} rows -->")
-    for row in deductionsResult:
-        print(f"<!-- Deduction Row: {row} -->")
-        deductions[row['accountTypeName']] = row['amount']
-        totalDeductions += row['amount']
-    if not deductions:
-        print("<!-- DEBUG: No deductions found, trying alternative queries -->")
-        altDeductionsQuery1 = f"""
+        """,
+        f"""
             SELECT t.accountTypeName, a.amount
             FROM tblAccounts a
             JOIN tblAccountType t ON a.accountTypeID = t.accountTypeID
@@ -859,17 +786,8 @@ def generate_payslip(employeeID, Month, Year, OrgID):
               AND a.month = {month}
               AND a.year = {Year}
               AND t.typeOfAccount = 'deductions'
-        """
-        print(f"<!-- DEBUG: Alternative Deductions Query 1: {altDeductionsQuery1} -->")
-        cursor.execute(altDeductionsQuery1)
-        altDeductionsResult1 = cursor.fetchall()
-        print(f"<!-- DEBUG: Alternative deductions query 1 returned {len(altDeductionsResult1)} rows -->")
-        for row in altDeductionsResult1:
-            print(f"<!-- Alt Deduction Row 1: {row} -->")
-            deductions[row['accountTypeName']] = row['amount']
-            totalDeductions += row['amount']
-        if not deductions:
-            altDeductionsQuery2 = f"""
+        """,
+        f"""
                 SELECT t.accountTypeName, a.amount
                 FROM tblAccounts a
                 JOIN tblAccountType t ON a.accountTypeID = t.accountTypeID
@@ -877,18 +795,8 @@ def generate_payslip(employeeID, Month, Year, OrgID):
                   AND a.month = '{month}'
                   AND a.year = '{Year}'
                   AND t.typeOfAccount = 'deductions'
-            """
-            print(f"<!-- DEBUG: Alternative Deductions Query 2: {altDeductionsQuery2} -->")
-            cursor.execute(altDeductionsQuery2)
-            altDeductionsResult2 = cursor.fetchall()
-            print(f"<!-- DEBUG: Alternative deductions query 2 returned {len(altDeductionsResult2)} rows -->")
-            for row in altDeductionsResult2:
-                print(f"<!-- Alt Deduction Row 2: {row} -->")
-                deductions[row['accountTypeName']] = row['amount']
-                totalDeductions += row['amount']
-        if not deductions:
-            print("<!-- DEBUG: No deductions found for requested month, trying to get most recent data -->")
-            fallbackDeductionsQuery = f"""
+            """,
+        f"""
                 SELECT t.accountTypeName, a.amount, a.month, a.year
                 FROM tblAccounts a
                 JOIN tblAccountType t ON a.accountTypeID = t.accountTypeID
@@ -897,21 +805,25 @@ def generate_payslip(employeeID, Month, Year, OrgID):
                 ORDER BY a.year DESC, a.month DESC
                 LIMIT 10
             """
-            print(f"<!-- DEBUG: Fallback Deductions Query: {fallbackDeductionsQuery} -->")
-            cursor.execute(fallbackDeductionsQuery)
-            fallbackDeductionsResult = cursor.fetchall()
-            print(f"<!-- DEBUG: Fallback deductions query returned {len(fallbackDeductionsResult)} rows -->")
-            for row in fallbackDeductionsResult:
-                print(f"<!-- Fallback Deduction Row: {row} -->")
+    ]
+    for q in deduction_queries:
+        cursor.execute(q)
+        result = cursor.fetchall()
+        if result:
+            deductions.clear()
+            totalDeductions = 0
+            for row in result:
                 deductions[row['accountTypeName']] = row['amount']
                 totalDeductions += row['amount']
+            break
     print(f"<!-- DEBUG: Final Deductions Array: {deductions} -->")
     print(f"<!-- DEBUG: Total Deductions: {totalDeductions} -->")
     # Step 12: Fetch all loan deductions for the employee for the given month/year
     loanDeductions = {}
     totalLoanDeductions = 0
     print(f"<!-- DEBUG: Fetching loan deductions for empID: {empIDFromDB}, month: {month}, year: {Year} -->")
-    queryLoanDeductions = f"""
+    loan_queries = [
+        f"""
         SELECT t.accountTypeName, a.amount
         FROM tblAccounts a
         JOIN tblAccountType t ON a.accountTypeID = t.accountTypeID
@@ -919,18 +831,8 @@ def generate_payslip(employeeID, Month, Year, OrgID):
           AND a.month = {month}
           AND a.year = {Year}
           AND t.typeOfAccount = 'loans'
-    """
-    print(f"<!-- DEBUG: Loan Deductions Query: {queryLoanDeductions} -->")
-    cursor.execute(queryLoanDeductions)
-    loanDeductionsResult = cursor.fetchall()
-    print(f"<!-- DEBUG: Loan deductions query returned {len(loanDeductionsResult)} rows -->")
-    for row in loanDeductionsResult:
-        print(f"<!-- Loan Deduction Row: {row} -->")
-        loanDeductions[row['accountTypeName']] = row['amount']
-        totalLoanDeductions += row['amount']
-    if not loanDeductions:
-        print("<!-- DEBUG: No loan deductions found, trying alternative queries -->")
-        altLoanQuery1 = f"""
+        """,
+        f"""
             SELECT t.accountTypeName, a.amount
             FROM tblAccounts a
             JOIN tblAccountType t ON a.accountTypeID = t.accountTypeID
@@ -938,17 +840,8 @@ def generate_payslip(employeeID, Month, Year, OrgID):
               AND a.month = {month}
               AND a.year = {Year}
               AND t.typeOfAccount = 'loans'
-        """
-        print(f"<!-- DEBUG: Alternative Loan Query 1: {altLoanQuery1} -->")
-        cursor.execute(altLoanQuery1)
-        altLoanResult1 = cursor.fetchall()
-        print(f"<!-- DEBUG: Alternative loan query 1 returned {len(altLoanResult1)} rows -->")
-        for row in altLoanResult1:
-            print(f"<!-- Alt Loan Row 1: {row} -->")
-            loanDeductions[row['accountTypeName']] = row['amount']
-            totalLoanDeductions += row['amount']
-        if not loanDeductions:
-            altLoanQuery2 = f"""
+        """,
+        f"""
                 SELECT t.accountTypeName, a.amount
                 FROM tblAccounts a
                 JOIN tblAccountType t ON a.accountTypeID = t.accountTypeID
@@ -956,18 +849,8 @@ def generate_payslip(employeeID, Month, Year, OrgID):
                   AND a.month = '{month}'
                   AND a.year = '{Year}'
                   AND t.typeOfAccount = 'loans'
-            """
-            print(f"<!-- DEBUG: Alternative Loan Query 2: {altLoanQuery2} -->")
-            cursor.execute(altLoanQuery2)
-            altLoanResult2 = cursor.fetchall()
-            print(f"<!-- DEBUG: Alternative loan query 2 returned {len(altLoanResult2)} rows -->")
-            for row in altLoanResult2:
-                print(f"<!-- Alt Loan Row 2: {row} -->")
-                loanDeductions[row['accountTypeName']] = row['amount']
-                totalLoanDeductions += row['amount']
-        if not loanDeductions:
-            print("<!-- DEBUG: No loan deductions found for requested month, trying to get most recent data -->")
-            fallbackLoanQuery = f"""
+            """,
+        f"""
                 SELECT t.accountTypeName, a.amount, a.month, a.year
                 FROM tblAccounts a
                 JOIN tblAccountType t ON a.accountTypeID = t.accountTypeID
@@ -976,14 +859,17 @@ def generate_payslip(employeeID, Month, Year, OrgID):
                 ORDER BY a.year DESC, a.month DESC
                 LIMIT 10
             """
-            print(f"<!-- DEBUG: Fallback Loan Query: {fallbackLoanQuery} -->")
-            cursor.execute(fallbackLoanQuery)
-            fallbackLoanResult = cursor.fetchall()
-            print(f"<!-- DEBUG: Fallback loan query returned {len(fallbackLoanResult)} rows -->")
-            for row in fallbackLoanResult:
-                print(f"<!-- Fallback Loan Row: {row} -->")
+    ]
+    for q in loan_queries:
+        cursor.execute(q)
+        result = cursor.fetchall()
+        if result:
+            loanDeductions.clear()
+            totalLoanDeductions = 0
+            for row in result:
                 loanDeductions[row['accountTypeName']] = row['amount']
                 totalLoanDeductions += row['amount']
+            break
     print(f"<!-- DEBUG: Final Loan Deductions Array: {loanDeductions} -->")
     print(f"<!-- DEBUG: Total Loan Deductions: {totalLoanDeductions} -->")
     # Step 13: Function to convert number to words (exact copy from PHP)
