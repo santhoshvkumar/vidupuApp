@@ -713,162 +713,130 @@ def generate_payslip(employeeID, Month, Year, OrgID):
     print(f"<!-- DEBUG: empID used in query: {empIDFromDB} -->")
     print(f"<!-- DEBUG: month: {Month}, year: {Year} -->")
     print(f"<!-- DEBUG: month number: {month} -->")
-    queries = [
-        f"""
-        SELECT t.accountTypeName, a.amount
-        FROM tblAccounts a
-        JOIN tblAccountType t ON a.accountTypeID = t.accountTypeID
-        WHERE TRIM(a.empID) = '{empIDFromDB}'
-          AND a.month = {month}
-          AND a.year = {Year}
-          AND t.typeOfAccount = 'earnings'
-        """,
-        f"""
-            SELECT t.accountTypeName, a.amount
-            FROM tblAccounts a
-            JOIN tblAccountType t ON a.accountTypeID = t.accountTypeID
-            WHERE a.empID = '{empIDFromDB}'
-              AND a.month = {month}
-              AND a.year = {Year}
-              AND t.typeOfAccount = 'earnings'
-        """,
-        f"""
-                SELECT t.accountTypeName, a.amount
-                FROM tblAccounts a
-                JOIN tblAccountType t ON a.accountTypeID = t.accountTypeID
-                WHERE a.empID = '{empIDFromDB}'
-                  AND a.month = '{month}'
-                  AND a.year = '{Year}'
-                  AND t.typeOfAccount = 'earnings'
-            """,
-        f"""
-                SELECT t.accountTypeName, a.amount, a.month, a.year
-                FROM tblAccounts a
-                JOIN tblAccountType t ON a.accountTypeID = t.accountTypeID
-                WHERE a.empID = '{empIDFromDB}'
-                  AND t.typeOfAccount = 'earnings'
-                ORDER BY a.year DESC, a.month DESC
-                LIMIT 10
-            """
-    ]
-    for q in queries:
-        cursor.execute(q)
-        result = cursor.fetchall()
-        if result:
-            earnings.clear()
-            totalEarnings = 0
-            for row in result:
-                earnings[row['accountTypeName']] = row['amount']
-                totalEarnings += row['amount']
-            break
+    
+    # Use a single, clean query with proper debugging
+    earnings_query = f"""
+    SELECT t.accountTypeName, a.amount, a.month, a.year
+    FROM tblAccounts a
+    JOIN tblAccountType t ON a.accountTypeID = t.accountTypeID
+    WHERE a.empID = '{empIDFromDB}'
+      AND a.month = {month}
+      AND a.year = {Year}
+      AND t.typeOfAccount = 'earnings'
+    ORDER BY t.accountTypeName
+    """
+    
+    print(f"<!-- DEBUG: Earnings Query: {earnings_query} -->")
+    cursor.execute(earnings_query)
+    result = cursor.fetchall()
+    
+    print(f"<!-- DEBUG: Raw earnings result count: {len(result)} -->")
+    for i, row in enumerate(result):
+        print(f"<!-- DEBUG: Row {i}: {row} -->")
+    
+    # Check for duplicates and sum properly
+    earnings_temp = {}
+    for row in result:
+        account_name = row['accountTypeName']
+        amount = row['amount']
+        
+        if account_name in earnings_temp:
+            print(f"<!-- WARNING: Duplicate account type '{account_name}' found! -->")
+            print(f"<!-- Previous amount: {earnings_temp[account_name]}, New amount: {amount} -->")
+            # Sum the amounts for the same account type
+            earnings_temp[account_name] += amount
+        else:
+            earnings_temp[account_name] = amount
+    
+    earnings = earnings_temp
+    totalEarnings = sum(earnings.values())
+    
     print(f"<!-- DEBUG: Final Earnings Array: {earnings} -->")
     print(f"<!-- DEBUG: Total Earnings: {totalEarnings} -->")
     # Step 11: Fetch all deductions for the employee for the given month/year
     deductions = {}
     totalDeductions = 0
     print(f"<!-- DEBUG: Fetching deductions for empID: {empIDFromDB}, month: {month}, year: {Year} -->")
-    deduction_queries = [
-        f"""
-        SELECT t.accountTypeName, a.amount
-        FROM tblAccounts a
-        JOIN tblAccountType t ON a.accountTypeID = t.accountTypeID
-        WHERE TRIM(a.empID) = '{empIDFromDB}'
-          AND a.month = {month}
-          AND a.year = {Year}
-          AND t.typeOfAccount = 'deductions'
-        """,
-        f"""
-            SELECT t.accountTypeName, a.amount
-            FROM tblAccounts a
-            JOIN tblAccountType t ON a.accountTypeID = t.accountTypeID
-            WHERE a.empID = '{empIDFromDB}'
-              AND a.month = {month}
-              AND a.year = {Year}
-              AND t.typeOfAccount = 'deductions'
-        """,
-        f"""
-                SELECT t.accountTypeName, a.amount
-                FROM tblAccounts a
-                JOIN tblAccountType t ON a.accountTypeID = t.accountTypeID
-                WHERE a.empID = '{empIDFromDB}'
-                  AND a.month = '{month}'
-                  AND a.year = '{Year}'
-                  AND t.typeOfAccount = 'deductions'
-            """,
-        f"""
-                SELECT t.accountTypeName, a.amount, a.month, a.year
-                FROM tblAccounts a
-                JOIN tblAccountType t ON a.accountTypeID = t.accountTypeID
-                WHERE a.empID = '{empIDFromDB}'
-                  AND t.typeOfAccount = 'deductions'
-                ORDER BY a.year DESC, a.month DESC
-                LIMIT 10
-            """
-    ]
-    for q in deduction_queries:
-        cursor.execute(q)
-        result = cursor.fetchall()
-        if result:
-            deductions.clear()
-            totalDeductions = 0
-            for row in result:
-                deductions[row['accountTypeName']] = row['amount']
-                totalDeductions += row['amount']
-            break
+    
+    deductions_query = f"""
+    SELECT t.accountTypeName, a.amount, a.month, a.year
+    FROM tblAccounts a
+    JOIN tblAccountType t ON a.accountTypeID = t.accountTypeID
+    WHERE a.empID = '{empIDFromDB}'
+      AND a.month = {month}
+      AND a.year = {Year}
+      AND t.typeOfAccount = 'deductions'
+    ORDER BY t.accountTypeName
+    """
+    
+    print(f"<!-- DEBUG: Deductions Query: {deductions_query} -->")
+    cursor.execute(deductions_query)
+    result = cursor.fetchall()
+    
+    print(f"<!-- DEBUG: Raw deductions result count: {len(result)} -->")
+    for i, row in enumerate(result):
+        print(f"<!-- DEBUG: Deduction Row {i}: {row} -->")
+    
+    # Check for duplicates and sum properly
+    deductions_temp = {}
+    for row in result:
+        account_name = row['accountTypeName']
+        amount = row['amount']
+        
+        if account_name in deductions_temp:
+            print(f"<!-- WARNING: Duplicate deduction account type '{account_name}' found! -->")
+            print(f"<!-- Previous amount: {deductions_temp[account_name]}, New amount: {amount} -->")
+            # Sum the amounts for the same account type
+            deductions_temp[account_name] += amount
+        else:
+            deductions_temp[account_name] = amount
+    
+    deductions = deductions_temp
+    totalDeductions = sum(deductions.values())
+    
     print(f"<!-- DEBUG: Final Deductions Array: {deductions} -->")
     print(f"<!-- DEBUG: Total Deductions: {totalDeductions} -->")
     # Step 12: Fetch all loan deductions for the employee for the given month/year
     loanDeductions = {}
     totalLoanDeductions = 0
     print(f"<!-- DEBUG: Fetching loan deductions for empID: {empIDFromDB}, month: {month}, year: {Year} -->")
-    loan_queries = [
-        f"""
-        SELECT t.accountTypeName, a.amount
-        FROM tblAccounts a
-        JOIN tblAccountType t ON a.accountTypeID = t.accountTypeID
-        WHERE TRIM(a.empID) = '{empIDFromDB}'
-          AND a.month = {month}
-          AND a.year = {Year}
-          AND t.typeOfAccount = 'loans'
-        """,
-        f"""
-            SELECT t.accountTypeName, a.amount
-            FROM tblAccounts a
-            JOIN tblAccountType t ON a.accountTypeID = t.accountTypeID
-            WHERE a.empID = '{empIDFromDB}'
-              AND a.month = {month}
-              AND a.year = {Year}
-              AND t.typeOfAccount = 'loans'
-        """,
-        f"""
-                SELECT t.accountTypeName, a.amount
-                FROM tblAccounts a
-                JOIN tblAccountType t ON a.accountTypeID = t.accountTypeID
-                WHERE a.empID = '{empIDFromDB}'
-                  AND a.month = '{month}'
-                  AND a.year = '{Year}'
-                  AND t.typeOfAccount = 'loans'
-            """,
-        f"""
-                SELECT t.accountTypeName, a.amount, a.month, a.year
-                FROM tblAccounts a
-                JOIN tblAccountType t ON a.accountTypeID = t.accountTypeID
-                WHERE a.empID = '{empIDFromDB}'
-                  AND t.typeOfAccount = 'loans'
-                ORDER BY a.year DESC, a.month DESC
-                LIMIT 10
-            """
-    ]
-    for q in loan_queries:
-        cursor.execute(q)
-        result = cursor.fetchall()
-        if result:
-            loanDeductions.clear()
-            totalLoanDeductions = 0
-            for row in result:
-                loanDeductions[row['accountTypeName']] = row['amount']
-                totalLoanDeductions += row['amount']
-            break
+    
+    loan_query = f"""
+    SELECT t.accountTypeName, a.amount, a.month, a.year
+    FROM tblAccounts a
+    JOIN tblAccountType t ON a.accountTypeID = t.accountTypeID
+    WHERE a.empID = '{empIDFromDB}'
+      AND a.month = {month}
+      AND a.year = {Year}
+      AND t.typeOfAccount = 'loans'
+    ORDER BY t.accountTypeName
+    """
+    
+    print(f"<!-- DEBUG: Loan Query: {loan_query} -->")
+    cursor.execute(loan_query)
+    result = cursor.fetchall()
+    
+    print(f"<!-- DEBUG: Raw loan deductions result count: {len(result)} -->")
+    for i, row in enumerate(result):
+        print(f"<!-- DEBUG: Loan Row {i}: {row} -->")
+    
+    # Check for duplicates and sum properly
+    loanDeductions_temp = {}
+    for row in result:
+        account_name = row['accountTypeName']
+        amount = row['amount']
+        
+        if account_name in loanDeductions_temp:
+            print(f"<!-- WARNING: Duplicate loan account type '{account_name}' found! -->")
+            print(f"<!-- Previous amount: {loanDeductions_temp[account_name]}, New amount: {amount} -->")
+            # Sum the amounts for the same account type
+            loanDeductions_temp[account_name] += amount
+        else:
+            loanDeductions_temp[account_name] = amount
+    
+    loanDeductions = loanDeductions_temp
+    totalLoanDeductions = sum(loanDeductions.values())
+    
     print(f"<!-- DEBUG: Final Loan Deductions Array: {loanDeductions} -->")
     print(f"<!-- DEBUG: Total Loan Deductions: {totalLoanDeductions} -->")
     # Step 13: Function to convert number to words (exact copy from PHP)
