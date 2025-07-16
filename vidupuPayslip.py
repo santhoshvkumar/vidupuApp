@@ -19,7 +19,6 @@ Also generates PDF payslips for each employee and saves them to Uploads/EMP/PayS
 import sys
 import subprocess
 import importlib.util
-import mysql.connector
 import logging
 import os
 from jinja2 import Template
@@ -108,7 +107,7 @@ class SimplePayslipProcessor:
     def connect_db(self):
         """Connect to MySQL database"""
         try:
-            self.connection =  mysql.connector.connect(host="localhost", user="vsk", password="Password#1", database="tnscVidupuApp")
+            self.connection = pymysql.connect(host="localhost", user="vsk", password="Password#1", database="tnscVidupuApp")
             logger.info("Database connection established")
             self.load_account_types()
         except Exception as e:
@@ -120,7 +119,7 @@ class SimplePayslipProcessor:
         try:
             if self.connection:
                 self.connection.close()
-            self.connection =  mysql.connector.connect(host="localhost", user="vsk", password="Password#1", database="tnscVidupuApp")
+            self.connection = pymysql.connect(host="localhost", user="vsk", password="Password#1", database="tnscVidupuApp")
             logger.info("Database reconnected")
             return True
         except Exception as e:
@@ -541,10 +540,10 @@ def main():
 def generate_payslip(employeeID, Month, Year, OrgID):
     logger.info("inisde Function")
     # Step 2: Connect to MySQL
-    conn = mysql.connector.connect(
+    conn = pymysql.connect(
             host="localhost", user="vsk", password="Password#1", database="tnscVidupuApp"
     )
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor(pymysql.cursors.DictCursor)
 
     # Handle Month as int or str
     if isinstance(Month, int):

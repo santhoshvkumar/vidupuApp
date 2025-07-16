@@ -1,5 +1,5 @@
 import os
-import mysql.connector
+import pymysql
 from jinja2 import Template
 import pdfkit
 import calendar
@@ -7,10 +7,10 @@ import argparse
 
 def generate_payslip(employeeID, Month, Year, OrgID):
     # Step 2: Connect to MySQL
-    conn = mysql.connector.connect(
+    conn = pymysql.connect(
         host="localhost", user="vsk", password="Password#1", database="tnscVidupuApp"
     )
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor(pymysql.cursors.DictCursor)
 
     # Step 3: Fix month name handling - convert to proper format for date parsing
     monthNameUpper = Month.upper()
