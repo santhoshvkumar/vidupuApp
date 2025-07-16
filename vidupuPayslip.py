@@ -81,7 +81,7 @@ DB_CONFIG = {
     'database': 'tnscVidupuApp'
 }
 
-# Excel file path (GLOBAL)
+# Excel file path (live server)
 EXCEL_FILE_PATH = r'/data/server/live/API/public_html/vidupuApp/ScriptRunning/Sal_slip.xlsx'
 # EXCEL_FILE_PATH = r'C:/MAMP/htdocs/Vidupu/vidupuApi/ScriptRunning/Sal_slip.xlsx'
 
