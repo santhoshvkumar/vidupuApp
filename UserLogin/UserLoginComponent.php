@@ -37,7 +37,8 @@ class UserMaster{
                 tblLB.SpecialCasualLeave, tblLB.CompensatoryOff, tblLB.SpecialLeaveBloodDonation, 
                 tblLB.LeaveOnPrivateAffairs, tblB.branchUniqueID, tblB.branchName, 
                 tblB.branchAddress, tblB.branchLatitude, tblB.branchLongitude, tblB.branchRadius,
-                tblE.isManager, tblM.organisationID, tblE.isMultipleCheckIN, tblE.isMultipleCheckOut
+                tblE.isManager, tblM.organisationID, tblE.isMultipleCheckIN, tblE.isMultipleCheckOut,
+                tblE.isWashingAllowance, tblE.isPhysicallyHandicapped, tblE.isTemporary
                 FROM tblEmployee tblE 
                 INNER JOIN tblLeaveBalance tblLB ON tblLB.employeeID = tblE.employeeID
                 INNER JOIN tblmapEmp tblM ON tblM.employeeID = tblE.employeeID
@@ -82,6 +83,9 @@ class UserMaster{
                     $resultArr['organisationID'] = $rs['organisationID'];
                     $resultArr['isMultipleCheckIN'] = $rs['isMultipleCheckIN'];
                     $resultArr['isMultipleCheckOut'] = $rs['isMultipleCheckOut'];
+                    $resultArr['isWashingAllowance'] = $rs['isWashingAllowance'];
+                    $resultArr['isPhysicallyHandicapped'] = $rs['isPhysicallyHandicapped'];
+                    $resultArr['isTemporary'] = $rs['isTemporary'];
                     // Add flag for password change requirement
                     $resultArr['requirePasswordChange'] = $isDefaultPassword;
                     
