@@ -716,14 +716,15 @@ def generate_payslip(employeeID, Month, Year, OrgID):
     
     # Use a single, clean query with proper debugging
     earnings_query = f"""
-    SELECT t.accountTypeName, a.amount, a.month, a.year
-    FROM tblAccounts a
-    JOIN tblAccountType t ON a.accountTypeID = t.accountTypeID
-    WHERE a.empID = '{empIDFromDB}'
-      AND a.month = {month}
-      AND a.year = {Year}
-      AND t.typeOfAccount = 'earnings'
-    ORDER BY t.accountTypeName
+    SELECT accType.accountTypeName, acc.amount, acc.month, acc.year
+    FROM tblAccounts acc
+    JOIN tblAccountType accType ON acc.accountTypeID = accType.accountTypeID
+    WHERE acc.empID = '{empIDFromDB}'
+      AND acc.month = {month}
+      AND acc.year = {Year}
+      AND accType.typeOfAccount = 'earnings'
+    GROUP BY acc.accountID
+    ORDER BY accType.accountTypeName
     """
     
     print(f"<!-- DEBUG: Earnings Query: {earnings_query} -->")
