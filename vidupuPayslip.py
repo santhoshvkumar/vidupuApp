@@ -760,14 +760,15 @@ def generate_payslip(employeeID, Month, Year, OrgID):
     print(f"<!-- DEBUG: Fetching deductions for empID: {empIDFromDB}, month: {month}, year: {Year} -->")
     
     deductions_query = f"""
-    SELECT t.accountTypeName, a.amount, a.month, a.year
-    FROM tblAccounts a
-    JOIN tblAccountType t ON a.accountTypeID = t.accountTypeID
-    WHERE a.empID = '{empIDFromDB}'
-      AND a.month = {month}
-      AND a.year = {Year}
-      AND t.typeOfAccount = 'deductions'
-    ORDER BY t.accountTypeName
+    SELECT accType.accountTypeName, acc.amount, acc.month, acc.year
+    FROM tblAccounts acc
+    JOIN tblAccountType accType ON acc.accountTypeID = accType.accountTypeID
+    WHERE acc.empID = '{empIDFromDB}'
+      AND acc.month = {month}
+      AND acc.year = {Year}
+      AND accType.typeOfAccount = 'deductions'
+    GROUP BY acc.accountID
+    ORDER BY accType.accountTypeName
     """
     
     print(f"<!-- DEBUG: Deductions Query: {deductions_query} -->")
@@ -803,14 +804,15 @@ def generate_payslip(employeeID, Month, Year, OrgID):
     print(f"<!-- DEBUG: Fetching loan deductions for empID: {empIDFromDB}, month: {month}, year: {Year} -->")
     
     loan_query = f"""
-    SELECT t.accountTypeName, a.amount, a.month, a.year
-    FROM tblAccounts a
-    JOIN tblAccountType t ON a.accountTypeID = t.accountTypeID
-    WHERE a.empID = '{empIDFromDB}'
-      AND a.month = {month}
-      AND a.year = {Year}
-      AND t.typeOfAccount = 'loans'
-    ORDER BY t.accountTypeName
+    SELECT accType.accountTypeName, acc.amount, acc.month, acc.year
+    FROM tblAccounts acc
+    JOIN tblAccountType accType ON acc.accountTypeID = accType.accountTypeID
+    WHERE acc.empID = '{empIDFromDB}'
+      AND acc.month = {month}
+      AND acc.year = {Year}
+      AND accType.typeOfAccount = 'loans'
+    GROUP BY acc.accountID
+    ORDER BY accType.accountTypeName
     """
     
     print(f"<!-- DEBUG: Loan Query: {loan_query} -->")
