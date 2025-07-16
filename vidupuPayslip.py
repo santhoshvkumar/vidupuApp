@@ -522,7 +522,7 @@ def main():
         processor.connect_db()
         
         # Clear existing data
-        processor.clear_existing_data()
+       # processor.clear_existing_data()
         
         # Process Excel file (use global EXCEL_FILE_PATH)
         processor.process_excel_file(EXCEL_FILE_PATH)
