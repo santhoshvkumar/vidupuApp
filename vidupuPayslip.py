@@ -334,22 +334,27 @@ class SimplePayslipProcessor:
             cursor.close()
     
     def create_account_mapping(self, emp_id, account_type_id):
-        """Create account mapping if doesn't exist"""
+        """Create account mapping if doesn't exist for this specific employee"""
         cursor = self.connection.cursor()
         try:
-            # Check if mapping exists
+            # Check if mapping exists for this specific employee and account type
             cursor.execute(
                 "SELECT accountMappingID FROM tblAccountMapping WHERE empID = %s AND accountTypeID = %s AND isActive = 1",
                 (emp_id, account_type_id)
             )
             
-            if not cursor.fetchone():
+            existing_mapping = cursor.fetchone()
+            
+            if not existing_mapping:
+                # Only insert if this specific employee doesn't have this account type mapped
                 cursor.execute(
                     "INSERT INTO tblAccountMapping (empID, accountTypeID, assignedOn, assignedBy, isActive) VALUES (%s, %s, %s, %s, %s)",
                     (emp_id, account_type_id, datetime.now(), 1, 1)
                 )
                 self.connection.commit()
                 logger.info(f"Created new account mapping: empID={emp_id}, accountTypeID={account_type_id}")
+            else:
+                logger.info(f"Account mapping already exists for empID={emp_id}, accountTypeID={account_type_id} - skipping")
             
         except Exception as e:
             logger.error(f"Error creating mapping for {emp_id}: {e}")
