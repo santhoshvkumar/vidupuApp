@@ -707,11 +707,7 @@ def generate_payslip(employeeID, Month, Year, OrgID):
     </tr>
     <tr>
       <td><strong>Effective Work Days:</strong> {{ workingDays }}</td>
-      <td><strong>PF UAN:</strong> {{ pfUAN }}</td>
-    </tr>
-    <tr>
       <td><strong>LOP:</strong> {{ lopDays }}</td>
-      <td></td>
     </tr>
   </table>
 
