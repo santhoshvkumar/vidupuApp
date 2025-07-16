@@ -680,24 +680,28 @@ def generate_payslip(employeeID, Month, Year, OrgID):
     # Step 8: Calculate LOP (Loss of Pay) - days with no check-in and check-out
     lopDays = 0
     if employee:
-        employeeIDFromDB = employee['employeeID']
-        monthStart = f"{Year}-{month:02d}-01"
-        import datetime
-        monthEnd = (datetime.datetime(Year, month, 1) + datetime.timedelta(days=32)).replace(day=1) - datetime.timedelta(days=1)
-        monthEnd = monthEnd.strftime('%Y-%m-%d')
-        queryLOP = f"""SELECT COUNT(*) as absentDays 
-                      FROM (
-                        SELECT DATE(attendanceDate) as workDate
-                        FROM tblAttendance 
-                        WHERE employeeID = '{employeeIDFromDB}' 
-                        AND organisationID = '{OrgID}'
-                        AND attendanceDate BETWEEN '{monthStart}' AND '{monthEnd}'
-                        AND (checkInTime IS NULL OR checkOutTime IS NULL)
-                      ) as absentDays"""
-        cursor.execute(queryLOP)
-        lopResult = cursor.fetchone()
-        if lopResult:
-            lopDays = lopResult['absentDays']
+        # Set LOP to 0 for April (month 4) and May (month 5)
+        if month == 4 or month == 5:
+            lopDays = 0
+        else:
+            employeeIDFromDB = employee['employeeID']
+            monthStart = f"{Year}-{month:02d}-01"
+            import datetime
+            monthEnd = (datetime.datetime(Year, month, 1) + datetime.timedelta(days=32)).replace(day=1) - datetime.timedelta(days=1)
+            monthEnd = monthEnd.strftime('%Y-%m-%d')
+            queryLOP = f"""SELECT COUNT(*) as absentDays 
+                          FROM (
+                            SELECT DATE(attendanceDate) as workDate
+                            FROM tblAttendance 
+                            WHERE employeeID = '{employeeIDFromDB}' 
+                            AND organisationID = '{OrgID}'
+                            AND attendanceDate BETWEEN '{monthStart}' AND '{monthEnd}'
+                            AND (checkInTime IS NULL OR checkOutTime IS NULL)
+                          ) as absentDays"""
+            cursor.execute(queryLOP)
+            lopResult = cursor.fetchone()
+            if lopResult:
+                lopDays = lopResult['absentDays']
 
     # Step 9: Logo path handling
     logoWebPath = ''
