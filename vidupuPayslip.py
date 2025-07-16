@@ -363,7 +363,7 @@ class SimplePayslipProcessor:
         try:
             # Check if record exists
             cursor.execute(
-                "SELECT tblAccountID FROM tblAccounts WHERE empID = %s AND accountTypeID = %s AND month = %s AND year = %s",
+                "SELECT accountID FROM tblAccounts WHERE empID = %s AND accountTypeID = %s AND month = %s AND year = %s",
                 (emp_id, account_type_id, month, year)
             )
             result = cursor.fetchone()
@@ -371,7 +371,7 @@ class SimplePayslipProcessor:
             if result:
                 # Update existing record
                 cursor.execute(
-                    "UPDATE tblAccounts SET amount = %s WHERE tblAccountID = %s",
+                    "UPDATE tblAccounts SET amount = %s WHERE accountID = %s",
                     (amount, result[0])
                 )
             else:
