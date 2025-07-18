@@ -65,6 +65,7 @@ class SectionWiseFetchDetailsComponent{
                      JOIN tblAssignedSection a ON e.employeeID = a.employeeID
                      JOIN tblSection s ON a.sectionID = s.sectionID
                      WHERE a.isActive = 1
+                     AND e.isTemporary = 0
                      AND s.sectionID = ?) AS totalactiveemployeesinsection,
 
                     (SELECT COUNT(att.employeeID) 
@@ -107,7 +108,16 @@ class SectionWiseFetchDetailsComponent{
                      WHERE MONTH(l.fromDate) = ?
                      AND YEAR(l.fromDate) = ?
                      AND a.isActive = 1
-                     AND s.sectionID = ?) AS on_leave;";
+                     AND s.sectionID = ?) AS on_leave,
+
+                    -- Temporary staff count in section
+                    (SELECT COUNT(e.employeeID)
+                     FROM tblEmployee e
+                     JOIN tblAssignedSection a ON e.employeeID = a.employeeID
+                     JOIN tblSection s ON a.sectionID = s.sectionID
+                     WHERE a.isActive = 1
+                     AND e.isTemporary = 1
+                     AND s.sectionID = ?) AS total_temporary_staff;";
 
             // Debug the query with actual values
             $debug_query = str_replace(
@@ -137,7 +147,7 @@ class SectionWiseFetchDetailsComponent{
                 throw new Exception("Database prepare failed");
             }
 
-            mysqli_stmt_bind_param($stmt, "ssiisiiisiiis", 
+            mysqli_stmt_bind_param($stmt, "ssiisiiisiiiss", 
                 $this->sectionID,  // for first subquery
                 $this->sectionID,  // for second subquery
                 $this->currentMonth, // for second subquery
@@ -150,7 +160,8 @@ class SectionWiseFetchDetailsComponent{
                 $this->sectionID,  // for fourth subquery
                 $this->currentMonth, // for fifth subquery
                 $this->currentYear,         // for fifth subquery
-                $this->sectionID   // for fifth subquery
+                $this->sectionID,   // for fifth subquery
+                $this->sectionID   // for sixth subquery (temporary staff)
             );
             
             if (!mysqli_stmt_execute($stmt)) {
@@ -173,6 +184,7 @@ class SectionWiseFetchDetailsComponent{
                 $data['onLeave'] = isset($row['on_leave']) ? intval($row['on_leave']) : 0;
                 $data['lateCheckIn'] = isset($row['late_checkin']) ? intval($row['late_checkin']) : 0;
                 $data['earlyCheckOut'] = isset($row['early_checkout']) ? intval($row['early_checkout']) : 0;
+                $data['totalTemporaryStaff'] = isset($row['total_temporary_staff']) ? intval($row['total_temporary_staff']) : 0;
                 $data['absenteesinHO'] = $data['totalActiveEmployeesInSection'] - ($data['totalCheckIns'] + $data['onLeave']);
                 
                 // Debug final data
@@ -219,6 +231,7 @@ class SectionWiseFetchDetailsComponent{
                      FROM tblEmployee e
                      JOIN tblAssignedSection a ON e.employeeID = a.employeeID
                      WHERE a.isActive = 1
+                     AND e.isTemporary = 0
                      AND a.sectionID = s.sectionID) AS total_active_employees,
                     (SELECT COUNT(att.employeeID) 
                      FROM tblAttendance att

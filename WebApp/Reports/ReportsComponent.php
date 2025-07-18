@@ -4,10 +4,29 @@ class ReportsComponent {
     public $endDate;
     public $organisationID;
     public $selectedMonth;
+    public $employeeID;
+    public $selectedYear;
+    public $selectedDate;
 
     public function loadOrganisationID(array $data) {
         if (isset($data['organisationID'])) {
             $this->organisationID = $data['organisationID'];
+            return true;
+        }
+        return false;
+    }
+
+    public function loadEmployeeID(array $data) {
+        if (isset($data['employeeID'])) {
+            $this->employeeID = $data['employeeID'];
+            return true;
+        }
+        return false;
+    }
+
+    public function loadSelectedYear(array $data) {
+        if (isset($data['selectedYear'])) {
+            $this->selectedYear = $data['selectedYear'];
             return true;
         }
         return false;
@@ -578,155 +597,306 @@ ORDER BY
         include(dirname(__FILE__) . '/../../config.inc');
         header('Content-Type: application/json');
         try {
-            // First get all dates in the selected month
-            $dates = [];
-            $daysInMonth = date('t', strtotime($this->selectedMonth));
-            $monthStart = date('Y-m-01', strtotime($this->selectedMonth));
-            $monthEnd = date('Y-m-t', strtotime($this->selectedMonth));
+            // Check if this is a yearly request (format: 2025-01 means year 2025)
+            $isYearlyRequest = false;
+            $year = '';
+            if (preg_match('/^(\d{4})-01$/', $this->selectedMonth, $matches)) {
+                $isYearlyRequest = true;
+                $year = $matches[1];
+            }
             
-            for ($i = 1; $i <= $daysInMonth; $i++) {
-                $dates[] = date('Y-m-d', strtotime($this->selectedMonth . '-' . $i));
+            if ($isYearlyRequest) {
+                // Handle yearly report
+                $this->getYearlyDesignationWiseLeaveReport($year, $connect_var);
+            } else {
+                // Handle monthly report (existing logic)
+                $this->getMonthlyDesignationWiseLeaveReport($connect_var);
             }
-
-            // Define the order of designations
-            $designationOrder = [
-                'Deputy General Manager',
-                'Assistant General Manager', 
-                'IT Specialist',
-                'PA to Executive',
-                'Chief Manager',
-                'Manager',
-                'Assistant Manager',
-                'System Admin',
-                'Assistant',
-                'Teller',
-                'Sub Staff',
-                'Intern',
-                'Sweeper'
-            ];
-
-            // Get leave data for the month - using dashboard logic (count ALL approved leaves)
-            $query = "
-                SELECT 
-                    e.Designation,
-                    al.fromDate,
-                    al.toDate,
-                    e.employeeID,
-                    e.employeeName,
-                    e.empID,
-                    al.typeOfLeave
-                FROM 
-                    tblEmployee e
-                JOIN 
-                    tblApplyLeave al ON e.employeeID = al.employeeID
-                WHERE 
-                    e.organisationID = ? AND
-                    e.isActive = 1 AND
-                    al.status = 'Approved' AND
-                    (
-                        (al.fromDate >= ? AND al.fromDate <= ?) OR
-                        (al.toDate >= ? AND al.toDate <= ?) OR
-                        (al.fromDate <= ? AND al.toDate >= ?)
-                    )
-                ORDER BY 
-                    al.fromDate";
-
-            $stmt = mysqli_prepare($connect_var, $query);
-            if (!$stmt) {
-                throw new Exception("Database prepare failed: " . mysqli_error($connect_var));
-            }
-
-            mysqli_stmt_bind_param($stmt, "sssssss", 
-                $this->organisationID,
-                $monthStart,
-                $monthEnd,
-                $monthStart,
-                $monthEnd,
-                $monthStart,
-                $monthEnd
-            );
             
-            if (!mysqli_stmt_execute($stmt)) {
-                throw new Exception("Database execute failed: " . mysqli_error($connect_var));
-            }
-
-            $result = mysqli_stmt_get_result($stmt);
-            $leaveData = [];
-            while ($row = mysqli_fetch_assoc($result)) {
-                if (!isset($leaveData[$row['Designation']])) {
-                    $leaveData[$row['Designation']] = [
-                        'counts' => array_fill(0, $daysInMonth, 0),
-                        'details' => array_fill(0, $daysInMonth, '')
-                    ];
-                }
-                
-                // Process each day in the leave period
-                $fromDate = new DateTime($row['fromDate']);
-                $toDate = new DateTime($row['toDate']);
-                $monthStartDate = new DateTime($monthStart);
-                $monthEndDate = new DateTime($monthEnd);
-                
-                // Adjust dates to be within the month
-                $startDate = max($fromDate, $monthStartDate);
-                $endDate = min($toDate, $monthEndDate);
-                
-                $typeOfLeave = $row['typeOfLeave'] == 'PrivilegeLeave(Medical Grounds)' ? 'PL(Medical)' : $row['typeOfLeave'];
-                $employeeDetail = $row['employeeName'] . ' (' . $row['empID'] . ' - ' . $typeOfLeave . ')';
-                
-                while ($startDate <= $endDate) {
-                    $day = (int)$startDate->format('d') - 1;
-                    $leaveData[$row['Designation']]['counts'][$day]++;
-                    if ($leaveData[$row['Designation']]['details'][$day] != '') {
-                        $leaveData[$row['Designation']]['details'][$day] .= ', ';
-                    }
-                    $leaveData[$row['Designation']]['details'][$day] .= $employeeDetail;
-                    $startDate->add(new DateInterval('P1D'));
-                }
-            }
-
-            mysqli_stmt_close($stmt);
-
-            // Format the response with all designations in order
-            $formattedReport = [];
-            foreach ($designationOrder as $designation) {
-                $row = [
-                    'designation' => $designation
-                ];
-                
-                // Initialize all days with 0 count
-                for ($i = 0; $i < $daysInMonth; $i++) {
-                    $row['day_' . ($i + 1)] = 0;
-                }
-                
-                // If this designation has leave data, use it
-                if (isset($leaveData[$designation])) {
-                    foreach ($leaveData[$designation]['counts'] as $index => $count) {
-                        $row['day_' . ($index + 1)] = $count;
-                        if ($count > 0) {
-                            $row['details_' . ($index + 1)] = $leaveData[$designation]['details'][$index];
-                        }
-                    }
-                }
-                
-                $formattedReport[] = $row;
-            }
-
-            $response = [
-                "status" => "success",
-                "data" => [
-                    "dates" => $dates,
-                    "report" => $formattedReport
-                ]
-            ];
-            
-            echo json_encode($response);
-
         } catch (Exception $e) {
             echo json_encode([
                 "status" => "error",
                 "message_text" => $e->getMessage()
             ], JSON_FORCE_OBJECT);
         }
+    }
+    
+    private function getYearlyDesignationWiseLeaveReport($year, $connect_var) {
+        // Define the order of designations
+        $designationOrder = [
+            'Deputy General Manager',
+            'Assistant General Manager', 
+            'IT Specialist',
+            'PA to Executive',
+            'Chief Manager',
+            'Manager',
+            'Assistant Manager',
+            'System Admin',
+            'Assistant',
+            'Teller',
+            'Sub Staff',
+            'Intern',
+            'Sweeper'
+        ];
+
+        // Get leave data for the entire year
+        $query = "
+            SELECT 
+                e.Designation,
+                MONTH(al.fromDate) as leaveMonth,
+                al.fromDate,
+                al.toDate,
+                e.employeeID,
+                e.employeeName,
+                e.empID,
+                al.typeOfLeave,
+                al.leaveDuration
+            FROM 
+                tblEmployee e
+            JOIN 
+                tblApplyLeave al ON e.employeeID = al.employeeID
+            WHERE 
+                e.organisationID = ? AND
+                e.isActive = 1 AND
+                al.status = 'Approved' AND
+                YEAR(al.fromDate) = ?
+            ORDER BY 
+                al.fromDate";
+
+        $stmt = mysqli_prepare($connect_var, $query);
+        if (!$stmt) {
+            throw new Exception("Database prepare failed: " . mysqli_error($connect_var));
+        }
+
+        mysqli_stmt_bind_param($stmt, "is", 
+            $this->organisationID,
+            $year
+        );
+        
+        if (!mysqli_stmt_execute($stmt)) {
+            throw new Exception("Database execute failed: " . mysqli_error($connect_var));
+        }
+
+        $result = mysqli_stmt_get_result($stmt);
+        $leaveData = [];
+        while ($row = mysqli_fetch_assoc($result)) {
+            if (!isset($leaveData[$row['Designation']])) {
+                $leaveData[$row['Designation']] = [
+                    'counts' => array_fill(0, 12, 0), // 12 months
+                    'details' => array_fill(0, 12, '')
+                ];
+            }
+            
+            // Process leave duration for each month
+            $fromDate = new DateTime($row['fromDate']);
+            $toDate = new DateTime($row['toDate']);
+            $yearStart = new DateTime("$year-01-01");
+            $yearEnd = new DateTime("$year-12-31");
+            
+            // Adjust dates to be within the year
+            $startDate = max($fromDate, $yearStart);
+            $endDate = min($toDate, $yearEnd);
+            
+            $typeOfLeave = $row['typeOfLeave'] == 'Privilege Leave(Medical Grounds)' ? 'PL(Medical)' : $row['typeOfLeave'];
+            $employeeDetail = $row['employeeName'] . ' (' . $row['empID'] . ' - ' . $typeOfLeave . ')';
+            
+            // Calculate leave days per month
+            $currentDate = clone $startDate;
+            while ($currentDate <= $endDate) {
+                $monthIndex = (int)$currentDate->format('n') - 1; // 0-based month index
+                $leaveData[$row['Designation']]['counts'][$monthIndex]++;
+                
+                if ($leaveData[$row['Designation']]['details'][$monthIndex] != '') {
+                    $leaveData[$row['Designation']]['details'][$monthIndex] .= ', ';
+                }
+                $leaveData[$row['Designation']]['details'][$monthIndex] .= $employeeDetail;
+                
+                $currentDate->add(new DateInterval('P1D'));
+            }
+        }
+
+        mysqli_stmt_close($stmt);
+
+        // Format the response with all designations in order
+        $formattedReport = [];
+        foreach ($designationOrder as $designation) {
+            $row = [
+                'designation' => $designation
+            ];
+            
+            // Initialize all months with 0 count
+            for ($i = 0; $i < 12; $i++) {
+                $row['month_' . ($i + 1)] = 0;
+            }
+            
+            // If this designation has leave data, use it
+            if (isset($leaveData[$designation])) {
+                foreach ($leaveData[$designation]['counts'] as $index => $count) {
+                    $row['month_' . ($index + 1)] = $count;
+                    if ($count > 0) {
+                        $row['details_' . ($index + 1)] = $leaveData[$designation]['details'][$index];
+                    }
+                }
+            }
+            
+            $formattedReport[] = $row;
+        }
+
+        $response = [
+            "status" => "success",
+            "data" => [
+                "dates" => [], // Empty for yearly report
+                "report" => $formattedReport
+            ]
+        ];
+        
+        echo json_encode($response);
+    }
+    
+    private function getMonthlyDesignationWiseLeaveReport($connect_var) {
+        // Original monthly logic
+        // First get all dates in the selected month
+        $dates = [];
+        $daysInMonth = date('t', strtotime($this->selectedMonth));
+        $monthStart = date('Y-m-01', strtotime($this->selectedMonth));
+        $monthEnd = date('Y-m-t', strtotime($this->selectedMonth));
+        
+        for ($i = 1; $i <= $daysInMonth; $i++) {
+            $dates[] = date('Y-m-d', strtotime($this->selectedMonth . '-' . $i));
+        }
+
+        // Define the order of designations
+        $designationOrder = [
+            'Deputy General Manager',
+            'Assistant General Manager', 
+            'IT Specialist',
+            'PA to Executive',
+            'Chief Manager',
+            'Manager',
+            'Assistant Manager',
+            'System Admin',
+            'Assistant',
+            'Teller',
+            'Sub Staff',
+            'Intern',
+            'Sweeper'
+        ];
+
+        // Get leave data for the month - using dashboard logic (count ALL approved leaves)
+        $query = "
+            SELECT 
+                e.Designation,
+                al.fromDate,
+                al.toDate,
+                e.employeeID,
+                e.employeeName,
+                e.empID,
+                al.typeOfLeave
+            FROM 
+                tblEmployee e
+            JOIN 
+                tblApplyLeave al ON e.employeeID = al.employeeID
+            WHERE 
+                e.organisationID = ? AND
+                e.isActive = 1 AND
+                al.status = 'Approved' AND
+                (
+                    (al.fromDate >= ? AND al.fromDate <= ?) OR
+                    (al.toDate >= ? AND al.toDate <= ?) OR
+                    (al.fromDate <= ? AND al.toDate >= ?)
+                )
+            ORDER BY 
+                al.fromDate";
+
+        $stmt = mysqli_prepare($connect_var, $query);
+        if (!$stmt) {
+            throw new Exception("Database prepare failed: " . mysqli_error($connect_var));
+        }
+
+        mysqli_stmt_bind_param($stmt, "sssssss", 
+            $this->organisationID,
+            $monthStart,
+            $monthEnd,
+            $monthStart,
+            $monthEnd,
+            $monthStart,
+            $monthEnd
+        );
+        
+        if (!mysqli_stmt_execute($stmt)) {
+            throw new Exception("Database execute failed: " . mysqli_error($connect_var));
+        }
+
+        $result = mysqli_stmt_get_result($stmt);
+        $leaveData = [];
+        while ($row = mysqli_fetch_assoc($result)) {
+            if (!isset($leaveData[$row['Designation']])) {
+                $leaveData[$row['Designation']] = [
+                    'counts' => array_fill(0, $daysInMonth, 0),
+                    'details' => array_fill(0, $daysInMonth, '')
+                ];
+            }
+            
+            // Process each day in the leave period
+            $fromDate = new DateTime($row['fromDate']);
+            $toDate = new DateTime($row['toDate']);
+            $monthStartDate = new DateTime($monthStart);
+            $monthEndDate = new DateTime($monthEnd);
+            
+            // Adjust dates to be within the month
+            $startDate = max($fromDate, $monthStartDate);
+            $endDate = min($toDate, $monthEndDate);
+            
+            $typeOfLeave = $row['typeOfLeave'] == 'PrivilegeLeave(Medical Grounds)' ? 'PL(Medical)' : $row['typeOfLeave'];
+            $employeeDetail = $row['employeeName'] . ' (' . $row['empID'] . ' - ' . $typeOfLeave . ')';
+            
+            while ($startDate <= $endDate) {
+                $day = (int)$startDate->format('d') - 1;
+                $leaveData[$row['Designation']]['counts'][$day]++;
+                if ($leaveData[$row['Designation']]['details'][$day] != '') {
+                    $leaveData[$row['Designation']]['details'][$day] .= ', ';
+                }
+                $leaveData[$row['Designation']]['details'][$day] .= $employeeDetail;
+                $startDate->add(new DateInterval('P1D'));
+            }
+        }
+
+        mysqli_stmt_close($stmt);
+
+        // Format the response with all designations in order
+        $formattedReport = [];
+        foreach ($designationOrder as $designation) {
+            $row = [
+                'designation' => $designation
+            ];
+            
+            // Initialize all days with 0 count
+            for ($i = 0; $i < $daysInMonth; $i++) {
+                $row['day_' . ($i + 1)] = 0;
+            }
+            
+            // If this designation has leave data, use it
+            if (isset($leaveData[$designation])) {
+                foreach ($leaveData[$designation]['counts'] as $index => $count) {
+                    $row['day_' . ($index + 1)] = $count;
+                    if ($count > 0) {
+                        $row['details_' . ($index + 1)] = $leaveData[$designation]['details'][$index];
+                    }
+                }
+            }
+            
+            $formattedReport[] = $row;
+        }
+
+        $response = [
+            "status" => "success",
+            "data" => [
+                "dates" => $dates,
+                "report" => $formattedReport
+            ]
+        ];
+        
+        echo json_encode($response);
     }
 
     public function GetMonthlyAttendanceSummaryReport() {
@@ -858,8 +1028,8 @@ ORDER BY
                 $leaveCount = 0;
                 foreach ($employeeIDs as $emp) {
                     $saturdayCount = 0;
-                    for ($day = 1; $day <= $currentDay; $day++) {
-                        $date = date('Y-m-d', strtotime("$currentYear-$selectedMonth-$day"));
+                for ($day = 1; $day <= $currentDay; $day++) {
+                    $date = date('Y-m-d', strtotime("$currentYear-$selectedMonth-$day"));
                         $dayOfWeek = date('N', strtotime($date));
                         $isWorkingDay = false;
                         if ($dayOfWeek >= 1 && $dayOfWeek <= 5) {
@@ -871,14 +1041,14 @@ ORDER BY
                             }
                         }
                         if ($isWorkingDay && !$this->isHoliday($date, $connect_var)) {
-                            $key = $emp . '_' . $date;
-                            if (isset($attendanceMap[$key]) && $attendanceMap[$key]) {
-                                $presentCount++;
-                            } elseif (isset($leaveMap[$key])) {
-                                $leaveCount++;
-                            }
+                        $key = $emp . '_' . $date;
+                        if (isset($attendanceMap[$key]) && $attendanceMap[$key]) {
+                            $presentCount++;
+                        } elseif (isset($leaveMap[$key])) {
+                            $leaveCount++;
                         }
                     }
+                }
                 }
                 $absentCount = $totalManDays - $presentCount - $leaveCount;
                 if ($absentCount < 0) $absentCount = 0;
@@ -910,7 +1080,7 @@ ORDER BY
                 $totalManDays = $totalEmployees * $workingDays;
                 $presentCount = 0;
                 $leaveCount = 0;
-                foreach ($employeeIDs as $emp) {
+                    foreach ($employeeIDs as $emp) {
                     $saturdayCount = 0;
                     for ($day = 1; $day <= $daysInMonth; $day++) {
                         $date = date('Y-m-d', strtotime("$currentYear-$selectedMonth-$day"));
@@ -925,14 +1095,14 @@ ORDER BY
                             }
                         }
                         if ($isWorkingDay && !$this->isHoliday($date, $connect_var)) {
-                            $key = $emp . '_' . $date;
-                            if (isset($attendanceMap[$key]) && $attendanceMap[$key]) {
-                                $presentCount++;
-                            } elseif (isset($leaveMap[$key])) {
-                                $leaveCount++;
-                            }
+                        $key = $emp . '_' . $date;
+                        if (isset($attendanceMap[$key]) && $attendanceMap[$key]) {
+                            $presentCount++;
+                        } elseif (isset($leaveMap[$key])) {
+                            $leaveCount++;
                         }
                     }
+                }
                 }
                 $absentCount = $totalManDays - $presentCount - $leaveCount;
                 if ($absentCount < 0) $absentCount = 0;
@@ -1011,6 +1181,368 @@ ORDER BY
         $row = mysqli_fetch_assoc($result);
         mysqli_stmt_close($stmt);
         return $row['count'] > 0;
+    }
+
+    public function GetEmployees() {
+        include(dirname(__FILE__) . '/../../config.inc');
+        header('Content-Type: application/json');
+        try {
+            $query = "SELECT 
+                employeeID,
+                empID,
+                employeeName,
+                Designation
+            FROM 
+                tblEmployee 
+            WHERE 
+                organisationID = ? AND
+                isActive = 1
+            ORDER BY 
+                employeeName ASC";
+
+            $stmt = mysqli_prepare($connect_var, $query);
+            if (!$stmt) {
+                throw new Exception("Database prepare failed: " . mysqli_error($connect_var));
+            }
+
+            mysqli_stmt_bind_param($stmt, "i", $this->organisationID);
+            
+            if (!mysqli_stmt_execute($stmt)) {
+                throw new Exception("Database execute failed: " . mysqli_error($connect_var));
+            }
+
+            $result = mysqli_stmt_get_result($stmt);
+            $employees = [];
+            while ($row = mysqli_fetch_assoc($result)) {
+                $employees[] = $row;
+            }
+
+            mysqli_stmt_close($stmt);
+
+            $response = [
+                "status" => "success",
+                "data" => $employees
+            ];
+            echo json_encode($response);
+
+        } catch (Exception $e) {
+            echo json_encode([
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ], JSON_FORCE_OBJECT);
+        }
+    }
+
+    public function GetEmployeeLeaveReport() {
+        include(dirname(__FILE__) . '/../../config.inc');
+        header('Content-Type: application/json');
+        try {
+            // First get employee details
+            $employeeQuery = "SELECT 
+                employeeID,
+                empID,
+                employeeName,
+                employeePhone,
+                Designation
+            FROM 
+                tblEmployee 
+            WHERE 
+                employeeID = ? AND
+                organisationID = ? AND
+                isActive = 1";
+
+            $stmt = mysqli_prepare($connect_var, $employeeQuery);
+            if (!$stmt) {
+                throw new Exception("Database prepare failed: " . mysqli_error($connect_var));
+            }
+
+            mysqli_stmt_bind_param($stmt, "ii", $this->employeeID, $this->organisationID);
+            
+            if (!mysqli_stmt_execute($stmt)) {
+                throw new Exception("Database execute failed: " . mysqli_error($connect_var));
+            }
+
+            $result = mysqli_stmt_get_result($stmt);
+            $employee = mysqli_fetch_assoc($result);
+            mysqli_stmt_close($stmt);
+
+            if (!$employee) {
+                throw new Exception("Employee not found");
+            }
+
+            // Get leave data for the year
+            $leaveQuery = "SELECT 
+                MONTH(fromDate) as month,
+                fromDate,
+                toDate,
+                typeOfLeave,
+                leaveDuration,
+                reason
+            FROM 
+                tblApplyLeave 
+            WHERE 
+                employeeID = ? AND
+                status = 'Approved' AND
+                YEAR(fromDate) = ?
+            ORDER BY 
+                fromDate";
+
+            $stmt = mysqli_prepare($connect_var, $leaveQuery);
+            if (!$stmt) {
+                throw new Exception("Database prepare failed: " . mysqli_error($connect_var));
+            }
+
+            mysqli_stmt_bind_param($stmt, "is", $this->employeeID, $this->selectedYear);
+            
+            if (!mysqli_stmt_execute($stmt)) {
+                throw new Exception("Database execute failed: " . mysqli_error($connect_var));
+            }
+
+            $result = mysqli_stmt_get_result($stmt);
+            $leaveData = [];
+            $monthlyData = array_fill(1, 12, [
+                'leaveCount' => 0,
+                'leaveDetails' => [],
+                'dates' => []
+            ]);
+
+            while ($row = mysqli_fetch_assoc($result)) {
+                $month = (int)$row['month'];
+                $fromDate = new DateTime($row['fromDate']);
+                $toDate = new DateTime($row['toDate']);
+                $yearStart = new DateTime("{$this->selectedYear}-01-01");
+                $yearEnd = new DateTime("{$this->selectedYear}-12-31");
+                
+                // Adjust dates to be within the year
+                $startDate = max($fromDate, $yearStart);
+                $endDate = min($toDate, $yearEnd);
+                
+                $typeOfLeave = $row['typeOfLeave'] == 'Privilege Leave(Medical Grounds)' ? 'PL(Medical)' : $row['typeOfLeave'];
+                $leaveDetail = $startDate->format('d M Y') . ' - ' . $endDate->format('d M Y') . ' (' . $typeOfLeave . ')';
+                
+                // Calculate leave days per month
+                $currentDate = clone $startDate;
+                $daysInMonth = 0;
+                $datesInMonth = [];
+                
+                while ($currentDate <= $endDate) {
+                    $currentMonth = (int)$currentDate->format('n');
+                    if ($currentMonth === $month) {
+                        $daysInMonth++;
+                        $datesInMonth[] = $currentDate->format('Y-m-d');
+                    }
+                    $currentDate->add(new DateInterval('P1D'));
+                }
+                
+                if ($daysInMonth > 0) {
+                    $monthlyData[$month]['leaveCount'] += $daysInMonth;
+                    $monthlyData[$month]['leaveDetails'][] = $leaveDetail;
+                    $monthlyData[$month]['dates'] = array_merge($monthlyData[$month]['dates'], $datesInMonth);
+                }
+            }
+
+            mysqli_stmt_close($stmt);
+
+            // Get attendance data for the year
+            $attendanceQuery = "SELECT 
+                MONTH(attendanceDate) as month,
+                attendanceDate,
+                checkInTime,
+                checkOutTime,
+                isLateCheckIN,
+                isEarlyCheckOut
+            FROM 
+                tblAttendance 
+            WHERE 
+                employeeID = ? AND
+                YEAR(attendanceDate) = ?
+            ORDER BY 
+                attendanceDate";
+
+            $stmt = mysqli_prepare($connect_var, $attendanceQuery);
+            if (!$stmt) {
+                throw new Exception("Database prepare failed: " . mysqli_error($connect_var));
+            }
+
+            mysqli_stmt_bind_param($stmt, "is", $this->employeeID, $this->selectedYear);
+            
+            if (!mysqli_stmt_execute($stmt)) {
+                throw new Exception("Database execute failed: " . mysqli_error($connect_var));
+            }
+
+            $result = mysqli_stmt_get_result($stmt);
+            $attendanceData = array_fill(1, 12, [
+                'presentCount' => 0,
+                'lateCheckIns' => [],
+                'earlyCheckOuts' => []
+            ]);
+
+            while ($row = mysqli_fetch_assoc($result)) {
+                $month = (int)$row['month'];
+                $attendanceData[$month]['presentCount']++;
+                
+                if ($row['isLateCheckIN'] == 1) {
+                    $attendanceData[$month]['lateCheckIns'][] = $row['attendanceDate'];
+                }
+                
+                if ($row['isEarlyCheckOut'] == 1) {
+                    $attendanceData[$month]['earlyCheckOuts'][] = $row['attendanceDate'];
+                }
+            }
+
+            mysqli_stmt_close($stmt);
+
+            // Format the response
+            $formattedLeaveData = [];
+            foreach ($monthlyData as $month => $data) {
+                $formattedLeaveData[] = [
+                    'month' => str_pad($month, 2, '0', STR_PAD_LEFT),
+                    'leaveCount' => $data['leaveCount'],
+                    'leaveDetails' => $data['leaveDetails'],
+                    'dates' => array_unique($data['dates']),
+                    'presentCount' => $attendanceData[$month]['presentCount'],
+                    'lateCheckIns' => $attendanceData[$month]['lateCheckIns'],
+                    'earlyCheckOuts' => $attendanceData[$month]['earlyCheckOuts']
+                ];
+            }
+
+            $totalLeaves = array_sum(array_column($formattedLeaveData, 'leaveCount'));
+
+            $response = [
+                "status" => "success",
+                "data" => [
+                    "employee" => $employee,
+                    "leaveData" => $formattedLeaveData,
+                    "totalLeaves" => $totalLeaves
+                ]
+            ];
+            
+            echo json_encode($response);
+
+        } catch (Exception $e) {
+            echo json_encode([
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ], JSON_FORCE_OBJECT);
+        }
+    }
+
+    public function GetDailyCheckoutReport() {
+        include(dirname(__FILE__) . '/../../config.inc');
+        header('Content-Type: application/json');
+        try {
+            $query = "SELECT 
+                e.employeeID,
+                e.empID,
+                e.employeeName,
+                e.Designation,
+                e.employeePhone,
+                b.branchName,
+                a.checkInTime,
+                a.checkOutTime,
+                a.isAutoCheckout,
+                a.TotalWorkingHour,
+                a.reasonForCheckOut
+            FROM 
+                tblEmployee e
+            LEFT JOIN 
+                tblAttendance a ON e.employeeID = a.employeeID AND a.attendanceDate = ?
+            LEFT JOIN 
+                tblmapEmp m ON e.employeeID = m.employeeID
+            LEFT JOIN 
+                tblBranch b ON m.branchID = b.branchID
+            WHERE 
+                e.organisationID = ? AND
+                e.isActive = 1 AND
+                e.isTemporary = 0 AND
+                a.attendanceDate IS NOT NULL
+            ORDER BY 
+                a.isAutoCheckout DESC,
+                e.employeeName ASC";
+
+            $stmt = mysqli_prepare($connect_var, $query);
+            if (!$stmt) {
+                throw new Exception("Database prepare failed: " . mysqli_error($connect_var));
+            }
+
+            mysqli_stmt_bind_param($stmt, "si", $this->selectedDate, $this->organisationID);
+            
+            if (!mysqli_stmt_execute($stmt)) {
+                throw new Exception("Database execute failed: " . mysqli_error($connect_var));
+            }
+
+            $result = mysqli_stmt_get_result($stmt);
+            $checkoutData = [];
+            $autoCheckoutCount = 0;
+            $manualCheckoutCount = 0;
+            $noCheckoutCount = 0;
+
+            while ($row = mysqli_fetch_assoc($result)) {
+                $checkoutStatus = 'No Checkout';
+                $checkoutType = 'None';
+                
+                if ($row['checkOutTime']) {
+                    if ($row['isAutoCheckout'] == 1) {
+                        $checkoutStatus = 'Auto Checkout';
+                        $checkoutType = 'Auto';
+                        $autoCheckoutCount++;
+                    } else {
+                        $checkoutStatus = 'Manual Checkout';
+                        $checkoutType = 'Manual';
+                        $manualCheckoutCount++;
+                    }
+                } else {
+                    $noCheckoutCount++;
+                }
+
+                $checkoutData[] = [
+                    'employeeID' => $row['employeeID'],
+                    'empID' => $row['empID'],
+                    'employeeName' => $row['employeeName'],
+                    'designation' => $row['Designation'],
+                    'employeePhone' => $row['employeePhone'],
+                    'branchName' => $row['branchName'],
+                    'checkInTime' => $row['checkInTime'],
+                    'checkOutTime' => $row['checkOutTime'],
+                    'totalWorkingHour' => $row['TotalWorkingHour'],
+                    'checkoutStatus' => $checkoutStatus,
+                    'checkoutType' => $checkoutType,
+                    'reasonForCheckOut' => $row['reasonForCheckOut']
+                ];
+            }
+
+            mysqli_stmt_close($stmt);
+
+            $response = [
+                "status" => "success",
+                "data" => [
+                    "checkoutData" => $checkoutData,
+                    "summary" => [
+                        "autoCheckoutCount" => $autoCheckoutCount,
+                        "manualCheckoutCount" => $manualCheckoutCount,
+                        "noCheckoutCount" => $noCheckoutCount,
+                        "totalEmployees" => count($checkoutData)
+                    ],
+                    "selectedDate" => $this->selectedDate
+                ]
+            ];
+            
+            echo json_encode($response);
+
+        } catch (Exception $e) {
+            echo json_encode([
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ], JSON_FORCE_OBJECT);
+        }
+    }
+
+    public function loadSelectedDate(array $data) {
+        if (isset($data['selectedDate'])) {
+            $this->selectedDate = $data['selectedDate'];
+            return true;
+        }
+        return false;
     }
 }
 function GetAttendanceReport($decoded_items) {

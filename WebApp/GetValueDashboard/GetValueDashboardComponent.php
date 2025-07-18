@@ -24,7 +24,20 @@ class GetValueDashboardComponent {
         $this->organisationID = $data['organisationID'];
         return true;
     }
-    public function loadGetAllActiveEmployeesforAll(array $data) {    
+        public function loadGetAllActiveEmployeesforAll(array $data) {
+        $this->currentDate = $data['currentDate'];
+        $this->organisationID = $data['organisationID'];
+        return true;
+    }
+    
+    public function loadGetAllTemporaryEmployees(array $data) {
+        $this->currentDate = $data['currentDate'];
+        $this->branchID = $data['branchID'];
+        $this->organisationID = $data['organisationID'];
+        return true;
+    }
+    
+    public function loadGetAllTemporaryEmployeesforAll(array $data) {
         $this->currentDate = $data['currentDate'];
         $this->organisationID = $data['organisationID'];
         return true;
@@ -149,12 +162,154 @@ WHERE emp.isActive = 1
             ], JSON_FORCE_OBJECT);
         }
     }
-    public function GetAllActiveEmployeesDetailsforAll() {   
+    
+    public function GetAllActiveEmployeesDetailsforAll() {    
         include('config.inc');
         header('Content-Type: application/json');
         try {
             $data = [];
-            $queryIndividualNoOfCheckinsInHeadOffice = "SELECT 
+            $queryIndividualNoOfCheckinsInHeadOffice = "SELECT DISTINCT
+    emp.employeeName, 
+    COALESCE(b.branchName, sec.sectionName) AS locationName, 
+    emp.employeePhone 
+FROM tblEmployee AS emp 
+LEFT JOIN tblmapEmp AS m ON emp.employeeID = m.employeeID
+LEFT JOIN tblBranch AS b ON m.branchID = b.branchID AND b.branchID <> 1
+LEFT JOIN tblAssignedSection AS assign ON emp.employeeID = assign.employeeID
+LEFT JOIN tblSection AS sec ON assign.sectionID = sec.sectionID 
+WHERE emp.isActive = 1
+  AND emp.isTemporary = 0
+  AND m.organisationID = ?
+  AND emp.employeeID <> 888
+;";
+
+            $debug_query = str_replace(
+                ['?'],
+                [
+                    "'" . $this->organisationID . "'",
+                ],
+                $queryIndividualNoOfCheckinsInHeadOffice
+            );
+            error_log("Debug Query: " . $debug_query);
+
+            $stmt = mysqli_prepare($connect_var, $queryIndividualNoOfCheckinsInHeadOffice);
+            if (!$stmt) {
+                throw new Exception("Database prepare failed");
+            }
+
+            mysqli_stmt_bind_param($stmt, "s", $this->organisationID);
+
+            if (!mysqli_stmt_execute($stmt)) {
+                throw new Exception("Database execute failed");
+            }
+
+            $result = mysqli_stmt_get_result($stmt);
+            $countEmployee = 0;
+            while ($row = mysqli_fetch_assoc($result)) {
+                $countEmployee++;
+                $data[] = $row;
+            }
+
+            if ($countEmployee > 0) {
+                echo json_encode([
+                    "status" => "success",  
+                    "data" => $data
+                ]);
+            } else {
+                echo json_encode([
+                    "status" => "error",
+                    "message_text" => "No data found for any employee"
+                ], JSON_FORCE_OBJECT);
+            }
+
+            mysqli_stmt_close($stmt);
+            mysqli_close($connect_var);
+        } catch (Exception $e) {
+            error_log("Error in GetAllActiveEmployeesDetailsforAll: " . $e->getMessage());     
+            echo json_encode([
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ], JSON_FORCE_OBJECT);
+        }
+    }
+    
+    public function GetAllTemporaryEmployeesDetails() {    
+        include('config.inc');
+        header('Content-Type: application/json');
+        try {
+            $data = [];
+            $queryTemporaryEmployees = "SELECT DISTINCT
+    emp.employeeName, 
+    COALESCE(b.branchName, sec.sectionName) AS locationName, 
+    emp.employeePhone 
+FROM tblEmployee AS emp 
+LEFT JOIN tblmapEmp AS m ON emp.employeeID = m.employeeID
+LEFT JOIN tblBranch AS b ON m.branchID = b.branchID AND b.branchID <> 1
+LEFT JOIN tblAssignedSection AS assign ON emp.employeeID = assign.employeeID
+LEFT JOIN tblSection AS sec ON assign.sectionID = sec.sectionID 
+WHERE emp.isActive = 1
+  AND emp.isTemporary = 1
+  AND m.branchID = ? AND m.organisationID = ?
+  AND emp.employeeID <> 888
+;";
+
+            $debug_query = str_replace(
+                ['?', '?'],
+                [
+                    "'" . $this->branchID . "'",
+                    "'" . $this->organisationID . "'",
+                ],
+                $queryTemporaryEmployees
+            );
+            error_log("Debug Query: " . $debug_query);
+
+            $stmt = mysqli_prepare($connect_var, $queryTemporaryEmployees);
+            if (!$stmt) {
+                throw new Exception("Database prepare failed");
+            }
+
+            mysqli_stmt_bind_param($stmt, "ss", $this->branchID, $this->organisationID);
+
+            if (!mysqli_stmt_execute($stmt)) {
+                throw new Exception("Database execute failed");
+            }
+
+            $result = mysqli_stmt_get_result($stmt);
+            $countEmployee = 0;
+            while ($row = mysqli_fetch_assoc($result)) {
+                $countEmployee++;
+                $data[] = $row;
+            }
+
+            if ($countEmployee > 0) {
+                echo json_encode([
+                    "status" => "success",  
+                    "data" => $data
+                ]);
+            } else {
+                echo json_encode([
+                    "status" => "error",
+                    "message_text" => "No temporary employees found"
+                ], JSON_FORCE_OBJECT);
+            }
+
+            mysqli_stmt_close($stmt);
+            mysqli_close($connect_var);
+        } catch (Exception $e) {
+            error_log("Error in GetAllTemporaryEmployeesDetails: " . $e->getMessage());     
+            echo json_encode([
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ], JSON_FORCE_OBJECT);
+        }
+    }
+    
+    public function GetAllTemporaryEmployeesDetailsforAll() {   
+        include('config.inc');
+        header('Content-Type: application/json');
+        try {
+            $data = [];
+            $queryTemporaryEmployees = "SELECT 
     emp.employeeName,
     COALESCE(b.branchName, sec.sectionName) AS locationName,
     emp.employeePhone
@@ -163,32 +318,27 @@ LEFT JOIN tblmapEmp AS m ON emp.employeeID = m.employeeID
 LEFT JOIN tblBranch AS b ON m.branchID = b.branchID
 LEFT JOIN tblAssignedSection AS assign ON emp.employeeID = assign.employeeID
 LEFT JOIN tblSection AS sec ON assign.sectionID = sec.sectionID
-LEFT JOIN tblAttendance AS att 
-    ON emp.employeeID = att.employeeID 
-    AND DATE(att.attendanceDate) = ?
-WHERE emp.isActive = 1 AND m.organisationID = ?
+WHERE emp.isActive = 1 
+  AND emp.isTemporary = 1
+  AND m.organisationID = ?
   AND emp.employeeID <> 888
-  AND att.checkInTime IS NULL  GROUP BY 
-                emp.employeeName, 
-                locationName, 
-                emp.employeePhone;";
+  GROUP BY emp.employeeName, locationName, emp.employeePhone;";
 
             $debug_query = str_replace(
-                ['?', '?'],
+                ['?'],
                 [
-                    "'" . $this->currentDate . "'",
                     "'" . $this->organisationID . "'",
                 ],
-                $queryIndividualNoOfCheckinsInHeadOffice
+                $queryTemporaryEmployees
             );
             error_log("Debug Query: " . $debug_query);
 
-            $stmt = mysqli_prepare($connect_var, $queryIndividualNoOfCheckinsInHeadOffice);
+            $stmt = mysqli_prepare($connect_var, $queryTemporaryEmployees);
             if (!$stmt) {           
                 throw new Exception("Database prepare failed");
             }
 
-            mysqli_stmt_bind_param($stmt, "ss", $this->currentDate, $this->organisationID);
+            mysqli_stmt_bind_param($stmt, "s", $this->organisationID);
 
             if (!mysqli_stmt_execute($stmt)) {  
                 throw new Exception("Database execute failed");
@@ -1163,6 +1313,14 @@ function GetAllActiveEmployeesforAll($decoded_items) {
     $GetValueDashboardObject = new GetValueDashboardComponent();
     if ($GetValueDashboardObject->loadGetAllActiveEmployeesforAll($decoded_items)) {
         $GetValueDashboardObject->GetAllActiveEmployeesDetailsforAll();
+    } else {
+        echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
+    }
+}
+function GetAllTemporaryEmployeesforAll($decoded_items) {
+    $GetValueDashboardObject = new GetValueDashboardComponent();
+    if ($GetValueDashboardObject->loadGetAllTemporaryEmployeesforAll($decoded_items)) {
+        $GetValueDashboardObject->GetAllTemporaryEmployeesDetailsforAll();
     } else {
         echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
     }

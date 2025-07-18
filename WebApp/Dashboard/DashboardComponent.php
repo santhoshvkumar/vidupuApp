@@ -111,7 +111,7 @@ class DashboardComponent{
             $queryActiveEmployeeDetails =   "SELECT
 
                 -- Total employees (filtered by branch)
-                (select count(*) from tblEmployee tblE INNER JOIN tblmapEmp tblMap on tblMap.employeeID = tblE.employeeID WHERE tblE.organisationID='$organisationID' and tblE.isActive=1 AND tblMap.branchID='$branchID') AS totalEmployees,
+                (select count(*) from tblEmployee tblE INNER JOIN tblmapEmp tblMap on tblMap.employeeID = tblE.employeeID WHERE tblE.organisationID='$organisationID' and tblE.isActive=1 AND tblE.isTemporary=0 AND tblMap.branchID='$branchID') AS totalEmployees,
 
                 (SELECT count(*) FROM tblAttendance WHERE attendanceDate='$currentDate'  and checkInBranchID='$branchID') As checkedInToday,
 
@@ -195,7 +195,26 @@ class DashboardComponent{
                 AND e.organisationID = '$organisationID'
                 AND m.branchID = '$branchID'
                 AND '$currentDate' BETWEEN l.fromDate AND l.toDate
-                ) AS pendingLeaveRequests
+                ) AS pendingLeaveRequests,
+
+                -- Temporary staff count (filtered by branch)
+                (SELECT COUNT(*)
+                FROM tblEmployee tblE 
+                INNER JOIN tblmapEmp tblMap ON tblMap.employeeID = tblE.employeeID 
+                WHERE tblE.organisationID = '$organisationID' 
+                AND tblE.isActive = 1 
+                AND tblE.isTemporary = 1 
+                AND tblMap.branchID = '$branchID') AS totalTemporaryStaff,
+
+                -- Temporary staff checked in today
+                (SELECT COUNT(*)
+                FROM tblAttendance a
+                JOIN tblEmployee e ON a.employeeID = e.employeeID
+                JOIN tblmapEmp m ON e.employeeID = m.employeeID
+                WHERE a.attendanceDate = '$currentDate'
+                AND a.checkInBranchID = '$branchID'
+                AND e.isTemporary = 1
+                AND e.isActive = 1) AS temporaryStaffCheckedIn
 
             FROM (SELECT 1) AS dummy;";
 
@@ -245,6 +264,8 @@ class DashboardComponent{
                 $data['loginnedDevices'] = isset($row['loginnedDevices']) ? intval($row['loginnedDevices']) : 0;
                 $data['absenteesinHO'] = isset($row['absentees']) ? intval($row['absentees']) : 0;
                 $data['pendingLeaveRequests'] = isset($row['pendingLeaveRequests']) ? intval($row['pendingLeaveRequests']) : 0;
+                $data['totalTemporaryStaff'] = isset($row['totalTemporaryStaff']) ? intval($row['totalTemporaryStaff']) : 0;
+                $data['temporaryStaffCheckedIn'] = isset($row['temporaryStaffCheckedIn']) ? intval($row['temporaryStaffCheckedIn']) : 0;
                 
                 // Calculate actual absences (excluding pending leave requests)
                 $data['actualAbsent'] = $data['absenteesinHO'];
@@ -290,7 +311,15 @@ class DashboardComponent{
             (SELECT COUNT(DISTINCT emp.employeeID)
             FROM tblEmployee AS emp
             WHERE emp.organisationID = '$organisationID'
-            AND emp.isActive = 1) AS totalEmployees,
+            AND emp.isActive = 1
+            AND emp.isTemporary = 0) AS totalEmployees,
+
+            -- Temporary staff count (organization-wide)
+            (SELECT COUNT(DISTINCT emp.employeeID)
+            FROM tblEmployee AS emp
+            WHERE emp.organisationID = '$organisationID'
+            AND emp.isActive = 1
+            AND emp.isTemporary = 1) AS totalTemporaryStaff,
 
             -- Checked-in today
             (SELECT COUNT(*)
@@ -361,6 +390,7 @@ class DashboardComponent{
                 $data['earlyCheckout'] = isset($row['earlyCheckout']) ? intval($row['earlyCheckout']) : 0;
                 $data['onLeave'] = isset($row['onLeave']) ? intval($row['onLeave']) : 0;
                 $data['loginnedDevices'] = isset($row['loginnedDevices']) ? intval($row['loginnedDevices']) : 0;
+                $data['totalTemporaryStaff'] = isset($row['totalTemporaryStaff']) ? intval($row['totalTemporaryStaff']) : 0;
                 
                 // Calculate absent count excluding pending leave requests
                 $data['absenteesinHO'] = $data['totalEmployees'] - ($data['checkedInToday'] + $data['onLeave']);
@@ -419,6 +449,7 @@ class DashboardComponent{
                      JOIN tblAssignedSection a ON e.employeeID = a.employeeID
                      JOIN tblSection s ON a.sectionID = s.sectionID
                      WHERE a.isActive = 1
+                     AND e.isTemporary = 0
                      AND s.sectionName = '$sectionName') AS totalactiveemployeesinsection,
 
                     (SELECT COUNT(DISTINCT att.employeeID) 

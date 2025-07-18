@@ -129,4 +129,20 @@ $f3->route('POST /GetAllAbesentEmployeesforAll',
             echo json_encode(array("status"=>"error This value","message_text"=>"Invalid input parameters"),JSON_FORCE_OBJECT);
     }
 );
+
+$f3->route('POST /GetAllTemporaryEmployees',
+    function ($f3) {
+        $json = $f3->get('BODY');
+        $decoded_items = json_decode($json, true);
+        GetAllTemporaryEmployees($decoded_items);
+    }
+);
+
+$f3->route('POST /GetAllTemporaryEmployeesforAll',
+    function ($f3) {
+        $json = $f3->get('BODY');
+        $decoded_items = json_decode($json, true);
+        GetAllTemporaryEmployeesforAll($decoded_items);
+    }
+);
 ?>
