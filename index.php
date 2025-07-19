@@ -94,8 +94,6 @@ require 'WebApp/VisitorPass/VisitorPassComponent.php';
 require 'LeaveRestriction/LeaveRestrictionRouter.php';
 require 'LeaveRestriction/LeaveRestrictionComponent.php';
 
-require 'KeyHandling/KeyHandlingRouter.php';
-require 'KeyHandling/KeyHandlingComponent.php';
 
 // Register all routers
 \EmployeePaySlip\EmployeePaySlipRouter::register($f3);
