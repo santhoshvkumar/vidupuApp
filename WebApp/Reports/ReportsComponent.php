@@ -514,83 +514,171 @@ ORDER BY
         header('Content-Type: application/json');
         try {
             
-            // Convert single month number to YYYY-MM format
-            $formattedMonth = '2025-' . str_pad($this->selectedMonth, 2, '0', STR_PAD_LEFT);
+            // Check if this is a yearly request (format: 2025-01 means year 2025)
+            $isYearlyRequest = false;
+            $year = '';
+            if (preg_match('/^(\d{4})-01$/', $this->selectedMonth, $matches)) {
+                $isYearlyRequest = true;
+                $year = $matches[1];
+            }
             
-            $query = "
-                SELECT 
-                    (@row_number := @row_number + 1) as sNo,
-                    subquery.*
-                FROM (
-                    SELECT 
-                        e.employeeName,
-                        e.empID as employeeCode,
-                        e.Designation,
-                        COALESCE(SUM(CASE WHEN al.typeOfLeave = 'Casual Leave' THEN al.leaveDuration ELSE 0 END), 0) as cl,
-                        COALESCE(SUM(CASE WHEN al.typeOfLeave = 'Privilege Leave' THEN al.leaveDuration ELSE 0 END), 0) as pl,
-                        COALESCE(SUM(CASE WHEN al.typeOfLeave = 'Privilege Leave(Medical Grounds)' THEN al.leaveDuration ELSE 0 END), 0) as plMedical,
-                        COALESCE(SUM(CASE WHEN al.typeOfLeave = 'Medical Leave' THEN al.leaveDuration ELSE 0 END), 0) as sl,
-                        COALESCE(SUM(CASE 
-                            WHEN al.typeOfLeave NOT IN ('Maternity Leave') 
-                            THEN al.leaveDuration 
-                            ELSE 0 
-                        END), 0) as total
-                    FROM 
-                        tblEmployee e
-                    LEFT JOIN 
-                        tblApplyLeave al ON e.employeeID = al.employeeID 
-                        AND al.status = 'Approved'
-                        AND DATE_FORMAT(al.fromDate, '%Y-%m') = ?
-                        AND al.typeOfLeave NOT IN ('Maternity Leave')
-                    WHERE 
-                        e.organisationID = ? AND
-                        e.isActive = 1
-                    GROUP BY
-                        e.employeeID,
-                        e.employeeName,
-                        e.empID,
-                        e.Designation
-                    HAVING total > 0
-                    ORDER BY 
-                        total DESC,
-                        e.employeeName ASC
-                ) subquery,
-                (SELECT @row_number := 0) r";
-
-            $stmt = mysqli_prepare($connect_var, $query);
-            if (!$stmt) {
-                throw new Exception("Database prepare failed: " . mysqli_error($connect_var));
+            if ($isYearlyRequest) {
+                // Handle yearly report
+                $this->getYearlyManagementLeaveReport($year, $connect_var);
+            } else {
+                // Handle monthly report (existing logic)
+                $this->getMonthlyManagementLeaveReport($connect_var);
             }
-
-            mysqli_stmt_bind_param($stmt, "si", 
-                $formattedMonth,
-                $this->organisationID
-            );
             
-            if (!mysqli_stmt_execute($stmt)) {
-                throw new Exception("Database execute failed: " . mysqli_error($connect_var));
-            }
-
-            $result = mysqli_stmt_get_result($stmt);
-            $leaveReport = [];
-            while ($row = mysqli_fetch_assoc($result)) {
-                $leaveReport[] = $row;
-            }
-
-            mysqli_stmt_close($stmt);
-
-            $response = [
-                "status" => "success",
-                "data" => $leaveReport
-            ];
-            echo json_encode($response);
-
         } catch (Exception $e) {
             echo json_encode([
                 "status" => "error",
                 "message_text" => $e->getMessage()
             ], JSON_FORCE_OBJECT);
         }
+    }
+    
+    private function getYearlyManagementLeaveReport($year, $connect_var) {
+        $query = "
+            SELECT 
+                (@row_number := @row_number + 1) as sNo,
+                subquery.*
+            FROM (
+                SELECT 
+                    e.employeeName,
+                    e.empID as employeeCode,
+                    e.Designation,
+                    COALESCE(SUM(CASE WHEN al.typeOfLeave = 'Casual Leave' THEN al.leaveDuration ELSE 0 END), 0) as cl,
+                    COALESCE(SUM(CASE WHEN al.typeOfLeave = 'Privilege Leave' THEN al.leaveDuration ELSE 0 END), 0) as pl,
+                    COALESCE(SUM(CASE WHEN al.typeOfLeave = 'Privilege Leave(Medical Grounds)' THEN al.leaveDuration ELSE 0 END), 0) as plMedical,
+                    COALESCE(SUM(CASE WHEN al.typeOfLeave = 'Medical Leave' THEN al.leaveDuration ELSE 0 END), 0) as sl,
+                    COALESCE(SUM(CASE 
+                        WHEN al.typeOfLeave NOT IN ('Maternity Leave') 
+                        THEN al.leaveDuration 
+                        ELSE 0 
+                    END), 0) as total
+                FROM 
+                    tblEmployee e
+                LEFT JOIN 
+                    tblApplyLeave al ON e.employeeID = al.employeeID 
+                    AND al.status = 'Approved'
+                    AND YEAR(al.fromDate) = ?
+                    AND al.typeOfLeave NOT IN ('Maternity Leave')
+                WHERE 
+                    e.organisationID = ? AND
+                    e.isActive = 1
+                GROUP BY
+                    e.employeeID,
+                    e.employeeName,
+                    e.empID,
+                    e.Designation
+                HAVING total > 0
+                ORDER BY 
+                    total DESC,
+                    e.employeeName ASC
+            ) subquery,
+            (SELECT @row_number := 0) r";
+
+        $stmt = mysqli_prepare($connect_var, $query);
+        if (!$stmt) {
+            throw new Exception("Database prepare failed: " . mysqli_error($connect_var));
+        }
+
+        mysqli_stmt_bind_param($stmt, "si", 
+            $year,
+            $this->organisationID
+        );
+        
+        if (!mysqli_stmt_execute($stmt)) {
+            throw new Exception("Database execute failed: " . mysqli_error($connect_var));
+        }
+
+        $result = mysqli_stmt_get_result($stmt);
+        $leaveReport = [];
+        while ($row = mysqli_fetch_assoc($result)) {
+            $leaveReport[] = $row;
+        }
+
+        mysqli_stmt_close($stmt);
+
+        $response = [
+            "status" => "success",
+            "data" => $leaveReport
+        ];
+        echo json_encode($response);
+    }
+    
+    private function getMonthlyManagementLeaveReport($connect_var) {
+        // Convert single month number to YYYY-MM format
+        $formattedMonth = '2025-' . str_pad($this->selectedMonth, 2, '0', STR_PAD_LEFT);
+        
+        $query = "
+            SELECT 
+                (@row_number := @row_number + 1) as sNo,
+                subquery.*
+            FROM (
+                SELECT 
+                    e.employeeName,
+                    e.empID as employeeCode,
+                    e.Designation,
+                    COALESCE(SUM(CASE WHEN al.typeOfLeave = 'Casual Leave' THEN al.leaveDuration ELSE 0 END), 0) as cl,
+                    COALESCE(SUM(CASE WHEN al.typeOfLeave = 'Privilege Leave' THEN al.leaveDuration ELSE 0 END), 0) as pl,
+                    COALESCE(SUM(CASE WHEN al.typeOfLeave = 'Privilege Leave(Medical Grounds)' THEN al.leaveDuration ELSE 0 END), 0) as plMedical,
+                    COALESCE(SUM(CASE WHEN al.typeOfLeave = 'Medical Leave' THEN al.leaveDuration ELSE 0 END), 0) as sl,
+                    COALESCE(SUM(CASE 
+                        WHEN al.typeOfLeave NOT IN ('Maternity Leave') 
+                        THEN al.leaveDuration 
+                        ELSE 0 
+                    END), 0) as total
+                FROM 
+                    tblEmployee e
+                LEFT JOIN 
+                    tblApplyLeave al ON e.employeeID = al.employeeID 
+                    AND al.status = 'Approved'
+                    AND DATE_FORMAT(al.fromDate, '%Y-%m') = ?
+                    AND al.typeOfLeave NOT IN ('Maternity Leave')
+                WHERE 
+                    e.organisationID = ? AND
+                    e.isActive = 1
+                GROUP BY
+                    e.employeeID,
+                    e.employeeName,
+                    e.empID,
+                    e.Designation
+                HAVING total > 0
+                ORDER BY 
+                    total DESC,
+                    e.employeeName ASC
+            ) subquery,
+            (SELECT @row_number := 0) r";
+
+        $stmt = mysqli_prepare($connect_var, $query);
+        if (!$stmt) {
+            throw new Exception("Database prepare failed: " . mysqli_error($connect_var));
+        }
+
+        mysqli_stmt_bind_param($stmt, "si", 
+            $formattedMonth,
+            $this->organisationID
+        );
+        
+        if (!mysqli_stmt_execute($stmt)) {
+            throw new Exception("Database execute failed: " . mysqli_error($connect_var));
+        }
+
+        $result = mysqli_stmt_get_result($stmt);
+        $leaveReport = [];
+        while ($row = mysqli_fetch_assoc($result)) {
+            $leaveReport[] = $row;
+        }
+
+        mysqli_stmt_close($stmt);
+
+        $response = [
+            "status" => "success",
+            "data" => $leaveReport
+        ];
+        echo json_encode($response);
     }
 
     public function GetDesignationWiseLeaveReport() {
@@ -1543,6 +1631,140 @@ ORDER BY
             return true;
         }
         return false;
+    }
+
+    public function GetMonthlyCheckoutReport() {
+        include(dirname(__FILE__) . '/../../config.inc');
+        header('Content-Type: application/json');
+        try {
+            // Get year and month
+            $currentYear = date('Y');
+            $selectedMonth = str_pad($this->selectedMonth, 2, '0', STR_PAD_LEFT);
+            $monthStart = "$currentYear-$selectedMonth-01";
+            $monthEnd = date('Y-m-t', strtotime($monthStart));
+            
+            // Get current date to limit data "as of today"
+            $currentDate = date('Y-m-d');
+            $isCurrentMonth = (date('Y-m') === "$currentYear-$selectedMonth");
+            
+            // If we're in the selected month, limit to today's date
+            if ($isCurrentMonth) {
+                $monthEnd = min($monthEnd, $currentDate);
+            }
+
+            $query = "
+                SELECT 
+                    (@row_number := @row_number + 1) as sNo,
+                    e.employeeID,
+                    e.empID,
+                    e.employeeName,
+                    e.Designation,
+                    COALESCE(attendance_stats.present_days, 0) as present_days,
+                    COALESCE(attendance_stats.absent_days, 0) as absent_days,
+                    COALESCE(leave_stats.leave_days, 0) as leave_days,
+                    COALESCE(attendance_stats.late_checkins, 0) as late_checkins,
+                    COALESCE(attendance_stats.early_checkouts, 0) as early_checkouts,
+                    attendance_stats.late_checkin_dates,
+                    attendance_stats.early_checkout_dates
+                FROM 
+                    tblEmployee e
+                LEFT JOIN (
+                    SELECT 
+                        a.employeeID,
+                        COUNT(CASE WHEN a.checkInTime IS NOT NULL THEN 1 END) as present_days,
+                        COUNT(CASE WHEN a.checkInTime IS NULL THEN 1 END) as absent_days,
+                        COUNT(CASE WHEN a.isLateCheckIN = 1 THEN 1 END) as late_checkins,
+                        COUNT(CASE WHEN a.isEarlyCheckOut = 1 THEN 1 END) as early_checkouts,
+                        GROUP_CONCAT(
+                            CASE WHEN a.isLateCheckIN = 1 
+                                THEN DATE_FORMAT(a.attendanceDate, '%d/%m/%Y') 
+                                ELSE NULL 
+                            END
+                            ORDER BY a.attendanceDate
+                            SEPARATOR ', '
+                        ) as late_checkin_dates,
+                        GROUP_CONCAT(
+                            CASE WHEN a.isEarlyCheckOut = 1 
+                                THEN DATE_FORMAT(a.attendanceDate, '%d/%m/%Y') 
+                                ELSE NULL 
+                            END
+                            ORDER BY a.attendanceDate
+                            SEPARATOR ', '
+                        ) as early_checkout_dates
+                    FROM 
+                        tblAttendance a
+                    WHERE 
+                        a.attendanceDate BETWEEN ? AND ?
+                        AND a.organisationID = ?
+                    GROUP BY 
+                        a.employeeID
+                ) attendance_stats ON e.employeeID = attendance_stats.employeeID
+                LEFT JOIN (
+                    SELECT 
+                        al.employeeID,
+                        SUM(al.leaveDuration) as leave_days
+                    FROM 
+                        tblApplyLeave al
+                    WHERE 
+                        al.status = 'Approved'
+                        AND (
+                            (al.fromDate >= ? AND al.fromDate <= ?) OR
+                            (al.toDate >= ? AND al.toDate <= ?) OR
+                            (al.fromDate <= ? AND al.toDate >= ?)
+                        )
+                    GROUP BY 
+                        al.employeeID
+                ) leave_stats ON e.employeeID = leave_stats.employeeID,
+                (SELECT @row_number := 0) r
+                WHERE 
+                    e.organisationID = ? AND
+                    e.isActive = 1 AND
+                    e.isTemporary = 0
+                ORDER BY 
+                    e.employeeName ASC";
+
+            $stmt = mysqli_prepare($connect_var, $query);
+            if (!$stmt) {
+                throw new Exception("Database prepare failed: " . mysqli_error($connect_var));
+            }
+
+            mysqli_stmt_bind_param($stmt, "ssissssssi", 
+                $monthStart,
+                $monthEnd,
+                $this->organisationID,
+                $monthStart,
+                $monthEnd,
+                $monthStart,
+                $monthEnd,
+                $monthStart,
+                $monthEnd,
+                $this->organisationID
+            );
+            
+            if (!mysqli_stmt_execute($stmt)) {
+                throw new Exception("Database execute failed: " . mysqli_error($connect_var));
+            }
+
+            $result = mysqli_stmt_get_result($stmt);
+            $checkoutReport = [];
+            while ($row = mysqli_fetch_assoc($result)) {
+                $checkoutReport[] = $row;
+            }
+
+            mysqli_stmt_close($stmt);
+
+            $response = [
+                "status" => "success",
+                "data" => $checkoutReport
+            ];
+            echo json_encode($response);
+
+        } catch (Exception $e) {
+            echo json_encode([
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ], JSON_FORCE_OBJECT);
+        }
     }
 }
 function GetAttendanceReport($decoded_items) {
