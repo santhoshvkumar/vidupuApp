@@ -91,6 +91,9 @@ require 'WebApp/TemporaryAttendance/TemporaryAttendanceComponent.php';
 require 'WebApp/VisitorPass/VisitorPassRouter.php';
 require 'WebApp/VisitorPass/VisitorPassComponent.php';
 
+require 'LeaveRestriction/LeaveRestrictionRouter.php';
+require 'LeaveRestriction/LeaveRestrictionComponent.php';
+
 // Register all routers
 \EmployeePaySlip\EmployeePaySlipRouter::register($f3);
 
