@@ -152,38 +152,30 @@ class DashboardComponent{
                 AND emp.isActive = 1) AS loginnedDevices,
 
                 -- Absentees (filtered by branch) - excluding pending leave requests
-                (SELECT COUNT(DISTINCT e.employeeID)
-                FROM tblEmployee e
-                JOIN tblmapEmp m ON e.employeeID = m.employeeID
-                WHERE e.isActive = 1
+                (SELECT COUNT(*)
+                FROM tblEmployee AS emp
+                LEFT JOIN tblmapEmp AS m ON emp.employeeID = m.employeeID
+                LEFT JOIN tblBranch AS b ON m.branchID = b.branchID
+                LEFT JOIN tblAssignedSection AS assign ON emp.employeeID = assign.employeeID
+                LEFT JOIN tblSection AS sec ON assign.sectionID = sec.sectionID
+                LEFT JOIN tblAttendance AS att 
+                    ON emp.employeeID = att.employeeID 
+                    AND DATE(att.attendanceDate) = '$currentDate'
+                WHERE emp.isActive = 1
                 AND m.organisationID = '$organisationID'
                 AND m.branchID = '$branchID'
-                AND m.branchID = '$branchID'
-                AND e.employeeID NOT IN (
-                    -- Not checked in (branch-specific)
-                    SELECT DISTINCT a.employeeID 
-                    FROM tblAttendance a 
-                    JOIN tblmapEmp map ON a.employeeID = map.employeeID
-                    WHERE a.attendanceDate = '$currentDate'
-                    AND map.branchID = '$branchID'
-                    UNION
-                    -- Not on approved leave (branch-specific)
-                    SELECT DISTINCT l.employeeID
-                    FROM tblApplyLeave l
-                    JOIN tblmapEmp map ON l.employeeID = map.employeeID
-                    WHERE '$currentDate' BETWEEN l.fromDate AND l.toDate 
-                    AND map.branchID = '$branchID'
-                    AND l.status = 'Approved'
-                    AND map.branchID = '$branchID'
-                    UNION
-                    -- Not on pending leave (branch-specific)
-                    SELECT DISTINCT l.employeeID
-                    FROM tblApplyLeave l
-                    JOIN tblmapEmp map ON l.employeeID = map.employeeID
-                    WHERE '$currentDate' BETWEEN l.fromDate AND l.toDate 
-                    AND map.branchID = '$branchID'
-                    AND l.status = 'Yet To Be Approved'
-                    AND map.branchID = '$branchID'
+                AND att.checkInTime IS NULL
+                AND emp.employeeID NOT IN (
+                    SELECT employeeID
+                    FROM tblApplyLeave
+                    WHERE status = 'Approved' AND employeeID <> 888
+                        AND '$currentDate' BETWEEN fromDate AND toDate
+                )
+                AND emp.employeeID NOT IN (
+                    SELECT employeeID
+                    FROM tblApplyLeave
+                    WHERE status = 'Yet To Be Approved' AND employeeID <> 888
+                        AND '$currentDate' BETWEEN fromDate AND toDate
                 )) AS absentees,
 
                 -- Pending leave requests (Yet To Be Approved)
@@ -369,7 +361,33 @@ class DashboardComponent{
             WHERE l.status = 'Yet To Be Approved'
             AND e.organisationID = '$organisationID'
             AND '$currentDate' BETWEEN l.fromDate AND l.toDate
-            ) AS pendingLeaveRequests
+            ) AS pendingLeaveRequests,
+
+            -- Absentees (for all branches) - excluding pending leave requests
+            (SELECT COUNT(*)
+            FROM tblEmployee AS emp
+            LEFT JOIN tblmapEmp AS m ON emp.employeeID = m.employeeID
+            LEFT JOIN tblBranch AS b ON m.branchID = b.branchID
+            LEFT JOIN tblAssignedSection AS assign ON emp.employeeID = assign.employeeID
+            LEFT JOIN tblSection AS sec ON assign.sectionID = sec.sectionID
+            LEFT JOIN tblAttendance AS att 
+                ON emp.employeeID = att.employeeID 
+                AND DATE(att.attendanceDate) = '$currentDate'
+            WHERE emp.isActive = 1
+            AND emp.organisationID = '$organisationID'
+            AND att.checkInTime IS NULL
+            AND emp.employeeID NOT IN (
+                SELECT employeeID
+                FROM tblApplyLeave
+                WHERE status = 'Approved' AND employeeID <> 888
+                    AND '$currentDate' BETWEEN fromDate AND toDate
+            )
+            AND emp.employeeID NOT IN (
+                SELECT employeeID
+                FROM tblApplyLeave
+                WHERE status = 'Yet To Be Approved' AND employeeID <> 888
+                    AND '$currentDate' BETWEEN fromDate AND toDate
+            )) AS absentees
         FROM (SELECT 1) AS dummy;";
             error_log("Debug Query: " . $queryActiveEmployeeDetails);
 
@@ -392,14 +410,14 @@ class DashboardComponent{
                 $data['loginnedDevices'] = isset($row['loginnedDevices']) ? intval($row['loginnedDevices']) : 0;
                 $data['totalTemporaryStaff'] = isset($row['totalTemporaryStaff']) ? intval($row['totalTemporaryStaff']) : 0;
                 
-                // Calculate absent count excluding pending leave requests
-                $data['absenteesinHO'] = $data['totalEmployees'] - ($data['checkedInToday'] + $data['onLeave']);
-                
                 // Get pending leave count
                 $data['pendingLeaveRequests'] = isset($row['pendingLeaveRequests']) ? intval($row['pendingLeaveRequests']) : 0;
                 
-                // Subtract pending leave from absent count to get actual absences
-                $data['actualAbsent'] = max(0, $data['absenteesinHO'] - $data['pendingLeaveRequests']);
+                // Calculate absent count using the improved query
+                $data['absenteesinHO'] = isset($row['absentees']) ? intval($row['absentees']) : 0;
+                
+                // Actual absent is now directly from the query
+                $data['actualAbsent'] = $data['absenteesinHO'];
                 
                 // Calculate total absent (including pending leave requests) for display
                 $data['totalAbsent'] = $data['actualAbsent'] + $data['pendingLeaveRequests'];
@@ -667,6 +685,8 @@ class DashboardComponent{
             ], JSON_FORCE_OBJECT);
         }
     }
+
+
 } 
 function DashboardAttendanceDetails($decoded_items) {
     $dashboardComponent = new DashboardComponent();
@@ -696,3 +716,4 @@ function DashboardAttendanceDetailsforAll() {
         echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
     }
 }
+
