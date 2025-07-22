@@ -1732,7 +1732,7 @@ ORDER BY
                     e.isActive = 1 AND
                     e.isTemporary = 0
                 ORDER BY 
-                    e.employeeName ASC";
+                    COALESCE(attendance_stats.absent_days, 0) DESC, e.employeeName ASC";
 
             $stmt = mysqli_prepare($connect_var, $query);
             if (!$stmt) {
