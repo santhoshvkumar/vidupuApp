@@ -218,6 +218,18 @@ $f3->route('POST /GetMonthlyCheckoutReport',
     }
 );
 
+$f3->route('POST /DebugAutoCheckoutRecords',
+    function($f3) {
+        header('Content-Type: application/json');
+        $decoded_items = json_decode($f3->get('BODY'), true);
+        if(!$decoded_items == NULL) {
+            DebugAutoCheckoutRecords($decoded_items);
+        } else {
+            echo json_encode(array("status" => "error", "message_text" => "Invalid input parameters"), JSON_FORCE_OBJECT);
+        }
+    }
+);
+
 function GetMonthlyCheckoutReport($decoded_items) {
     $ReportsObject = new ReportsComponent();
     if (!isset($decoded_items['organisationID'])) {
@@ -233,6 +245,26 @@ function GetMonthlyCheckoutReport($decoded_items) {
     if ($ReportsObject->loadOrganisationID($decoded_items) && 
         $ReportsObject->loadSelectedMonth($decoded_items)) {
         $ReportsObject->GetMonthlyCheckoutReport();
+    } else {
+        echo json_encode(array("status" => "error", "message_text" => "Invalid input parameters"), JSON_FORCE_OBJECT);
+    }
+}
+
+function DebugAutoCheckoutRecords($decoded_items) {
+    $ReportsObject = new ReportsComponent();
+    if (!isset($decoded_items['organisationID'])) {
+        echo json_encode(array("status" => "error", "message_text" => "Missing organisationID parameter"), JSON_FORCE_OBJECT);
+        return;
+    }
+    
+    if (!isset($decoded_items['selectedMonth'])) {
+        echo json_encode(array("status" => "error", "message_text" => "Missing selectedMonth parameter"), JSON_FORCE_OBJECT);
+        return;
+    }
+    
+    if ($ReportsObject->loadOrganisationID($decoded_items) && 
+        $ReportsObject->loadSelectedMonth($decoded_items)) {
+        $ReportsObject->DebugAutoCheckoutRecords();
     } else {
         echo json_encode(array("status" => "error", "message_text" => "Invalid input parameters"), JSON_FORCE_OBJECT);
     }

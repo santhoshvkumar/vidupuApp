@@ -1664,8 +1664,10 @@ ORDER BY
                     COALESCE(leave_stats.leave_days, 0) as leave_days,
                     COALESCE(attendance_stats.late_checkins, 0) as late_checkins,
                     COALESCE(attendance_stats.early_checkouts, 0) as early_checkouts,
+                    COALESCE(attendance_stats.auto_checkouts, 0) as auto_checkouts,
                     attendance_stats.late_checkin_dates,
-                    attendance_stats.early_checkout_dates
+                    attendance_stats.early_checkout_dates,
+                    attendance_stats.auto_checkout_dates
                 FROM 
                     tblEmployee e
                 LEFT JOIN (
@@ -1675,6 +1677,7 @@ ORDER BY
                         COUNT(CASE WHEN a.checkInTime IS NULL THEN 1 END) as absent_days,
                         COUNT(CASE WHEN a.isLateCheckIN = 1 THEN 1 END) as late_checkins,
                         COUNT(CASE WHEN a.isEarlyCheckOut = 1 THEN 1 END) as early_checkouts,
+                        COUNT(CASE WHEN a.isAutoCheckout = 1 THEN 1 END) as auto_checkouts,
                         GROUP_CONCAT(
                             CASE WHEN a.isLateCheckIN = 1 
                                 THEN DATE_FORMAT(a.attendanceDate, '%d/%m/%Y') 
@@ -1690,7 +1693,15 @@ ORDER BY
                             END
                             ORDER BY a.attendanceDate
                             SEPARATOR ', '
-                        ) as early_checkout_dates
+                        ) as early_checkout_dates,
+                        GROUP_CONCAT(
+                            CASE WHEN a.isAutoCheckout = 1 
+                                THEN DATE_FORMAT(a.attendanceDate, '%d/%m/%Y') 
+                                ELSE NULL 
+                            END
+                            ORDER BY a.attendanceDate
+                            SEPARATOR ', '
+                        ) as auto_checkout_dates
                     FROM 
                         tblAttendance a
                     WHERE 
@@ -1753,6 +1764,19 @@ ORDER BY
 
             mysqli_stmt_close($stmt);
 
+            // Debug: Log the first few records to see the data structure
+            error_log("DEBUG - Monthly Checkout Report Data:");
+            error_log("Total records: " . count($checkoutReport));
+            if (count($checkoutReport) > 0) {
+                error_log("First record: " . print_r($checkoutReport[0], true));
+                // Check if auto_checkouts field exists in the first record
+                if (isset($checkoutReport[0]['auto_checkouts'])) {
+                    error_log("auto_checkouts field exists with value: " . $checkoutReport[0]['auto_checkouts']);
+                } else {
+                    error_log("auto_checkouts field is MISSING from the response");
+                }
+            }
+
             $response = [
                 "status" => "success",
                 "data" => $checkoutReport
@@ -1766,37 +1790,81 @@ ORDER BY
             ], JSON_FORCE_OBJECT);
         }
     }
-}
-function GetAttendanceReport($decoded_items) {
-    $ReportsComponentObject = new ReportsComponent();
-    if ($ReportsComponentObject->loadReportsforGivenDate($decoded_items)) {
-        $ReportsComponentObject->GetAttendanceReport();
-    } else {
-        echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
-    }   
-}
-function GetSectionWiseAttendanceReport($decoded_items) {
-    $ReportsComponentObject = new ReportsComponent();
-    if ($ReportsComponentObject->loadReportsforGivenDate($decoded_items)) {
-        $ReportsComponentObject->GetSectionWiseAttendanceReport();
-    } else {
-        echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
-    }
-}
-function GetLeaveReport($decoded_items) {
-    $ReportsComponentObject = new ReportsComponent();
-    if ($ReportsComponentObject->loadReportsforGivenDate($decoded_items)) {
-        $ReportsComponentObject->GetLeaveReport();
-    } else {    
-        echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
-    }
-}
-function GetDesignationWiseAttendanceReport($decoded_items) {
-    $ReportsComponentObject = new ReportsComponent();
-    if ($ReportsComponentObject->loadReportsforGivenDate($decoded_items)) {
-        $ReportsComponentObject->GetDesignationWiseAttendanceReport();
-    } else {    
-        echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
+
+    public function DebugAutoCheckoutRecords() {
+        include(dirname(__FILE__) . '/../../config.inc');
+        header('Content-Type: application/json');
+        try {
+            $currentYear = date('Y');
+            $selectedMonth = str_pad($this->selectedMonth, 2, '0', STR_PAD_LEFT);
+            $monthStart = "$currentYear-$selectedMonth-01";
+            $monthEnd = date('Y-m-t', strtotime($monthStart));
+            
+            // Debug query to check auto checkout records
+            $debugQuery = "
+                SELECT 
+                    COUNT(*) as total_auto_checkouts,
+                    COUNT(DISTINCT employeeID) as unique_employees_with_auto_checkout,
+                    GROUP_CONCAT(DISTINCT employeeID) as employee_ids_with_auto_checkout
+                FROM tblAttendance 
+                WHERE isAutoCheckout = 1 
+                AND attendanceDate BETWEEN ? AND ?
+                AND organisationID = ?";
+            
+            $stmt = mysqli_prepare($connect_var, $debugQuery);
+            if (!$stmt) {
+                throw new Exception("Database prepare failed: " . mysqli_error($connect_var));
+            }
+
+            mysqli_stmt_bind_param($stmt, "ssi", 
+                $monthStart,
+                $monthEnd,
+                $this->organisationID
+            );
+            
+            if (!mysqli_stmt_execute($stmt)) {
+                throw new Exception("Database execute failed: " . mysqli_error($connect_var));
+            }
+
+            $result = mysqli_stmt_get_result($stmt);
+            $debugData = mysqli_fetch_assoc($result);
+            mysqli_stmt_close($stmt);
+
+            // Also check the table structure
+            $structureQuery = "DESCRIBE tblAttendance";
+            $structureResult = mysqli_query($connect_var, $structureQuery);
+            $tableStructure = [];
+            while ($row = mysqli_fetch_assoc($structureResult)) {
+                $tableStructure[] = $row;
+            }
+
+            // Check for any auto checkout records in the entire table
+            $totalQuery = "SELECT COUNT(*) as total_records FROM tblAttendance WHERE isAutoCheckout = 1";
+            $totalResult = mysqli_query($connect_var, $totalQuery);
+            $totalData = mysqli_fetch_assoc($totalResult);
+
+            $response = [
+                "status" => "success",
+                "data" => [
+                    "debug_info" => [
+                        "monthStart" => $monthStart,
+                        "monthEnd" => $monthEnd,
+                        "organisationID" => $this->organisationID,
+                        "selectedMonth" => $this->selectedMonth
+                    ],
+                    "auto_checkout_records" => $debugData,
+                    "total_auto_checkout_records" => $totalData,
+                    "table_structure" => $tableStructure
+                ]
+            ];
+            echo json_encode($response);
+
+        } catch (Exception $e) {
+            echo json_encode([
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ], JSON_FORCE_OBJECT);
+        }
     }
 }
 ?>
