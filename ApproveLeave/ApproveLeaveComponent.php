@@ -309,7 +309,21 @@ class ApproveLeaveMaster {
                             $date->modify('+'.intval($leaveDuration - 1).' day');
                             $toDate = $date->format('Y-m-d');
                             $statusUpdateQuery = "UPDATE tblApplyLeave 
-                                            SET status = 'Approved', isExtend = 0, reasonForExtend = NULL, NoOfDaysExtend = NULL, toDate = '$toDate' 
+                                            SET status = 'Rejected', isExtend = 0, reasonForExtend = NULL, NoOfDaysExtend = NULL, toDate = '$toDate', RejectReason = ? 
+                                            WHERE applyLeaveID = ?";
+                            $stmt = mysqli_prepare($connect_var, $statusUpdateQuery);
+                            mysqli_stmt_bind_param($stmt, "ss", $this->rejectionReason, $this->applyLeaveID);
+                        } else if ($row['status'] === 'ExtendedApplied' && $this->status === 'Approved') {
+                            // For ExtendedApplied approval, approve the extended leave
+                            $statusUpdateQuery = "UPDATE tblApplyLeave 
+                                            SET status = 'Approved', isExtend = 1, reasonForExtend = NULL, NoOfDaysExtend = NULL
+                                            WHERE applyLeaveID = ?";
+                            $stmt = mysqli_prepare($connect_var, $statusUpdateQuery);
+                            mysqli_stmt_bind_param($stmt, "s", $this->applyLeaveID);
+                        } else if ($this->status === 'Cancelled') {
+                            // Handle cancellation for any current status
+                            $statusUpdateQuery = "UPDATE tblApplyLeave 
+                                            SET status = 'Cancelled'
                                             WHERE applyLeaveID = ?";
                             $stmt = mysqli_prepare($connect_var, $statusUpdateQuery);
                             mysqli_stmt_bind_param($stmt, "s", $this->applyLeaveID);
@@ -323,51 +337,67 @@ class ApproveLeaveMaster {
                             mysqli_stmt_close($stmt);
                         }
 
-                        // If approved, update the leave balance conditionally
+                        // Handle leave balance updates based on status and leave type
+                        $shouldUpdateBalance = true;
+                        $balanceAction = 'deduct'; // Default action
+                        
+                        // Check if this leave was previously approved and had balance deducted
+                        $wasPreviouslyApproved = ($row['status'] === 'Approved' || $row['status'] === 'Cancelled' || $row['status'] === 'ReApplied' || $row['status'] === 'ExtendedApplied');
+                        
                         if ($this->status === 'Approved') {
-                            $deductBalance = true; // Assume deduction by default for approved leaves
-
-                            // Check if it's Medical Leave or PL (Medical Grounds)
+                            // For approved leaves, check if deduction is needed
                             if ($leaveType === 'Medical Leave' || $leaveType === 'Privilege Leave (Medical grounds)') {
-                                // For these types, only deduct if Fitness Certificate is present
+                                // For medical leaves, only deduct if Fitness Certificate is present
                                 if (empty($FitnessCertificatePath) || $FitnessCertificatePath === 'null') {
-                                    $deductBalance = false; // Do not deduct if fitness cert is missing
+                                    $shouldUpdateBalance = false; // Do not deduct if fitness cert is missing
                                     error_log("Skipping balance deduction for $leaveType (ID: $this->applyLeaveID) - Fitness Certificate missing.");
                                 } else {
-                                    error_log("Proceeding with balance deduction for $leaveType (ID: $this->applyLeaveID) - Fitness Certificate found.");
+                                    // If this was previously approved, we should restore balance instead of deducting
+                                    if ($wasPreviouslyApproved) {
+                                        $balanceAction = 'restore';
+                                        error_log("Restoring balance for previously approved $leaveType (ID: $this->applyLeaveID) - Fitness Certificate found.");
+                                    } else {
+                                        $balanceAction = 'deduct';
+                                        error_log("Proceeding with balance deduction for $leaveType (ID: $this->applyLeaveID) - Fitness Certificate found.");
+                                    }
                                 }
                             } else {
-                                error_log("Proceeding with balance deduction for non-medical leave type: $leaveType (ID: $this->applyLeaveID).");
+                                // For non-medical leaves, check if previously approved
+                                if ($wasPreviouslyApproved) {
+                                    $balanceAction = 'restore';
+                                    error_log("Restoring balance for previously approved non-medical leave type: $leaveType (ID: $this->applyLeaveID).");
+                                } else {
+                                    $balanceAction = 'deduct';
+                                    error_log("Proceeding with balance deduction for non-medical leave type: $leaveType (ID: $this->applyLeaveID).");
+                                }
                             }
+                        } else if ($this->status === 'Rejected' || $this->status === 'Cancelled') {
+                            // For rejected/cancelled leaves, check if we need to restore balance
+                            if ($leaveType === 'Medical Leave' || $leaveType === 'Privilege Leave (Medical grounds)') {
+                                // For medical leaves, only restore if Fitness Certificate was present (meaning balance was deducted)
+                                if (!empty($FitnessCertificatePath) && $FitnessCertificatePath !== 'null') {
+                                    $balanceAction = 'restore';
+                                    error_log("Restoring balance for $leaveType (ID: $this->applyLeaveID) - Fitness Certificate was present.");
+                                } else {
+                                    $shouldUpdateBalance = false; // No balance was deducted, so no need to restore
+                                    error_log("Skipping balance restoration for $leaveType (ID: $this->applyLeaveID) - No balance was deducted initially.");
+                                }
+                            } else {
+                                // For non-medical leaves, always restore balance
+                                $balanceAction = 'restore';
+                                error_log("Restoring balance for non-medical leave type: $leaveType (ID: $this->applyLeaveID).");
+                            }
+                        }
 
-                            // Only update balance if deduction is allowed
-                            if ($deductBalance) {
-                                $leaveBalanceParams = [
-                                    'applyLeaveID' => $this->applyLeaveID,
-                                    'typeOfLeave' => $leaveType,
-                                    'numberOfDays' => $leaveDuration,
-                                    'status' => $this->status,
-                                    'employeeID' => $employeeID
-                                ];
-                                
-                                $balanceResult = $this->updatedLeaveBalance($leaveBalanceParams);
-                                if ($balanceResult['status'] === 'failure') {
-                                    throw new Exception("Failed to update leave balance: " . $balanceResult['message']);
-                                }
-                                
-                                // Execute the balance update query
-                                if (!mysqli_query($connect_var, $balanceResult['query'])) {
-                                    throw new Exception("Failed to execute leave balance update: " . mysqli_error($connect_var));
-                                }
-                            }
-                        } else {
-                            // For rejected/cancelled leaves, always update balance
+                        // Update balance if needed
+                        if ($shouldUpdateBalance) {
                             $leaveBalanceParams = [
                                 'applyLeaveID' => $this->applyLeaveID,
                                 'typeOfLeave' => $leaveType,
                                 'numberOfDays' => $leaveDuration,
                                 'status' => $this->status,
-                                'employeeID' => $employeeID
+                                'employeeID' => $employeeID,
+                                'balanceAction' => $balanceAction
                             ];
                             
                             $balanceResult = $this->updatedLeaveBalance($leaveBalanceParams);
@@ -416,6 +446,7 @@ class ApproveLeaveMaster {
         $this->numberOfDays = $decoded_items['numberOfDays'];
         $this->status = $decoded_items['status'];
         $this->employeeID = $decoded_items['employeeID'];
+        $balanceAction = isset($decoded_items['balanceAction']) ? $decoded_items['balanceAction'] : 'deduct';
         
         // Map leave types to database column names
         switch ($this->typeOfLeave) {
@@ -447,19 +478,19 @@ class ApproveLeaveMaster {
                 );
         }
 
-        // Prepare the update query based on status
-        if ($this->status === "Approved") {
+        // Prepare the update query based on balance action
+        if ($balanceAction === "deduct") {
             $updateQuery = "UPDATE tblLeaveBalance 
                 SET `{$this->typeOfLeave}` = `{$this->typeOfLeave}` - {$this->numberOfDays} 
                 WHERE employeeID = '{$this->employeeID}'";
-        } else if ($this->status === "Cancelled" || $this->status === "Rejected") {
+        } else if ($balanceAction === "restore") {
             $updateQuery = "UPDATE tblLeaveBalance 
                 SET `{$this->typeOfLeave}` = `{$this->typeOfLeave}` + {$this->numberOfDays} 
                 WHERE employeeID = '{$this->employeeID}'";
         } else {
             return array(
                 'status' => 'failure',
-                'message' => "Invalid status: " . $this->status
+                'message' => "Invalid balance action: " . $balanceAction
             );
         }
 
