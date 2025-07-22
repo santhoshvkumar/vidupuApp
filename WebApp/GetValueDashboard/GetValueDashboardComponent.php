@@ -602,7 +602,9 @@ WHERE emp.isActive = 1
             GROUP BY 
                 emp.employeeName, 
                 locationName, 
-                emp.employeePhone;";
+                emp.employeePhone
+            ORDER BY 
+                MIN(att.checkInTime) ASC;";
 
             $debug_query = str_replace(['?', '?'], ["'" . $this->currentDate . "'", "'" . $this->organisationID . "'"], $queryIndividualNoOfCheckinsInHeadOffice);
             error_log("Debug Query: " . $debug_query);
@@ -680,7 +682,8 @@ WHERE emp.isActive = 1
           AND att.checkOutTime IS NOT NULL
           AND (att.checkInBranchID = ? OR att.checkOutBranchID = ?)
         GROUP BY emp.employeeName, locationName, emp.employeePhone, emp.employeeID
-        HAVING early_checkout > 0;";
+        HAVING early_checkout > 0
+        ORDER BY MIN(att.checkOutTime) ASC;";
         
     
             $debug_query = str_replace(
@@ -766,7 +769,8 @@ WHERE emp.isActive = 1
         JOIN tblAttendance AS att ON emp.employeeID = att.employeeID
         WHERE DATE(att.attendanceDate) = ? AND m.organisationID = ? AND emp.employeeID <> 888
         GROUP BY emp.employeeName, locationName, emp.employeePhone, emp.employeeID
-        HAVING early_checkout > 0;";
+        HAVING early_checkout > 0
+        ORDER BY MIN(att.checkOutTime) ASC;";
         
     
             $debug_query = str_replace(
@@ -1012,7 +1016,8 @@ HAVING on_leave > 0;
         WHERE DATE(att.attendanceDate) = ?
           AND m.branchID IN (?) AND m.organisationID = ? AND emp.employeeID <> 888
         GROUP BY emp.employeeName, locationName, emp.employeePhone
-        HAVING late_checkin > 0;";
+        HAVING late_checkin > 0
+        ORDER BY MIN(att.checkInTime) ASC;";
         
 
             $debug_query = str_replace(
@@ -1072,7 +1077,7 @@ HAVING on_leave > 0;
         header('Content-Type: application/json');
         try {       
             $data = [];                       
-            $queryIndividualNoOfCheckinsInHeadOffice = "SELECT tblA.employeeID, COALESCE(tblS.SectionName, tblB.branchName) AS locationName, tblA.checkInTime, tblE.employeeName, tblE.employeePhone FROM tblAttendance tblA INNER JOIN tblEmployee tblE on tblE.employeeID = tblA.employeeID LEFT JOIN tblAssignedSection tblAS on tblAS.employeeID = tblA.employeeID LEFT JOIN tblSection tblS on tblS.SectionID = tblAS.sectionID INNER JOIN tblBranch tblB on tblB.branchID = tblA.checkInBranchID WHERE tblA.attendanceDate=? and tblA.organisationID=? and tblA.isLateCheckIN=1;";
+            $queryIndividualNoOfCheckinsInHeadOffice = "SELECT tblA.employeeID, COALESCE(tblS.SectionName, tblB.branchName) AS locationName, tblA.checkInTime, tblE.employeeName, tblE.employeePhone FROM tblAttendance tblA INNER JOIN tblEmployee tblE on tblE.employeeID = tblA.employeeID LEFT JOIN tblAssignedSection tblAS on tblAS.employeeID = tblA.employeeID LEFT JOIN tblSection tblS on tblS.SectionID = tblAS.sectionID INNER JOIN tblBranch tblB on tblB.branchID = tblA.checkInBranchID WHERE tblA.attendanceDate=? and tblA.organisationID=? and tblA.isLateCheckIN=1 ORDER BY tblA.checkInTime ASC;";
         
 
             $debug_query = str_replace(
