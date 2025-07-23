@@ -1664,11 +1664,10 @@ $query = "
                    COALESCE(leave_stats.leave_days, 0) as leave_days,
                    COALESCE(attendance_stats.late_checkins, 0) as late_checkins,
                    COALESCE(attendance_stats.early_checkouts, 0) as early_checkouts,
-                    COALESCE(attendance_stats.auto_checkouts, 0) as auto_checkouts,
+                   COALESCE(attendance_stats.auto_checkouts, 0) as auto_checkouts,
                    attendance_stats.late_checkin_dates,
-                    attendance_stats.early_checkout_dates
-                    attendance_stats.early_checkout_dates,
-                    attendance_stats.auto_checkout_dates
+                   attendance_stats.early_checkout_dates,
+                   attendance_stats.auto_checkout_dates
                FROM 
                    tblEmployee e
                LEFT JOIN (
@@ -1678,7 +1677,7 @@ $query = "
                        COUNT(CASE WHEN a.checkInTime IS NULL THEN 1 END) as absent_days,
                        COUNT(CASE WHEN a.isLateCheckIN = 1 THEN 1 END) as late_checkins,
                        COUNT(CASE WHEN a.isEarlyCheckOut = 1 THEN 1 END) as early_checkouts,
-                        COUNT(CASE WHEN a.isAutoCheckout = 1 THEN 1 END) as auto_checkouts,
+                       COUNT(CASE WHEN a.isAutoCheckout = 1 THEN 1 END) as auto_checkouts,
                        GROUP_CONCAT(
                            CASE WHEN a.isLateCheckIN = 1 
                                THEN DATE_FORMAT(a.attendanceDate, '%d/%m/%Y') 
@@ -1694,16 +1693,15 @@ $query = "
                            END
                            ORDER BY a.attendanceDate
                            SEPARATOR ', '
-                        ) as early_checkout_dates
-                        ) as early_checkout_dates,
-                        GROUP_CONCAT(
-                            CASE WHEN a.isAutoCheckout = 1 
-                                THEN DATE_FORMAT(a.attendanceDate, '%d/%m/%Y') 
-                                ELSE NULL 
-                            END
-                            ORDER BY a.attendanceDate
-                            SEPARATOR ', '
-                        ) as auto_checkout_dates
+                       ) as early_checkout_dates,
+                       GROUP_CONCAT(
+                           CASE WHEN a.isAutoCheckout = 1 
+                               THEN DATE_FORMAT(a.attendanceDate, '%d/%m/%Y') 
+                               ELSE NULL 
+                           END
+                           ORDER BY a.attendanceDate
+                           SEPARATOR ', '
+                       ) as auto_checkout_dates
                    FROM 
                        tblAttendance a
                    WHERE 
