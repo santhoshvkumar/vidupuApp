@@ -47,20 +47,14 @@ class ReportsComponent {
         include('config.inc');
         header('Content-Type: application/json');
         
-        // Debug logging
-        error_log("GetAttendanceReport called with organisationID: " . $this->organisationID);
-        error_log("GetAttendanceReport called with startDate: " . $this->startDate);
-        error_log("GetAttendanceReport called with endDate: " . $this->endDate);
-        
         try {
             $data = [];
-            error_log("Building SQL query for GetAttendanceReport");
             $queryforGetAttendanceReport = "SELECT DISTINCT
     e.empID AS Employee_ID,
     e.employeeName AS Employee_Name,
     e.employeePhone AS Employee_Phone,
     e.Designation,
-    DATE_ADD(?, INTERVAL n.num DAY) AS attendanceDate,
+    ? AS attendanceDate,
     a.checkInTime AS CheckIn_Time,
     a.checkOutTime AS CheckOut_Time,
     CASE
@@ -69,7 +63,7 @@ class ReportsComponent {
             SELECT 1
             FROM tblApplyLeave al
             WHERE al.employeeID = e.employeeID
-              AND DATE_ADD(?, INTERVAL n.num DAY) BETWEEN al.fromDate AND al.toDate
+              AND ? BETWEEN al.fromDate AND al.toDate
               AND al.Status = 'Approved'
         ) THEN 'Leave'
         ELSE 'Absent'
@@ -81,53 +75,28 @@ FROM
         FROM tblEmployee 
         WHERE isTemporary = 0 AND isActive = 1 AND organisationID = ?
     ) e
-CROSS JOIN (
-    SELECT a.N + b.N * 10 + c.N * 100 AS num
-    FROM 
-        (SELECT 0 AS N UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
-         UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) a
-    CROSS JOIN 
-        (SELECT 0 AS N UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
-         UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) b
-    CROSS JOIN 
-        (SELECT 0 AS N UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
-         UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) c
-    WHERE a.N + b.N * 10 + c.N * 100 <= DATEDIFF(?, ?)
-) n
 LEFT JOIN tblAttendance a 
     ON e.employeeID = a.employeeID  
-    AND a.attendanceDate = DATE_ADD(?, INTERVAL n.num DAY)
+    AND a.attendanceDate = ?
 INNER JOIN tblmapEmp m ON e.employeeID = m.employeeID
 INNER JOIN tblBranch b ON m.branchID = b.branchID
-WHERE 
-    DATE_ADD(?, INTERVAL n.num DAY) BETWEEN ? AND ?
 ORDER BY 
     e.empID, attendanceDate;
 ";
 
-            error_log("Preparing SQL statement");
             $stmt = mysqli_prepare($connect_var, $queryforGetAttendanceReport);
             if (!$stmt) {
-                error_log("Database prepare failed: " . mysqli_error($connect_var));
                 throw new Exception("Database prepare failed: " . mysqli_error($connect_var));
             }
 
-            error_log("Binding parameters to SQL statement");
-            mysqli_stmt_bind_param($stmt, "ssssssssi", 
+            mysqli_stmt_bind_param($stmt, "sssi", 
                 $this->startDate,  // For attendanceDate
                 $this->startDate,  // For leave check
-                $this->endDate,    // For DATEDIFF
-                $this->startDate,  // For DATEDIFF
-                $this->startDate,  // For attendance join
-                $this->startDate,  // For WHERE clause
-                $this->startDate,  // For WHERE clause start
-                $this->endDate,    // For WHERE clause end
-                $this->organisationID  // For organisationID filter
+                $this->organisationID,  // For organisationID filter
+                $this->startDate   // For attendance join
             );
 
-            error_log("Executing SQL statement");
             if (!mysqli_stmt_execute($stmt)) {
-                error_log("Database execute failed: " . mysqli_stmt_error($stmt));
                 throw new Exception("Database execute failed: " . mysqli_stmt_error($stmt));
             }
 
@@ -138,18 +107,40 @@ ORDER BY
                 $data[] = $row;
             }
 
-            error_log("Query returned $countEmployee rows for organisationID: " . $this->organisationID . ", date range: " . $this->startDate . " to " . $this->endDate);
-
             if ($countEmployee > 0) {
                 echo json_encode([
                     "status" => "success",  
                     "data" => $data
                 ]);
             } else {
-                echo json_encode([
-                    "status" => "error",
-                    "message_text" => "No data found for any employee for organisationID: " . $this->organisationID . " and date range: " . $this->startDate . " to " . $this->endDate
-                ], JSON_FORCE_OBJECT);
+                // Check if there are any employees for this organisationID
+                $employeeCheckQuery = "SELECT COUNT(*) as employeeCount FROM tblEmployee WHERE isTemporary = 0 AND isActive = 1 AND organisationID = ?";
+                $employeeCheckStmt = mysqli_prepare($connect_var, $employeeCheckQuery);
+                if ($employeeCheckStmt) {
+                    mysqli_stmt_bind_param($employeeCheckStmt, "i", $this->organisationID);
+                    mysqli_stmt_execute($employeeCheckStmt);
+                    $employeeCheckResult = mysqli_stmt_get_result($employeeCheckStmt);
+                    $employeeCheckRow = mysqli_fetch_assoc($employeeCheckResult);
+                    $employeeCount = $employeeCheckRow['employeeCount'];
+                    mysqli_stmt_close($employeeCheckStmt);
+                    
+                    if ($employeeCount == 0) {
+                        echo json_encode([
+                            "status" => "error",
+                            "message_text" => "No employees found for organisationID: " . $this->organisationID
+                        ], JSON_FORCE_OBJECT);
+                    } else {
+                        echo json_encode([
+                            "status" => "error",
+                            "message_text" => "No attendance data found for " . $employeeCount . " employees for organisationID: " . $this->organisationID . " and date range: " . $this->startDate . " to " . $this->endDate
+                        ], JSON_FORCE_OBJECT);
+                    }
+                } else {
+                    echo json_encode([
+                        "status" => "error",
+                        "message_text" => "No data found for any employee for organisationID: " . $this->organisationID . " and date range: " . $this->startDate . " to " . $this->endDate
+                    ], JSON_FORCE_OBJECT);
+                }
             }
 
             mysqli_stmt_close($stmt);
