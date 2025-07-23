@@ -46,8 +46,15 @@ class ReportsComponent {
     public function GetAttendanceReport() {    
         include('config.inc');
         header('Content-Type: application/json');
+        
+        // Debug logging
+        error_log("GetAttendanceReport called with organisationID: " . $this->organisationID);
+        error_log("GetAttendanceReport called with startDate: " . $this->startDate);
+        error_log("GetAttendanceReport called with endDate: " . $this->endDate);
+        
         try {
             $data = [];
+            error_log("Building SQL query for GetAttendanceReport");
             $queryforGetAttendanceReport = "SELECT DISTINCT
     e.empID AS Employee_ID,
     e.employeeName AS Employee_Name,
@@ -72,7 +79,7 @@ FROM
     (
         SELECT empID, employeeName, employeePhone, Designation, employeeID
         FROM tblEmployee 
-        WHERE isTemporary = 0 AND isActive = 1
+        WHERE isTemporary = 0 AND isActive = 1 AND organisationID = ?
     ) e
 CROSS JOIN (
     SELECT a.N + b.N * 10 + c.N * 100 AS num
@@ -98,12 +105,15 @@ ORDER BY
     e.empID, attendanceDate;
 ";
 
+            error_log("Preparing SQL statement");
             $stmt = mysqli_prepare($connect_var, $queryforGetAttendanceReport);
             if (!$stmt) {
-                throw new Exception("Database prepare failed");
+                error_log("Database prepare failed: " . mysqli_error($connect_var));
+                throw new Exception("Database prepare failed: " . mysqli_error($connect_var));
             }
 
-            mysqli_stmt_bind_param($stmt, "ssssssss", 
+            error_log("Binding parameters to SQL statement");
+            mysqli_stmt_bind_param($stmt, "ssssssssi", 
                 $this->startDate,  // For attendanceDate
                 $this->startDate,  // For leave check
                 $this->endDate,    // For DATEDIFF
@@ -111,11 +121,14 @@ ORDER BY
                 $this->startDate,  // For attendance join
                 $this->startDate,  // For WHERE clause
                 $this->startDate,  // For WHERE clause start
-                $this->endDate     // For WHERE clause end
+                $this->endDate,    // For WHERE clause end
+                $this->organisationID  // For organisationID filter
             );
 
+            error_log("Executing SQL statement");
             if (!mysqli_stmt_execute($stmt)) {
-                throw new Exception("Database execute failed");
+                error_log("Database execute failed: " . mysqli_stmt_error($stmt));
+                throw new Exception("Database execute failed: " . mysqli_stmt_error($stmt));
             }
 
             $result = mysqli_stmt_get_result($stmt);
@@ -125,6 +138,8 @@ ORDER BY
                 $data[] = $row;
             }
 
+            error_log("Query returned $countEmployee rows for organisationID: " . $this->organisationID . ", date range: " . $this->startDate . " to " . $this->endDate);
+
             if ($countEmployee > 0) {
                 echo json_encode([
                     "status" => "success",  
@@ -133,7 +148,7 @@ ORDER BY
             } else {
                 echo json_encode([
                     "status" => "error",
-                    "message_text" => "No data found for any employee"
+                    "message_text" => "No data found for any employee for organisationID: " . $this->organisationID . " and date range: " . $this->startDate . " to " . $this->endDate
                 ], JSON_FORCE_OBJECT);
             }
 
@@ -1660,7 +1675,6 @@ ORDER BY
                     e.employeeName,
                     e.Designation,
                     COALESCE(attendance_stats.present_days, 0) as present_days,
-                    COALESCE(attendance_stats.absent_days, 0) as absent_days,
                     COALESCE(leave_stats.leave_days, 0) as leave_days,
                     COALESCE(attendance_stats.late_checkins, 0) as late_checkins,
                     COALESCE(attendance_stats.early_checkouts, 0) as early_checkouts,
@@ -1674,7 +1688,6 @@ ORDER BY
                     SELECT 
                         a.employeeID,
                         COUNT(CASE WHEN a.checkInTime IS NOT NULL THEN 1 END) as present_days,
-                        COUNT(CASE WHEN a.checkInTime IS NULL THEN 1 END) as absent_days,
                         COUNT(CASE WHEN a.isLateCheckIN = 1 THEN 1 END) as late_checkins,
                         COUNT(CASE WHEN a.isEarlyCheckOut = 1 THEN 1 END) as early_checkouts,
                         COUNT(CASE WHEN a.isAutoCheckout = 1 THEN 1 END) as auto_checkouts,
@@ -1732,7 +1745,7 @@ ORDER BY
                     e.isActive = 1 AND
                     e.isTemporary = 0
                 ORDER BY 
-                    COALESCE(attendance_stats.absent_days, 0) DESC, e.employeeName ASC";
+                    e.employeeName ASC";
 
             $stmt = mysqli_prepare($connect_var, $query);
             if (!$stmt) {
@@ -1759,6 +1772,18 @@ ORDER BY
             $result = mysqli_stmt_get_result($stmt);
             $checkoutReport = [];
             while ($row = mysqli_fetch_assoc($result)) {
+                // Calculate absent days correctly: Total working days - Present days - Leave days
+                $presentDays = (int)$row['present_days'];
+                $leaveDays = (int)$row['leave_days'];
+                
+                // Calculate total working days for the month (excluding weekends and holidays)
+                $totalWorkingDays = $this->calculateWorkingDays($monthStart, $monthEnd);
+                
+                // Calculate absent days
+                $absentDays = $totalWorkingDays - $presentDays - $leaveDays;
+                if ($absentDays < 0) $absentDays = 0;
+                
+                $row['absent_days'] = $absentDays;
                 $checkoutReport[] = $row;
             }
 
@@ -1789,6 +1814,28 @@ ORDER BY
                 "message_text" => $e->getMessage()
             ], JSON_FORCE_OBJECT);
         }
+    }
+
+    private function calculateWorkingDays($startDate, $endDate) {
+        $workingDays = 0;
+        $currentDate = new DateTime($startDate);
+        $endDateTime = new DateTime($endDate);
+        
+        while ($currentDate <= $endDateTime) {
+            $dayOfWeek = $currentDate->format('N'); // 1 (Monday) through 7 (Sunday)
+            
+            // Skip weekends (Saturday = 6, Sunday = 7)
+            if ($dayOfWeek < 6) {
+                // Check if it's not a holiday
+                if (!$this->isHoliday($currentDate->format('Y-m-d'), $GLOBALS['connect_var'])) {
+                    $workingDays++;
+                }
+            }
+            
+            $currentDate->add(new DateInterval('P1D'));
+        }
+        
+        return $workingDays;
     }
 
     public function DebugAutoCheckoutRecords() {

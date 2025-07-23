@@ -1,4 +1,6 @@
 <?php
+require_once 'ReportsComponent.php';
+
 $f3->route('POST /GetAttendanceReport',
     function($f3) {
         header('Content-Type: application/json');
@@ -113,6 +115,88 @@ $f3->route('POST /GetDailyCheckoutReport',
         }
     }
 );
+
+function GetAttendanceReport($decoded_items) {
+    // Debug logging
+    error_log("GetAttendanceReport router called with data: " . json_encode($decoded_items));
+    
+    $ReportsObject = new ReportsComponent();
+    if (!isset($decoded_items['organisationID'])) {
+        echo json_encode(array("status" => "error", "message_text" => "Missing organisationID parameter"), JSON_FORCE_OBJECT);
+        return;
+    }
+    
+    if (!isset($decoded_items['startDate'])) {
+        echo json_encode(array("status" => "error", "message_text" => "Missing startDate parameter"), JSON_FORCE_OBJECT);
+        return;
+    }
+    
+    if (!isset($decoded_items['endDate'])) {
+        echo json_encode(array("status" => "error", "message_text" => "Missing endDate parameter"), JSON_FORCE_OBJECT);
+        return;
+    }
+    
+    error_log("All parameters present, calling loadOrganisationID and loadReportsforGivenDate");
+    
+    if ($ReportsObject->loadOrganisationID($decoded_items) && 
+        $ReportsObject->loadReportsforGivenDate($decoded_items)) {
+        error_log("Data loaded successfully, calling GetAttendanceReport");
+        $ReportsObject->GetAttendanceReport();
+    } else {
+        error_log("Failed to load data into ReportsObject");
+        echo json_encode(array("status" => "error", "message_text" => "Invalid input parameters"), JSON_FORCE_OBJECT);
+    }
+}
+
+function GetSectionWiseAttendanceReport($decoded_items) {
+    $ReportsObject = new ReportsComponent();
+    if (!isset($decoded_items['organisationID'])) {
+        echo json_encode(array("status" => "error", "message_text" => "Missing organisationID parameter"), JSON_FORCE_OBJECT);
+        return;
+    }
+    
+    if (!isset($decoded_items['startDate'])) {
+        echo json_encode(array("status" => "error", "message_text" => "Missing startDate parameter"), JSON_FORCE_OBJECT);
+        return;
+    }
+    
+    if (!isset($decoded_items['endDate'])) {
+        echo json_encode(array("status" => "error", "message_text" => "Missing endDate parameter"), JSON_FORCE_OBJECT);
+        return;
+    }
+    
+    if ($ReportsObject->loadOrganisationID($decoded_items) && 
+        $ReportsObject->loadReportsforGivenDate($decoded_items)) {
+        $ReportsObject->GetSectionWiseAttendanceReport();
+    } else {
+        echo json_encode(array("status" => "error", "message_text" => "Invalid input parameters"), JSON_FORCE_OBJECT);
+    }
+}
+
+function GetLeaveReport($decoded_items) {
+    $ReportsObject = new ReportsComponent();
+    if (!isset($decoded_items['organisationID'])) {
+        echo json_encode(array("status" => "error", "message_text" => "Missing organisationID parameter"), JSON_FORCE_OBJECT);
+        return;
+    }
+    
+    if (!isset($decoded_items['startDate'])) {
+        echo json_encode(array("status" => "error", "message_text" => "Missing startDate parameter"), JSON_FORCE_OBJECT);
+        return;
+    }
+    
+    if (!isset($decoded_items['endDate'])) {
+        echo json_encode(array("status" => "error", "message_text" => "Missing endDate parameter"), JSON_FORCE_OBJECT);
+        return;
+    }
+    
+    if ($ReportsObject->loadOrganisationID($decoded_items) && 
+        $ReportsObject->loadReportsforGivenDate($decoded_items)) {
+        $ReportsObject->GetLeaveReport();
+    } else {
+        echo json_encode(array("status" => "error", "message_text" => "Invalid input parameters"), JSON_FORCE_OBJECT);
+    }
+}
 
 function GetManagementLeaveReport($decoded_items) {
     $ReportsObject = new ReportsComponent();
