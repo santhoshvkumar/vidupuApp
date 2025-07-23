@@ -76,7 +76,8 @@ class ApproveLeaveMaster {
                 tblL.MedicalCertificatePath,
                 tblL.FitnessCertificatePath,
                 DATEDIFF(tblL.toDate, tblL.fromDate) + 1 as NoOfDays,
-                tblL.leaveDuration
+                tblL.leaveDuration,
+                'leave' as recordType
             FROM 
                 tblEmployee tblE
             INNER JOIN 
@@ -145,10 +146,7 @@ class ApproveLeaveMaster {
                 throw new Exception("Database connection failed");
             }
 
-            // Log initial request details once
-            error_log("Processing leave request - ID: " . $this->applyLeaveID . 
-                     ", Type: " . ($this->isCompOff ? "Comp Off" : "Regular Leave") . 
-                     ", Status: " . $this->status);
+
 
             //added for comp off Leave approval
             if ($this->isCompOff) {
@@ -194,7 +192,8 @@ class ApproveLeaveMaster {
                             throw new Exception("Failed to update leave balance: " . mysqli_error($connect_var));
                         }
                         mysqli_stmt_close($stmtBalance);
-                    }
+                        
+
 
                     mysqli_stmt_close($stmt);
                     mysqli_commit($connect_var);
@@ -207,7 +206,6 @@ class ApproveLeaveMaster {
 
                 } catch (Exception $e) {
                     mysqli_rollback($connect_var);
-                    error_log("Error in comp off processing: " . $e->getMessage());
                     throw $e;
                 }
             }
@@ -723,7 +721,8 @@ class ApproveLeaveMaster {
                 NULL as MedicalCertificatePath,
                 NULL as FitnessCertificatePath,
                 1 as NoOfDays,
-                1 as leaveDuration
+                1 as leaveDuration,
+                'compoff' as recordType
             FROM 
                 tblEmployee tblE
             INNER JOIN 

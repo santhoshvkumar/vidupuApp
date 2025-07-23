@@ -26,9 +26,6 @@ class ApplyLeaveMaster {
     }
 
     public function loadApplyLeaveDetails(array $data) {
-        // Log the incoming data for debugging
-        error_log("loadApplyLeaveDetails: Received data: " . json_encode($data));
-        
         $this->empID = $data['empID'];
         $this->fromDate = $data['fromDate'];
         $this->toDate = $data['toDate'];
@@ -37,9 +34,9 @@ class ApplyLeaveMaster {
         $this->leaveReason = $data['leaveReason'];
         $this->organisationID = $data['organisationID'] ?? null; // Make organisationID optional
         
-        // Log if organisationID is missing
-        if (empty($this->organisationID)) {
-            error_log("loadApplyLeaveDetails: organisationID not provided, will fetch from database for employee: " . $this->empID);
+        // Handle Comp Off ID
+        if (isset($data['compOffID'])) {
+            $this->compOffID = $data['compOffID'];
         }
         
         if (isset($data['MedicalCertificatePath'])) {
@@ -201,8 +198,6 @@ class ApplyLeaveMaster {
         try {
             // If organisationID is not provided, get it from employee mapping
             if (empty($this->organisationID)) {
-                error_log("applyForLeave: organisationID not provided, fetching from database for employee: " . $this->empID);
-                
                 $orgQuery = "SELECT organisationID FROM tblmapEmp WHERE employeeID = ? LIMIT 1";
                 $orgStmt = mysqli_prepare($connect_var, $orgQuery);
                 mysqli_stmt_bind_param($orgStmt, "s", $this->empID);
@@ -211,15 +206,11 @@ class ApplyLeaveMaster {
                 
                 if ($orgRow = mysqli_fetch_assoc($orgResult)) {
                     $this->organisationID = $orgRow['organisationID'];
-                    error_log("applyForLeave: Found organisationID: " . $this->organisationID . " for employee: " . $this->empID);
                 } else {
                     // Default to organisation ID 1 if not found
                     $this->organisationID = 1;
-                    error_log("applyForLeave: No organisationID found in database, using default: 1 for employee: " . $this->empID);
                 }
                 mysqli_stmt_close($orgStmt);
-            } else {
-                error_log("applyForLeave: Using provided organisationID: " . $this->organisationID . " for employee: " . $this->empID);
             }
             
             // Map leave types to their balance columns
@@ -254,16 +245,13 @@ class ApplyLeaveMaster {
                                 WHERE employeeID = '$this->empID'";
             $balanceResult = mysqli_query($connect_var, $queryLeaveBalance);
             if (!$balanceResult) {
-                error_log("Balance query failed: " . mysqli_error($connect_var));
                 throw new Exception("Database query failed");
             }
             
             if ($row = mysqli_fetch_assoc($balanceResult)) {
                 $currentBalance = floatval($row['balance'] ?: 0);
-                error_log("Current balance: " . $currentBalance);
             } else {
                 $currentBalance = 0;
-                error_log("No balance found");
             }
 
             // Now check used leaves - handle PL types specially
@@ -289,7 +277,6 @@ class ApplyLeaveMaster {
             
             $pendingResult = mysqli_query($connect_var, $queryPendingAndUsed);
             if (!$pendingResult) {
-                error_log("Used leaves query failed: " . mysqli_error($connect_var));
                 throw new Exception("Database query failed");
             }
             
@@ -307,9 +294,6 @@ class ApplyLeaveMaster {
             
             // Check if new application would exceed balance
             $totalRequested = $totalUsedAndPending + $this->leaveDuration;
-            error_log("Total requested (used+pending+new): " . $totalRequested . 
-                      " (used+pending: " . $totalUsedAndPending . 
-                      ", new: " . $this->leaveDuration . ")");
             
             if ($totalRequested > $currentBalance) {
                 $errorMessage = "Cannot apply for leave. You have already applied for " . 
@@ -319,8 +303,6 @@ class ApplyLeaveMaster {
                 if ($isPLType) {
                     $errorMessage .= " Insufficient Privilege Leave Balance.";
                 }
-                
-                error_log("Validation failed: " . $errorMessage);
                 
                 echo json_encode(array(
                     "status" => "warning",
@@ -342,9 +324,30 @@ class ApplyLeaveMaster {
                                     OR ('$this->fromDate' BETWEEN fromDate AND toDate)
                                 )";
             
+            // For Comp Off, also check if the comp off is already used
+            if ($this->leaveType === 'Compensatory Off' && isset($this->compOffID)) {
+                $queryCheckCompOff = "SELECT isUsed FROM tblCompOff WHERE compOffID = ?";
+                $compOffStmt = mysqli_prepare($connect_var, $queryCheckCompOff);
+                mysqli_stmt_bind_param($compOffStmt, "i", $this->compOffID);
+                mysqli_stmt_execute($compOffStmt);
+                $compOffResult = mysqli_stmt_get_result($compOffStmt);
+                
+                if ($compOffRow = mysqli_fetch_assoc($compOffResult)) {
+                    if ($compOffRow['isUsed'] == 1) {
+                        echo json_encode(array(
+                            "status" => "error",
+                            "message_text" => "This compensatory off has already been used"
+                        ), JSON_FORCE_OBJECT);
+                        mysqli_stmt_close($compOffStmt);
+                        mysqli_close($connect_var);
+                        return;
+                    }
+                }
+                mysqli_stmt_close($compOffStmt);
+            }
+            
             $overlapResult = mysqli_query($connect_var, $queryCheckOverlap);
             if (!$overlapResult) {
-                error_log("Error in overlap check query: " . mysqli_error($connect_var));
                 throw new Exception("Database query failed");
             }
             
@@ -669,7 +672,34 @@ class ApplyLeaveMaster {
                     // If no exact overlap, allow the consecutive leave of the same type
                 }
             }
-            if ($this->MedicalCertificatePath !== null && $this->MedicalCertificatePath !== 'null') {
+            // Handle Comp Off specific logic
+            if ($this->leaveType === 'Compensatory Off' && isset($this->compOffID)) {
+                // For Comp Off, we need to update the comp off record and insert leave
+                $queryApplyLeave = "INSERT INTO tblApplyLeave (
+                    employeeID, 
+                    organisationID,
+                    fromDate, 
+                    toDate, 
+                    leaveDuration, 
+                    typeOfLeave, 
+                    reason, 
+                    createdOn, 
+                    status,
+                    compOffID
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_DATE(), 'Yet To Be Approved', ?)";
+                
+                $stmt = mysqli_prepare($connect_var, $queryApplyLeave);
+                mysqli_stmt_bind_param($stmt, "sisssssi",
+                    $this->empID,
+                    $this->organisationID,
+                    $this->fromDate,
+                    $this->toDate,
+                    $this->leaveDuration,
+                    $this->leaveType,
+                    $this->leaveReason,
+                    $this->compOffID
+                );
+            } else if ($this->MedicalCertificatePath !== null && $this->MedicalCertificatePath !== 'null') {
                 $queryApplyLeave = "INSERT INTO tblApplyLeave (
                     employeeID, 
                     organisationID,
@@ -721,6 +751,15 @@ class ApplyLeaveMaster {
             }
 
             if (mysqli_stmt_execute($stmt)) {
+                // For Comp Off, mark the comp off as used
+                if ($this->leaveType === 'Compensatory Off' && isset($this->compOffID)) {
+                    $updateCompOffQuery = "UPDATE tblCompOff SET isUsed = 1, usedOn = CURRENT_DATE() WHERE compOffID = ?";
+                    $updateStmt = mysqli_prepare($connect_var, $updateCompOffQuery);
+                    mysqli_stmt_bind_param($updateStmt, "i", $this->compOffID);
+                    mysqli_stmt_execute($updateStmt);
+                    mysqli_stmt_close($updateStmt);
+                }
+                
                 echo json_encode(array(
                     "status" => "success",
                     "message" => "Leave application submitted successfully",
