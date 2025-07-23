@@ -191,9 +191,8 @@ class ApproveLeaveMaster {
                         if (!mysqli_stmt_execute($stmtBalance)) {
                             throw new Exception("Failed to update leave balance: " . mysqli_error($connect_var));
                         }
-                        mysqli_stmt_close($stmtBalance);
-                        
-
+                                            mysqli_stmt_close($stmtBalance);
+                    }
 
                     mysqli_stmt_close($stmt);
                     mysqli_commit($connect_var);
