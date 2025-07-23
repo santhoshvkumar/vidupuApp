@@ -16,6 +16,16 @@ class OrganisationComponent {
     public $isActive;
 
     public function loadOrganisationDetails(array $data) {
+        // Debug: Log received data
+        error_log("Received organisation data: " . json_encode($data));
+        
+        // Validate required fields
+        $validationErrors = $this->validateOrganisationData($data);
+        if (!empty($validationErrors)) {
+            error_log("Validation errors: " . json_encode($validationErrors));
+            return false;
+        }
+        
         // Check if required fields exist (excluding organisationLogo since it's optional)
         if (isset($data['organisationName']) && isset($data['website']) && 
             isset($data['emailID']) && isset($data['contactPerson1Name']) && 
@@ -106,16 +116,188 @@ class OrganisationComponent {
             return true;
         } else {
             // Debug: Log what data was received
+            error_log("Missing required fields. Received data keys: " . implode(', ', array_keys($data)));
+            error_log("Missing fields check:");
+            error_log("- organisationName: " . (isset($data['organisationName']) ? 'present' : 'missing'));
+            error_log("- website: " . (isset($data['website']) ? 'present' : 'missing'));
+            error_log("- emailID: " . (isset($data['emailID']) ? 'present' : 'missing'));
+            error_log("- contactPerson1Name: " . (isset($data['contactPerson1Name']) ? 'present' : 'missing'));
+            error_log("- contactPerson1Email: " . (isset($data['contactPerson1Email']) ? 'present' : 'missing'));
+            error_log("- contactPerson1Phone: " . (isset($data['contactPerson1Phone']) ? 'present' : 'missing'));
+            error_log("- contactPerson2Name: " . (isset($data['contactPerson2Name']) ? 'present' : 'missing'));
+            error_log("- contactPerson2Email: " . (isset($data['contactPerson2Email']) ? 'present' : 'missing'));
+            error_log("- contactPerson2Phone: " . (isset($data['contactPerson2Phone']) ? 'present' : 'missing'));
             return false;
         }
+    }
+
+    /**
+     * Validate organisation data
+     * @param array $data
+     * @return array Validation errors
+     */
+    private function validateOrganisationData($data) {
+        $errors = [];
+        
+        // Sanitize inputs
+        $data = array_map(function($value) {
+            return is_string($value) ? trim(htmlspecialchars($value, ENT_QUOTES, 'UTF-8')) : $value;
+        }, $data);
+        
+        // Required field validations
+        if (empty($data['organisationName']) || strlen(trim($data['organisationName'])) < 2) {
+            $errors[] = 'Organisation name is required and must be at least 2 characters long';
+        } elseif (strlen($data['organisationName']) > 100) {
+            $errors[] = 'Organisation name must be less than 100 characters';
+        }
+        
+        // Check for XSS and SQL injection attempts
+        if (!empty($data['organisationName']) && (strpos($data['organisationName'], '<script>') !== false || 
+            strpos($data['organisationName'], 'javascript:') !== false || 
+            strpos($data['organisationName'], 'onload=') !== false)) {
+            $errors[] = 'Organisation name contains invalid characters';
+        }
+        
+        if (empty($data['contactPerson1Name']) || strlen(trim($data['contactPerson1Name'])) < 2) {
+            $errors[] = 'Contact Person 1 name is required and must be at least 2 characters long';
+        } elseif (strlen($data['contactPerson1Name']) > 50) {
+            $errors[] = 'Contact Person 1 name must be less than 50 characters';
+        }
+        
+        if (empty($data['contactPerson1Email'])) {
+            $errors[] = 'Contact Person 1 email is required';
+        } elseif (!filter_var($data['contactPerson1Email'], FILTER_VALIDATE_EMAIL)) {
+            $errors[] = 'Contact Person 1 email is invalid';
+        } elseif (strlen($data['contactPerson1Email']) > 100) {
+            $errors[] = 'Contact Person 1 email must be less than 100 characters';
+        }
+        
+        if (empty($data['contactPerson1Phone'])) {
+            $errors[] = 'Contact Person 1 phone is required';
+        } elseif (!$this->validatePhoneNumber($data['contactPerson1Phone'])) {
+            $errors[] = 'Contact Person 1 phone number is invalid';
+        } elseif (strlen($data['contactPerson1Phone']) > 20) {
+            $errors[] = 'Contact Person 1 phone must be less than 20 characters';
+        }
+        
+        // Optional field validations
+        if (!empty($data['website']) && !filter_var($data['website'], FILTER_VALIDATE_URL)) {
+            $errors[] = 'Website URL is invalid';
+        } elseif (!empty($data['website']) && strlen($data['website']) > 200) {
+            $errors[] = 'Website URL must be less than 200 characters';
+        }
+        
+        if (!empty($data['emailID']) && !filter_var($data['emailID'], FILTER_VALIDATE_EMAIL)) {
+            $errors[] = 'Organisation email is invalid';
+        } elseif (!empty($data['emailID']) && strlen($data['emailID']) > 100) {
+            $errors[] = 'Organisation email must be less than 100 characters';
+        }
+        
+        if (!empty($data['contactPerson2Name']) && strlen($data['contactPerson2Name']) > 50) {
+            $errors[] = 'Contact Person 2 name must be less than 50 characters';
+        }
+        
+        if (!empty($data['contactPerson2Email']) && !filter_var($data['contactPerson2Email'], FILTER_VALIDATE_EMAIL)) {
+            $errors[] = 'Contact Person 2 email is invalid';
+        } elseif (!empty($data['contactPerson2Email']) && strlen($data['contactPerson2Email']) > 100) {
+            $errors[] = 'Contact Person 2 email must be less than 100 characters';
+        }
+        
+        if (!empty($data['contactPerson2Phone']) && !$this->validatePhoneNumber($data['contactPerson2Phone'])) {
+            $errors[] = 'Contact Person 2 phone number is invalid';
+        } elseif (!empty($data['contactPerson2Phone']) && strlen($data['contactPerson2Phone']) > 20) {
+            $errors[] = 'Contact Person 2 phone must be less than 20 characters';
+        }
+        
+        // Check for duplicate organisation name
+        if (!empty($data['organisationName'])) {
+            $duplicateCheck = $this->checkDuplicateOrganisationName($data['organisationName'], isset($data['organisationID']) ? $data['organisationID'] : null);
+            if ($duplicateCheck) {
+                $errors[] = 'An organisation with this name already exists';
+            }
+        }
+        
+        return $errors;
+    }
+    
+    /**
+     * Validate phone number
+     * @param string $phone
+     * @return bool
+     */
+    private function validatePhoneNumber($phone) {
+        // Remove spaces, dashes, and parentheses
+        $cleanPhone = preg_replace('/[\s\-\(\)]/', '', $phone);
+        
+        // Check if it's a valid phone number (7-15 digits, optionally starting with +)
+        return preg_match('/^[\+]?[1-9][\d]{6,14}$/', $cleanPhone);
+    }
+    
+    /**
+     * Check for duplicate organisation name
+     * @param string $organisationName
+     * @param int|null $excludeId
+     * @return bool
+     */
+    private function checkDuplicateOrganisationName($organisationName, $excludeId = null) {
+        include('config.inc');
+        
+        $query = "SELECT COUNT(*) as count FROM tblOrganisation WHERE organisationName = ?";
+        $params = [$organisationName];
+        $types = "s";
+        
+        if ($excludeId) {
+            $query .= " AND organisationID != ?";
+            $params[] = $excludeId;
+            $types .= "i";
+        }
+        
+        $stmt = mysqli_prepare($connect_var, $query);
+        if ($stmt) {
+            mysqli_stmt_bind_param($stmt, $types, ...$params);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+            $row = mysqli_fetch_assoc($result);
+            mysqli_stmt_close($stmt);
+            
+            return $row['count'] > 0;
+        }
+        
+        return false;
     }
 
     public function CreateOrganisation() {
         include('config.inc');
         header('Content-Type: application/json');
     
+        error_log("CreateOrganisation function called");
+        
         try {
             $data = [];
+            
+            // Validate the data before processing
+            $validationData = [
+                'organisationName' => $this->organisationName ?? '',
+                'website' => $this->website ?? '',
+                'emailID' => $this->emailID ?? '',
+                'contactPerson1Name' => $this->contactPerson1Name ?? '',
+                'contactPerson1Email' => $this->contactPerson1Email ?? '',
+                'contactPerson1Phone' => $this->contactPerson1Phone ?? '',
+                'contactPerson2Name' => $this->contactPerson2Name ?? '',
+                'contactPerson2Email' => $this->contactPerson2Email ?? '',
+                'contactPerson2Phone' => $this->contactPerson2Phone ?? '',
+                'organisationID' => $this->organisationID ?? null
+            ];
+            
+            $validationErrors = $this->validateOrganisationData($validationData);
+            if (!empty($validationErrors)) {
+                echo json_encode(array(
+                    "status" => "error",
+                    "message" => "Validation failed",
+                    "errors" => $validationErrors
+                ));
+                return;
+            }
     
             $queryCreateOrganisation = "INSERT INTO tblOrganisation (
                 organisationName, organisationLogo, website, emailID, 
@@ -253,6 +435,30 @@ class OrganisationComponent {
     
         try {
             $data = [];
+            
+            // Validate the data before processing
+            $validationData = [
+                'organisationName' => $this->organisationName ?? '',
+                'website' => $this->website ?? '',
+                'emailID' => $this->emailID ?? '',
+                'contactPerson1Name' => $this->contactPerson1Name ?? '',
+                'contactPerson1Email' => $this->contactPerson1Email ?? '',
+                'contactPerson1Phone' => $this->contactPerson1Phone ?? '',
+                'contactPerson2Name' => $this->contactPerson2Name ?? '',
+                'contactPerson2Email' => $this->contactPerson2Email ?? '',
+                'contactPerson2Phone' => $this->contactPerson2Phone ?? '',
+                'organisationID' => $this->organisationID ?? null
+            ];
+            
+            $validationErrors = $this->validateOrganisationData($validationData);
+            if (!empty($validationErrors)) {
+                echo json_encode(array(
+                    "status" => "error",
+                    "message" => "Validation failed",
+                    "errors" => $validationErrors
+                ));
+                return;
+            }
     
             $queryUpdateOrganisation = "UPDATE tblOrganisation SET 
                 organisationName = ?,
