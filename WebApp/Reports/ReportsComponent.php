@@ -280,7 +280,8 @@ l.createdOn AS Applied_On,
 l.status AS Status, 
 l.fromDate AS From_Date, 
 l.toDate AS To_Date,
-l.typeOfLeave AS Type_Of_Leave
+l.typeOfLeave AS Type_Of_Leave,
+l.reason AS Reason
 FROM tblEmployee AS e
 JOIN tblApplyLeave AS l ON e.employeeID = l.employeeID
 JOIN tblmapEmp AS m ON e.employeeID = m.employeeID
@@ -307,7 +308,8 @@ l.createdOn AS Applied_On,
 l.status AS Status, 
 l.fromDate AS From_Date, 
 l.toDate AS To_Date,
-l.typeOfLeave AS Type_Of_Leave
+l.typeOfLeave AS Type_Of_Leave,
+l.reason AS Reason
 FROM tblEmployee AS e
 JOIN tblApplyLeave AS l ON e.employeeID = l.employeeID
 JOIN tblmapEmp AS m ON e.employeeID = m.employeeID

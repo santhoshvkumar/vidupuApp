@@ -384,7 +384,7 @@ class AttendanceOperationMaster{
                     // No attendance records found, do not allow cancellation
                     echo json_encode(array(
                         "status" => "error",
-                        "message" => "Cannot cancel leave. No attendance records found for the leave period. You must have checked in on at least one day during the leave period to cancel."
+                        "message" => "Cannot cancel leave.No attendance record(s) found for the leave period. You must have checked in on the day of the leave to cancel."
                     ));
                 }
             } else {
