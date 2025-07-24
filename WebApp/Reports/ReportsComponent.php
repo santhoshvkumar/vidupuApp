@@ -61,9 +61,11 @@ $queryforGetAttendanceReport = "SELECT DISTINCT
        WHEN EXISTS (
            SELECT 1
            FROM tblApplyLeave al
+           JOIN tblmapEmp map ON al.employeeID = map.employeeID
            WHERE al.employeeID = e.employeeID
              AND DATE_ADD(?, INTERVAL n.num DAY) BETWEEN al.fromDate AND al.toDate
              AND al.Status = 'Approved'
+             AND map.organisationID = ?
        ) THEN 'Leave'
        ELSE 'Absent'
    END AS Status,
@@ -103,9 +105,10 @@ if (!$stmt) {
 throw new Exception("Database prepare failed");
 }
 
-mysqli_stmt_bind_param($stmt, "ssssssss", 
+mysqli_stmt_bind_param($stmt, "sssssssss", 
 $this->startDate,  // For attendanceDate
 $this->startDate,  // For leave check
+$this->organisationID,  // For organisationID in leave check
 $this->endDate,    // For DATEDIFF
 $this->startDate,  // For DATEDIFF
 $this->startDate,  // For attendance join
@@ -165,9 +168,11 @@ $queryforGetAttendanceReport = "SELECT DISTINCT
        WHEN EXISTS (
            SELECT 1
            FROM tblApplyLeave al
+           JOIN tblmapEmp map ON al.employeeID = map.employeeID
            WHERE al.employeeID = e.employeeID
              AND DATE_ADD(?, INTERVAL n.num DAY) BETWEEN al.fromDate AND al.toDate
              AND al.Status = 'Approved'
+             AND map.organisationID = ?
        ) THEN 'Leave'
        ELSE 'Absent'
    END AS Status,
@@ -210,9 +215,10 @@ if (!$stmt) {
 throw new Exception("Database prepare failed");
 }
 
-mysqli_stmt_bind_param($stmt, "ssssssss", 
+mysqli_stmt_bind_param($stmt, "sssssssss", 
 $this->startDate,  // For attendanceDate
 $this->startDate,  // For leave check
+$this->organisationID,  // For organisationID in leave check
 $this->endDate,    // For DATEDIFF
 $this->startDate,  // For DATEDIFF
 $this->startDate,  // For attendance join
@@ -258,34 +264,91 @@ include('config.inc');
 header('Content-Type: application/json');
 try {
 $data = [];
+
+
+if (!empty($this->organisationID)) {
 $queryforGetLeaveReport = "SELECT 
-   e.empID AS Employee_ID, 
-   e.employeeName AS Employee_Name, 
-   e.Designation, 
-   e.employeePhone AS Employee_Phone, 
-   b.branchName AS Branch_Name,
-   l.reason AS ReasonForLeave,
-   l.typeOfLeave AS Type_Of_Leave, 
-   l.leaveDuration AS Leave_Duration,
-   l.createdOn AS Applied_On, 
-   l.status AS Status, 
-   l.fromDate AS From_Date, 
-   l.toDate AS To_Date
+e.empID AS Employee_ID, 
+e.employeeName AS Employee_Name, 
+e.Designation, 
+e.employeePhone AS Employee_Phone, 
+b.branchName AS Branch_Name,
+l.MedicalCertificatePath AS Medical_Certificate_Path,
+l.FitnessCertificatePath AS Fitness_Certificate_Path,
+l.leaveDuration AS Leave_Duration,
+l.createdOn AS Applied_On, 
+l.status AS Status, 
+l.fromDate AS From_Date, 
+l.toDate AS To_Date,
+l.typeOfLeave AS Type_Of_Leave
 FROM tblEmployee AS e
 JOIN tblApplyLeave AS l ON e.employeeID = l.employeeID
 JOIN tblmapEmp AS m ON e.employeeID = m.employeeID
 JOIN tblBranch AS b ON m.branchID = b.branchID
-WHERE l.createdOn BETWEEN ? AND ?
+WHERE (
+(l.createdOn BETWEEN ? AND ?) OR
+(l.fromDate BETWEEN ? AND ?) OR
+(l.toDate BETWEEN ? AND ?) OR
+(l.fromDate <= ? AND l.toDate >= ?)
+)
+AND m.organisationID = ?
 ORDER BY l.createdOn DESC;";
+} else {
+$queryforGetLeaveReport = "SELECT 
+e.empID AS Employee_ID, 
+e.employeeName AS Employee_Name, 
+e.Designation, 
+e.employeePhone AS Employee_Phone, 
+b.branchName AS Branch_Name,
+l.MedicalCertificatePath AS Medical_Certificate_Path,
+l.FitnessCertificatePath AS Fitness_Certificate_Path,
+l.leaveDuration AS Leave_Duration,
+l.createdOn AS Applied_On, 
+l.status AS Status, 
+l.fromDate AS From_Date, 
+l.toDate AS To_Date,
+l.typeOfLeave AS Type_Of_Leave
+FROM tblEmployee AS e
+JOIN tblApplyLeave AS l ON e.employeeID = l.employeeID
+JOIN tblmapEmp AS m ON e.employeeID = m.employeeID
+JOIN tblBranch AS b ON m.branchID = b.branchID
+WHERE (
+(l.createdOn BETWEEN ? AND ?) OR
+(l.fromDate BETWEEN ? AND ?) OR
+(l.toDate BETWEEN ? AND ?) OR
+(l.fromDate <= ? AND l.toDate >= ?)
+)
+ORDER BY l.createdOn DESC;";
+}
 $stmt = mysqli_prepare($connect_var, $queryforGetLeaveReport);
 if (!$stmt) {
 throw new Exception("Database prepare failed");
 }
 
-mysqli_stmt_bind_param($stmt, "ss", 
-$this->startDate,
-$this->endDate
-);
+if (!empty($this->organisationID)) {
+    mysqli_stmt_bind_param($stmt, "ssssssssi", 
+    $this->startDate,  // For createdOn BETWEEN
+    $this->endDate,    // For createdOn BETWEEN
+    $this->startDate,  // For fromDate BETWEEN
+    $this->endDate,    // For fromDate BETWEEN
+    $this->startDate,  // For toDate BETWEEN
+    $this->endDate,    // For toDate BETWEEN
+    $this->startDate,  // For fromDate <= startDate
+    $this->endDate,    // For toDate >= endDate
+    $this->organisationID
+    );
+} else {
+    mysqli_stmt_bind_param($stmt, "ssssssss", 
+    $this->startDate,  // For createdOn BETWEEN
+    $this->endDate,    // For createdOn BETWEEN
+    $this->startDate,  // For fromDate BETWEEN
+    $this->endDate,    // For fromDate BETWEEN
+    $this->startDate,  // For toDate BETWEEN
+    $this->endDate,    // For toDate BETWEEN
+    $this->startDate,  // For fromDate <= startDate
+    $this->endDate     // For toDate >= endDate
+    );
+}
 
 if (!mysqli_stmt_execute($stmt)) {
 throw new Exception("Database execute failed");
@@ -395,6 +458,7 @@ LEFT JOIN tblApplyLeave l
   AND DATE_ADD(?, INTERVAL n.n DAY) BETWEEN l.FromDate AND l.ToDate
 
 WHERE e.isActive = 1 AND e.isTemporary = 0
+ AND m.organisationID = ?
  AND DATE_ADD(?, INTERVAL n.n DAY) <= ?
 
 GROUP BY e.designation, n.n
@@ -423,7 +487,7 @@ if (!$stmt) {
 throw new Exception("Database prepare failed");
 }
 
-mysqli_stmt_bind_param($stmt, "sssssssssssss", 
+mysqli_stmt_bind_param($stmt, "ssssssssssssss", 
 $this->startDate,  // For attendanceDate
 $this->startDate,  // For HeadOffice_Leave
 $this->startDate,  // For HeadOffice_Leave
@@ -435,6 +499,7 @@ $this->startDate,  // For Branch_Absent
 $this->startDate,  // For Branch_Absent
 $this->startDate,  // For attendance join
 $this->startDate,  // For leave join
+$this->organisationID,  // For organisationID in WHERE clause
 $this->startDate,  // For WHERE clause
 $this->endDate     // For WHERE clause end
 );
@@ -1055,10 +1120,15 @@ $attendanceMap[$row['employeeID'] . '_' . $row['attendanceDate']] = $row['checkI
 }
 mysqli_stmt_close($stmt);
 
-// 4. Fetch all approved leaves for these employees up to today
-$leaveQuery = "SELECT employeeID, fromDate, toDate FROM tblApplyLeave WHERE employeeID IN (" . implode(",", array_fill(0, count($employeeIDs), '?')) . ") AND status = 'Approved' AND ((fromDate <= ? AND toDate >= ?) OR (fromDate >= ? AND fromDate <= ?))";
-$types = str_repeat('i', count($employeeIDs)) . 'ssss';
-$params = array_merge($employeeIDs, [$monthEnd, $monthStart, $monthStart, $monthEnd]);
+// 4. Fetch all approved leaves for these employees up to today using dashboard logic
+$leaveQuery = "SELECT employeeID, fromDate, toDate FROM tblApplyLeave al 
+               JOIN tblmapEmp map ON al.employeeID = map.employeeID 
+               WHERE al.employeeID IN (" . implode(",", array_fill(0, count($employeeIDs), '?')) . ") 
+               AND al.status = 'Approved' 
+               AND map.organisationID = ? 
+               AND ((al.fromDate <= ? AND al.toDate >= ?) OR (al.fromDate >= ? AND al.fromDate <= ?))";
+$types = str_repeat('i', count($employeeIDs)) . 'issss';
+$params = array_merge($employeeIDs, [$this->organisationID, $monthEnd, $monthStart, $monthStart, $monthEnd]);
 $stmt = mysqli_prepare($connect_var, $leaveQuery);
 mysqli_stmt_bind_param($stmt, $types, ...$params);
 mysqli_stmt_execute($stmt);
