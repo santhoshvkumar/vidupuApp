@@ -1094,7 +1094,7 @@ $workingDays = $totalWorkingDays;
 mysqli_stmt_close($stmt);
 
 // 2. Get all active, non-temporary employees for the org
-$employeeQuery = "SELECT employeeID FROM tblEmployee WHERE organisationID = ? AND isActive = 1 AND isTemporary = 0";
+$employeeQuery = "SELECT e.employeeID FROM tblEmployee e JOIN tblmapEmp m ON e.employeeID = m.employeeID WHERE m.organisationID = ? AND e.isActive = 1 AND e.isTemporary = 0";
 $stmt = mysqli_prepare($connect_var, $employeeQuery);
 mysqli_stmt_bind_param($stmt, "i", $this->organisationID);
 mysqli_stmt_execute($stmt);
@@ -1107,7 +1107,7 @@ mysqli_stmt_close($stmt);
 $totalEmployees = count($employeeIDs);
 
 // 3. Fetch all attendance records for these employees up to today
-$attendanceQuery = "SELECT employeeID, attendanceDate, checkInTime FROM tblAttendance WHERE employeeID IN (" . implode(",", array_fill(0, count($employeeIDs), '?')) . ") AND attendanceDate BETWEEN ? AND ?";
+$attendanceQuery = "SELECT a.employeeID, a.attendanceDate, a.checkInTime FROM tblAttendance a WHERE a.employeeID IN (" . implode(",", array_fill(0, count($employeeIDs), '?')) . ") AND a.attendanceDate BETWEEN ? AND ?";
 $types = str_repeat('i', count($employeeIDs)) . 'ss';
 $params = array_merge($employeeIDs, [$monthStart, $monthEnd]);
 $stmt = mysqli_prepare($connect_var, $attendanceQuery);
@@ -1121,7 +1121,7 @@ $attendanceMap[$row['employeeID'] . '_' . $row['attendanceDate']] = $row['checkI
 mysqli_stmt_close($stmt);
 
 // 4. Fetch all approved leaves for these employees up to today using dashboard logic
-$leaveQuery = "SELECT employeeID, fromDate, toDate FROM tblApplyLeave al 
+$leaveQuery = "SELECT al.employeeID, al.fromDate, al.toDate FROM tblApplyLeave al 
                JOIN tblmapEmp map ON al.employeeID = map.employeeID 
                WHERE al.employeeID IN (" . implode(",", array_fill(0, count($employeeIDs), '?')) . ") 
                AND al.status = 'Approved' 
@@ -1707,7 +1707,7 @@ public function GetMonthlyCheckoutReport() {
 include(dirname(__FILE__) . '/../../config.inc');
 header('Content-Type: application/json');
 try {
-// Get year and month
+// Get year and month - use current year
 $currentYear = date('Y');
 $selectedMonth = str_pad($this->selectedMonth, 2, '0', STR_PAD_LEFT);
 $monthStart = "$currentYear-$selectedMonth-01";
@@ -1722,6 +1722,28 @@ if ($isCurrentMonth) {
 $monthEnd = min($monthEnd, $currentDate);
 }
 
+
+
+// Calculate working days first
+$workingDaysQuery = "
+    SELECT COUNT(*) as total_working_days
+    FROM (
+        SELECT DATE(?) + INTERVAL (a.a + (10 * b.a) + (100 * c.a)) DAY as working_date
+        FROM (SELECT 0 as a UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) as a
+        CROSS JOIN (SELECT 0 as a UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) as b
+        CROSS JOIN (SELECT 0 as a UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) as c
+    ) date_range
+    WHERE working_date BETWEEN ? AND ?
+    AND DAYOFWEEK(working_date) NOT IN (1, 7)";
+
+$workingDaysStmt = mysqli_prepare($connect_var, $workingDaysQuery);
+mysqli_stmt_bind_param($workingDaysStmt, "sss", $monthStart, $monthStart, $monthEnd);
+mysqli_stmt_execute($workingDaysStmt);
+$workingDaysResult = mysqli_stmt_get_result($workingDaysStmt);
+$workingDaysRow = mysqli_fetch_assoc($workingDaysResult);
+$totalWorkingDays = $workingDaysRow['total_working_days'];
+mysqli_stmt_close($workingDaysStmt);
+
 $query = "
                SELECT 
                    (@row_number := @row_number + 1) as sNo,
@@ -1729,9 +1751,9 @@ $query = "
                    e.empID,
                    e.employeeName,
                    e.Designation,
-                   COALESCE(attendance_stats.present_days, 0) as present_days,
-                   COALESCE(attendance_stats.absent_days, 0) as absent_days,
+                   ? as total_working_days,
                    COALESCE(leave_stats.leave_days, 0) as leave_days,
+                   GREATEST(0, ? - COALESCE(leave_stats.leave_days, 0)) as absent_days,
                    COALESCE(attendance_stats.late_checkins, 0) as late_checkins,
                    COALESCE(attendance_stats.early_checkouts, 0) as early_checkouts,
                    COALESCE(attendance_stats.auto_checkouts, 0) as auto_checkouts,
@@ -1740,11 +1762,10 @@ $query = "
                    attendance_stats.auto_checkout_dates
                FROM 
                    tblEmployee e
+                   JOIN tblmapEmp emp_map ON e.employeeID = emp_map.employeeID
                LEFT JOIN (
                    SELECT 
                        a.employeeID,
-                       COUNT(CASE WHEN a.checkInTime IS NOT NULL THEN 1 END) as present_days,
-                       COUNT(CASE WHEN a.checkInTime IS NULL THEN 1 END) as absent_days,
                        COUNT(CASE WHEN a.isLateCheckIN = 1 THEN 1 END) as late_checkins,
                        COUNT(CASE WHEN a.isEarlyCheckOut = 1 THEN 1 END) as early_checkouts,
                        COUNT(CASE WHEN a.isAutoCheckout = 1 THEN 1 END) as auto_checkouts,
@@ -1774,9 +1795,10 @@ $query = "
                        ) as auto_checkout_dates
                    FROM 
                        tblAttendance a
+                   JOIN tblmapEmp m ON a.employeeID = m.employeeID
                    WHERE 
                        a.attendanceDate BETWEEN ? AND ?
-                       AND a.organisationID = ?
+                       AND m.organisationID = ?
                    GROUP BY 
                        a.employeeID
                ) attendance_stats ON e.employeeID = attendance_stats.employeeID
@@ -1788,17 +1810,14 @@ $query = "
                        tblApplyLeave al
                    WHERE 
                        al.status = 'Approved'
-                       AND (
-                           (al.fromDate >= ? AND al.fromDate <= ?) OR
-                           (al.toDate >= ? AND al.toDate <= ?) OR
-                           (al.fromDate <= ? AND al.toDate >= ?)
-                       )
+                       AND al.fromDate >= ?
+                       AND al.fromDate <= ?
                    GROUP BY 
                        al.employeeID
                ) leave_stats ON e.employeeID = leave_stats.employeeID,
                (SELECT @row_number := 0) r
                WHERE 
-                   e.organisationID = ? AND
+                   emp_map.organisationID = ? AND
                    e.isActive = 1 AND
                    e.isTemporary = 0
                ORDER BY 
@@ -1809,14 +1828,12 @@ if (!$stmt) {
 throw new Exception("Database prepare failed: " . mysqli_error($connect_var));
 }
 
-mysqli_stmt_bind_param($stmt, "ssissssssi", 
+mysqli_stmt_bind_param($stmt, "iisssssi", 
+$totalWorkingDays,
+$totalWorkingDays,
 $monthStart,
 $monthEnd,
 $this->organisationID,
-$monthStart,
-$monthEnd,
-$monthStart,
-$monthEnd,
 $monthStart,
 $monthEnd,
 $this->organisationID
@@ -1834,18 +1851,9 @@ $checkoutReport[] = $row;
 
 mysqli_stmt_close($stmt);
 
-            // Debug: Log the first few records to see the data structure
-            error_log("DEBUG - Monthly Checkout Report Data:");
-            error_log("Total records: " . count($checkoutReport));
-            if (count($checkoutReport) > 0) {
-                error_log("First record: " . print_r($checkoutReport[0], true));
-                // Check if auto_checkouts field exists in the first record
-                if (isset($checkoutReport[0]['auto_checkouts'])) {
-                    error_log("auto_checkouts field exists with value: " . $checkoutReport[0]['auto_checkouts']);
-                } else {
-                    error_log("auto_checkouts field is MISSING from the response");
-                }
-            }
+
+
+
 
 $response = [
 "status" => "success",
