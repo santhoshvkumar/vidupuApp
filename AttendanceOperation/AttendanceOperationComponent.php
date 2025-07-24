@@ -321,36 +321,99 @@ class AttendanceOperationMaster{
         include('config.inc');
         header('Content-Type: application/json');
         try{
-            $queryCancelLeave = "UPDATE tblApplyLeave 
-                SET status = CASE 
-                    WHEN status = 'Approved' THEN 'ReApplied'
-                    ELSE 'Cancelled'
-                END
-                WHERE applyLeaveID = ?";
-
-            
-
-            $stmt = mysqli_prepare($connect_var, $queryCancelLeave);
+            // First, get the leave details to check the dates and employee
+            $queryGetLeave = "SELECT employeeID, fromDate, toDate, status FROM tblApplyLeave WHERE applyLeaveID = ?";
+            $stmt = mysqli_prepare($connect_var, $queryGetLeave);
             mysqli_stmt_bind_param($stmt, "s", $this->applyLeaveID);
             mysqli_stmt_execute($stmt);
-            mysqli_stmt_close($stmt);
-
-            // Optional: Verify the update
-            if (mysqli_affected_rows($connect_var) > 0) {
-                echo json_encode(array(
-                    "status" => "success",
-                    "message" => "Leave cancelled successfully"
-                ));
-            } else {
+            $result = mysqli_stmt_get_result($stmt);
+            
+            if (mysqli_num_rows($result) == 0) {
                 echo json_encode(array(
                     "status" => "error",
-                    "message" => "Unable to cancel leave or leave not found"
+                    "message" => "Leave not found"
                 ));
+                mysqli_close($connect_var);
+                return;
             }
+            
+            $leaveData = mysqli_fetch_assoc($result);
+            $employeeID = $leaveData['employeeID'];
+            $fromDate = $leaveData['fromDate'];
+            $toDate = $leaveData['toDate'];
+            $status = $leaveData['status'];
+            
+            // Only check attendance for approved leaves
+            if ($status === 'Approved') {
+                // Check if there are any attendance records (check-in time) for the leave period
+                $queryCheckAttendance = "SELECT COUNT(*) as attendance_count 
+                                       FROM tblAttendance 
+                                       WHERE employeeID = ? 
+                                       AND attendanceDate BETWEEN ? AND ? 
+                                       AND checkInTime IS NOT NULL";
+                
+                $attendanceStmt = mysqli_prepare($connect_var, $queryCheckAttendance);
+                mysqli_stmt_bind_param($attendanceStmt, "sss", $employeeID, $fromDate, $toDate);
+                mysqli_stmt_execute($attendanceStmt);
+                $attendanceResult = mysqli_stmt_get_result($attendanceStmt);
+                $attendanceData = mysqli_fetch_assoc($attendanceResult);
+                $attendanceCount = $attendanceData['attendance_count'];
+                
+                if ($attendanceCount > 0) {
+                    // There are attendance records, allow cancellation
+                    $queryCancelLeave = "UPDATE tblApplyLeave 
+                        SET status = 'ReApplied'
+                        WHERE applyLeaveID = ?";
+                    
+                    $cancelStmt = mysqli_prepare($connect_var, $queryCancelLeave);
+                    mysqli_stmt_bind_param($cancelStmt, "s", $this->applyLeaveID);
+                    mysqli_stmt_execute($cancelStmt);
+                    
+                    if (mysqli_affected_rows($connect_var) > 0) {
+                        echo json_encode(array(
+                            "status" => "success",
+                            "message" => "Leave cancelled successfully. Attendance records found for the leave period."
+                        ));
+                    } else {
+                        echo json_encode(array(
+                            "status" => "error",
+                            "message" => "Unable to cancel leave"
+                        ));
+                    }
+                } else {
+                    // No attendance records found, do not allow cancellation
+                    echo json_encode(array(
+                        "status" => "error",
+                        "message" => "Cannot cancel leave. No attendance records found for the leave period. You must have checked in on at least one day during the leave period to cancel."
+                    ));
+                }
+            } else {
+                // For non-approved leaves, allow cancellation without attendance check
+                $queryCancelLeave = "UPDATE tblApplyLeave 
+                    SET status = 'Cancelled'
+                    WHERE applyLeaveID = ?";
+                
+                $cancelStmt = mysqli_prepare($connect_var, $queryCancelLeave);
+                mysqli_stmt_bind_param($cancelStmt, "s", $this->applyLeaveID);
+                mysqli_stmt_execute($cancelStmt);
+                
+                if (mysqli_affected_rows($connect_var) > 0) {
+                    echo json_encode(array(
+                        "status" => "success",
+                        "message" => "Leave cancelled successfully"
+                    ));
+                } else {
+                    echo json_encode(array(
+                        "status" => "error",
+                        "message" => "Unable to cancel leave"
+                    ));
+                }
+            }
+            
             mysqli_close($connect_var);
         }
         catch(Exception $e){
-            echo json_encode(array("status"=>"error","message_text"=>"Error Cancelling Leave"),JSON_FORCE_OBJECT);
+            echo json_encode(array("status"=>"error","message_text"=>"Error Cancelling Leave: " . $e->getMessage()),JSON_FORCE_OBJECT);
         }
     }
     public function autoCheckoutProcess() {
@@ -563,7 +626,8 @@ class AttendanceOperationMaster{
                 isHoliday,
                 holidayDescription,
                 isLeave,
-                isAbsent
+                isAbsent,
+                checkInBranchID
             FROM (
                 -- Attendance records
                 SELECT 
@@ -600,7 +664,8 @@ class AttendanceOperationMaster{
                     0 as isHoliday,
                     NULL as holidayDescription,
                     0 as isLeave,
-                    0 as isAbsent
+                    0 as isAbsent,
+                    a.checkInBranchID
                 FROM tblAttendance a
                 LEFT JOIN tblBranch b ON a.checkInBranchID = b.branchID
                 WHERE a.employeeID = ?
@@ -629,7 +694,8 @@ class AttendanceOperationMaster{
                     1 as isHoliday,
                     h.holiday as holidayDescription,
                     0 as isLeave,
-                    0 as isAbsent
+                    0 as isAbsent,
+                    NULL as checkInBranchID
                 FROM tblHoliday h
                 WHERE YEAR(h.date) = ?
                 AND MONTH(h.date) = ?
@@ -780,7 +846,8 @@ class AttendanceOperationMaster{
                                 'isHoliday' => 0,
                                 'holidayDescription' => NULL,
                                 'isLeave' => 1,
-                                'isAbsent' => 0
+                                'isAbsent' => 0,
+                                'checkInBranchID' => NULL
                             ];
                             
                             // Always override existing records with leave records (leave takes priority)
