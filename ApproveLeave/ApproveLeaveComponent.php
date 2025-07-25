@@ -76,7 +76,10 @@ class ApproveLeaveMaster {
                 tblL.MedicalCertificatePath,
                 tblL.FitnessCertificatePath,
                 DATEDIFF(tblL.toDate, tblL.fromDate) + 1 as NoOfDays,
-                tblL.leaveDuration,
+                CASE 
+                    WHEN tblL.status = 'ExtendedApplied' THEN tblL.leaveDuration + tblL.NoOfDaysExtend
+                    ELSE tblL.leaveDuration
+                END as leaveDuration,
                 'leave' as recordType
             FROM 
                 tblEmployee tblE
@@ -318,12 +321,31 @@ class ApproveLeaveMaster {
                             $stmt = mysqli_prepare($connect_var, $statusUpdateQuery);
                             mysqli_stmt_bind_param($stmt, "s", $this->applyLeaveID);
                         } else if ($this->status === 'Cancelled') {
-                            // Handle cancellation for any current status
-                            $statusUpdateQuery = "UPDATE tblApplyLeave 
-                                            SET status = 'Cancelled'
-                                            WHERE applyLeaveID = ?";
-                            $stmt = mysqli_prepare($connect_var, $statusUpdateQuery);
-                            mysqli_stmt_bind_param($stmt, "s", $this->applyLeaveID);
+                            // Handle cancellation based on current status
+                            if ($row['status'] === 'ExtendedApplied') {
+                                // For extended leaves, only cancel the extended portion
+                                // Revert to original approved leave with original duration
+                                $date = new DateTime($fromDate);
+                                $date->modify('+'.intval($leaveDuration - 1).' day');
+                                $originalToDate = $date->format('Y-m-d');
+                                
+                                $statusUpdateQuery = "UPDATE tblApplyLeave 
+                                                SET status = 'Approved', 
+                                                    isExtend = 0, 
+                                                    reasonForExtend = NULL, 
+                                                    NoOfDaysExtend = NULL, 
+                                                    toDate = '$originalToDate'
+                                                WHERE applyLeaveID = ?";
+                                $stmt = mysqli_prepare($connect_var, $statusUpdateQuery);
+                                mysqli_stmt_bind_param($stmt, "s", $this->applyLeaveID);
+                            } else {
+                                // For regular leaves, cancel the entire leave
+                                $statusUpdateQuery = "UPDATE tblApplyLeave 
+                                                SET status = 'Cancelled'
+                                                WHERE applyLeaveID = ?";
+                                $stmt = mysqli_prepare($connect_var, $statusUpdateQuery);
+                                mysqli_stmt_bind_param($stmt, "s", $this->applyLeaveID);
+                            }
                         }
 
                         if ($stmt && !mysqli_stmt_execute($stmt)) {
@@ -370,28 +392,47 @@ class ApproveLeaveMaster {
                             }
                         } else if ($this->status === 'Rejected' || $this->status === 'Cancelled') {
                             // For rejected/cancelled leaves, check if we need to restore balance
-                            if ($leaveType === 'Medical Leave' || $leaveType === 'Privilege Leave (Medical grounds)') {
-                                // For medical leaves, only restore if Fitness Certificate was present (meaning balance was deducted)
-                                if (!empty($FitnessCertificatePath) && $FitnessCertificatePath !== 'null') {
-                                    $balanceAction = 'restore';
-                                    error_log("Restoring balance for $leaveType (ID: $this->applyLeaveID) - Fitness Certificate was present.");
-                                } else {
-                                    $shouldUpdateBalance = false; // No balance was deducted, so no need to restore
-                                    error_log("Skipping balance restoration for $leaveType (ID: $this->applyLeaveID) - No balance was deducted initially.");
-                                }
-                            } else {
-                                // For non-medical leaves, always restore balance
+                            if ($this->status === 'Cancelled' && $row['status'] === 'ExtendedApplied') {
+                                // For cancelling extended leaves, only restore balance for the extended portion
+                                $shouldUpdateBalance = true;
                                 $balanceAction = 'restore';
-                                error_log("Restoring balance for non-medical leave type: $leaveType (ID: $this->applyLeaveID).");
+                                // We'll use only the extended days for balance restoration
+                                $effectiveDuration = $noOfDaysExtend;
+                                error_log("Restoring balance for extended portion of $leaveType (ID: $this->applyLeaveID) - Extended days: $noOfDaysExtend");
+                            } else {
+                                // For regular rejected/cancelled leaves, restore full balance
+                                if ($leaveType === 'Medical Leave' || $leaveType === 'Privilege Leave (Medical grounds)') {
+                                    // For medical leaves, only restore if Fitness Certificate was present (meaning balance was deducted)
+                                    if (!empty($FitnessCertificatePath) && $FitnessCertificatePath !== 'null') {
+                                        $balanceAction = 'restore';
+                                        error_log("Restoring balance for $leaveType (ID: $this->applyLeaveID) - Fitness Certificate was present.");
+                                    } else {
+                                        $shouldUpdateBalance = false; // No balance was deducted, so no need to restore
+                                        error_log("Skipping balance restoration for $leaveType (ID: $this->applyLeaveID) - No balance was deducted initially.");
+                                    }
+                                } else {
+                                    // For non-medical leaves, always restore balance
+                                    $balanceAction = 'restore';
+                                    error_log("Restoring balance for non-medical leave type: $leaveType (ID: $this->applyLeaveID).");
+                                }
                             }
                         }
 
                         // Update balance if needed
                         if ($shouldUpdateBalance) {
+                            // Calculate the correct duration for extended leaves
+                            $effectiveDuration = $leaveDuration;
+                            if ($this->status === 'Cancelled' && $row['status'] === 'ExtendedApplied') {
+                                // For cancelling extended leaves, only use the extended days
+                                $effectiveDuration = $noOfDaysExtend;
+                            } else if ($row['isExtend'] == 1 && $noOfDaysExtend > 0) {
+                                $effectiveDuration = $leaveDuration + $noOfDaysExtend;
+                            }
+                            
                             $leaveBalanceParams = [
                                 'applyLeaveID' => $this->applyLeaveID,
                                 'typeOfLeave' => $leaveType,
-                                'numberOfDays' => $leaveDuration,
+                                'numberOfDays' => $effectiveDuration,
                                 'status' => $this->status,
                                 'employeeID' => $employeeID,
                                 'balanceAction' => $balanceAction
@@ -581,8 +622,14 @@ class ApproveLeaveMaster {
         try {
             // Modify the SQL query to include MedicalCertificatePath and ensure it's not being filtered out
             $queryApproveLeave = "SELECT a.applyLeaveID, a.employeeID as empID, e.name as employeeName, 
-                                   a.fromDate, a.toDate, a.leaveDuration as NoOfDays, a.typeOfLeave, 
-                                   a.reason, a.createdOn, a.status, a.MedicalCertificatePath, a.FitnessCertificatePath 
+                                   a.fromDate, a.toDate, 
+                                   CASE 
+                                       WHEN a.status = 'ExtendedApplied' THEN a.leaveDuration + a.NoOfDaysExtend
+                                       ELSE a.leaveDuration
+                                   END as NoOfDays, 
+                                   a.typeOfLeave, 
+                                   a.reason, a.createdOn, a.status, a.MedicalCertificatePath, a.FitnessCertificatePath,
+                                   a.NoOfDaysExtend, a.reasonForExtend
                                    FROM tblApplyLeave a
                                    JOIN tblEmployee e ON a.employeeID = e.empID
                                    WHERE (a.status = 'Yet To Be Approved' or a.status = 'ReApplied' or a.status = 'ExtendedApplied')
@@ -647,7 +694,13 @@ class ApproveLeaveMaster {
                 tblL.status,
                 tblL.MedicalCertificatePath,
                 tblL.FitnessCertificatePath,
-                DATEDIFF(tblL.toDate, tblL.fromDate) + 1 as NoOfDays
+                DATEDIFF(tblL.toDate, tblL.fromDate) + 1 as NoOfDays,
+                tblL.NoOfDaysExtend,
+                tblL.reasonForExtend,
+                CASE 
+                    WHEN tblL.isExtend = 1 THEN tblL.leaveDuration + tblL.NoOfDaysExtend
+                    ELSE tblL.leaveDuration
+                END as leaveDuration
             FROM 
                 tblEmployee tblE
             INNER JOIN 
