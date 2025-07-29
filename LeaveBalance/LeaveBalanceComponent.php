@@ -290,14 +290,14 @@ class ApplyLeaveMaster {
                 $extendedDays = floatval($row['extendedDays'] ?: 0);
             }
             
-            $totalUsedAndPending = $pendingDays + $approvedDays + $extendedDays;
+            $totalUsedAndPending = $pendingDays + $extendedDays; // Exclude approved leaves from calculation
             
             // Check if new application would exceed balance
             $totalRequested = $totalUsedAndPending + $this->leaveDuration;
             
             if ($totalRequested > $currentBalance) {
                 $errorMessage = "Cannot apply for leave. You have already applied for " . 
-                                "$totalUsedAndPending days. Adding $this->leaveDuration more days " . 
+                                "$totalUsedAndPending days (pending + extended). Adding $this->leaveDuration more days " . 
                                 "would exceed your available balance of $currentBalance days.";
                 
                 if ($isPLType) {

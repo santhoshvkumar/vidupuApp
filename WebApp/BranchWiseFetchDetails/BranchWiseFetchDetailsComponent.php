@@ -2,7 +2,8 @@
 class BranchWiseFetchDetailsComponent{
     public $branchID;
     public $branchName;
-    public $currentDate;    
+    public $currentDate;
+    public $organisationID;    
     
     public function loadBranchWiseAttendanceForToday(array $data){ 
         if (isset($data['currentDate'])) {  
@@ -67,17 +68,9 @@ class BranchWiseFetchDetailsComponent{
                 ORDER BY b.branchName ASC;";
 
             // Debug the query with actual values
-            $debug_query = str_replace(
-                ['?', '?', '?', '?'],
-                [
-                    $this->currentDate,
-                    $this->currentDate,
-                    $this->currentDate,
-                    $this->currentDate,
-                    $this->organisationID,
-                ],
-                $queryBranchWiseEmployeeAttendanceForToday
-            );
+            error_log("Input parameters: currentDate=" . $this->currentDate . ", organisationID=" . $this->organisationID);
+            $debug_query = str_replace('?', "'" . $this->currentDate . "'", $queryBranchWiseEmployeeAttendanceForToday);
+            $debug_query = preg_replace("/organisationID = '[^']*'/", "organisationID = '" . $this->organisationID . "'", $debug_query);
             error_log("Debug Query: " . $debug_query);
 
             $stmt = mysqli_prepare($connect_var, $queryBranchWiseEmployeeAttendanceForToday);
@@ -91,7 +84,7 @@ class BranchWiseFetchDetailsComponent{
                 $this->currentDate, // for late_checkin
                 $this->currentDate, // for early_checkout
                 $this->currentDate, // for on_leave
-                $this->organisationID,
+                $this->organisationID  // for WHERE organisationID
             );
             
             if (!mysqli_stmt_execute($stmt)) {
