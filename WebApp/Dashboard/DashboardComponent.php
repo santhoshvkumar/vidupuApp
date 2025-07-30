@@ -1056,6 +1056,9 @@ class DashboardComponent{
                 case 'lateCheckIn':
                     $employees = $this->getLateCheckInEmployeesList($connect_var, $organisationID, $currentDate, $locationFilter);
                     break;
+                case 'earlyCheckOut':
+                    $employees = $this->getEarlyCheckOutEmployeesList($connect_var, $organisationID, $currentDate, $locationFilter);
+                    break;
                 case 'onLeave':
                     $employees = $this->getOnLeaveEmployeesList($connect_var, $organisationID, $currentDate, $locationFilter);
                     break;
@@ -1218,6 +1221,52 @@ class DashboardComponent{
         AND a.isLateCheckIN = 1
         $locationCondition
         ORDER BY emp.employeeName ASC";
+        
+        $result = mysqli_query($connect_var, $query);
+        if (!$result) {
+            throw new Exception("Database query failed: " . mysqli_error($connect_var));
+        }
+        
+        $employees = [];
+        while ($row = mysqli_fetch_assoc($result)) {
+            $employees[] = $row;
+        }
+        
+        return $employees;
+    }
+
+    private function getEarlyCheckOutEmployeesList($connect_var, $organisationID, $currentDate, $locationFilter) {
+        $locationCondition = "";
+        if ($locationFilter === 'ho') {
+            $locationCondition = "AND map.branchID = 1";
+        } elseif ($locationFilter === 'branch') {
+            $locationCondition = "AND map.branchID != 1";
+        }
+        
+        $query = "SELECT 
+            emp.employeeID,
+            emp.employeeName,
+            emp.empID,
+            emp.employeePhone,
+            emp.Designation,
+            emp.isTemporary,
+            b.branchName as location,
+            s.sectionName,
+            att.checkOutTime,
+            CASE WHEN emp.isTemporary = 1 THEN 'Temporary' ELSE 'Permanent' END as employeeType,
+            CASE WHEN map.branchID = 1 THEN 'Head Office' ELSE 'Branch' END as locationType
+        FROM tblEmployee emp
+        JOIN tblmapEmp map ON emp.employeeID = map.employeeID
+        JOIN tblBranch b ON map.branchID = b.branchID
+        LEFT JOIN tblAssignedSection assign ON emp.employeeID = assign.employeeID AND assign.isActive = 1
+        LEFT JOIN tblSection s ON assign.sectionID = s.sectionID
+        JOIN tblAttendance att ON emp.employeeID = att.employeeID
+        WHERE DATE(att.attendanceDate) = '$currentDate'
+        AND map.organisationID = '$organisationID'
+        AND att.checkOutTime IS NOT NULL
+        AND att.checkOutTime < b.checkOutTime
+        $locationCondition
+        ORDER BY att.checkOutTime ASC";
         
         $result = mysqli_query($connect_var, $query);
         if (!$result) {

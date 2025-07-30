@@ -1503,6 +1503,37 @@ $monthlyData[$month]['dates'] = array_merge($monthlyData[$month]['dates'], $date
 
 mysqli_stmt_close($stmt);
 
+// Get working days for the year
+$workingDaysQuery = "SELECT 
+               monthName,
+               noOfWorkingDays
+           FROM 
+               tblworkingdays 
+           WHERE 
+               year = ?";
+
+$stmt = mysqli_prepare($connect_var, $workingDaysQuery);
+if (!$stmt) {
+    throw new Exception("Database prepare failed: " . mysqli_error($connect_var));
+}
+
+mysqli_stmt_bind_param($stmt, "s", $this->selectedYear);
+
+if (!mysqli_stmt_execute($stmt)) {
+    throw new Exception("Database execute failed: " . mysqli_error($connect_var));
+}
+
+$result = mysqli_stmt_get_result($stmt);
+$workingDaysData = array_fill(1, 12, 0);
+
+while ($row = mysqli_fetch_assoc($result)) {
+    $monthName = $row['monthName'];
+    $monthNumber = date('n', strtotime("2000-$monthName-01")); // Convert month name to number
+    $workingDaysData[$monthNumber] = (int)$row['noOfWorkingDays'];
+}
+
+mysqli_stmt_close($stmt);
+
 // Get attendance data for the year
 $attendanceQuery = "SELECT 
                MONTH(attendanceDate) as month,
@@ -1562,7 +1593,8 @@ $formattedLeaveData[] = [
 'dates' => array_unique($data['dates']),
 'presentCount' => $attendanceData[$month]['presentCount'],
 'lateCheckIns' => $attendanceData[$month]['lateCheckIns'],
-'earlyCheckOuts' => $attendanceData[$month]['earlyCheckOuts']
+'earlyCheckOuts' => $attendanceData[$month]['earlyCheckOuts'],
+'workingDays' => $workingDaysData[$month]
 ];
 }
 
@@ -1754,8 +1786,9 @@ $query = "
                    e.employeeName,
                    e.Designation,
                    ? as total_working_days,
+                   COALESCE(attendance_stats.present_days, 0) as present_days,
                    COALESCE(leave_stats.leave_days, 0) as leave_days,
-                   GREATEST(0, ? - COALESCE(leave_stats.leave_days, 0)) as absent_days,
+                   GREATEST(0, ? - COALESCE(attendance_stats.present_days, 0) - COALESCE(leave_stats.leave_days, 0)) as absent_days,
                    COALESCE(attendance_stats.late_checkins, 0) as late_checkins,
                    COALESCE(attendance_stats.early_checkouts, 0) as early_checkouts,
                    COALESCE(attendance_stats.auto_checkouts, 0) as auto_checkouts,
@@ -1768,6 +1801,7 @@ $query = "
                LEFT JOIN (
                    SELECT 
                        a.employeeID,
+                       COUNT(*) as present_days,
                        COUNT(CASE WHEN a.isLateCheckIN = 1 THEN 1 END) as late_checkins,
                        COUNT(CASE WHEN a.isEarlyCheckOut = 1 THEN 1 END) as early_checkouts,
                        COUNT(CASE WHEN a.isAutoCheckout = 1 THEN 1 END) as auto_checkouts,
