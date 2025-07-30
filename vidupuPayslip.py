@@ -686,7 +686,7 @@ def generate_payslip(employeeID, Month, Year, OrgID):
     lopDays = 0
     if employee:
         # Set LOP to 0 for April (month 4) and May (month 5)
-        if month == 4 or month == 5:
+        if month == 4 or month == 5 or month == 6 or month == 7:
             lopDays = 0
         else:
             employeeIDFromDB = employee['employeeID']
