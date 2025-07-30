@@ -89,7 +89,8 @@ PAY_TYPE_MAPPING = {
     'E': 'earnings',
     'OD': 'deductions',
     'LD': 'loans',
-    'LD1': 'loans'
+    'LD1': 'loans',
+    'PT': 'deductions'  # Added PT as deduction
 }
 
 # Month number to name mapping
@@ -685,7 +686,7 @@ def generate_payslip(employeeID, Month, Year, OrgID):
     # Step 8: Calculate LOP (Loss of Pay) - days with no check-in and check-out
     lopDays = 0
     if employee:
-        # Set LOP to 0 for April (month 4) and May (month 5)
+        # Set LOP to 0 for April (month 4) and May (month 5) and June (month 6) and July (month 7)
         if month == 4 or month == 5 or month == 6 or month == 7:
             lopDays = 0
         else:
