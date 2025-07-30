@@ -1294,6 +1294,10 @@ class DashboardComponent{
             s.sectionName,
             a.checkInTime,
             a.checkOutTime,
+            l.fromDate,
+            l.toDate,
+            l.typeOfLeave,
+            l.reason,
             CASE WHEN emp.isTemporary = 1 THEN 'Temporary' ELSE 'Permanent' END as employeeType,
             CASE WHEN map.branchID = 1 THEN 'Head Office' ELSE 'Branch' END as locationType
         FROM tblAttendance a
@@ -1302,6 +1306,9 @@ class DashboardComponent{
         JOIN tblBranch b ON map.branchID = b.branchID
         LEFT JOIN tblAssignedSection assign ON emp.employeeID = assign.employeeID AND assign.isActive = 1
         LEFT JOIN tblSection s ON assign.sectionID = s.sectionID
+        LEFT JOIN tblApplyLeave l ON emp.employeeID = l.employeeID 
+            AND l.status IN ('Approved', 'Yet To Be Approved') 
+            AND '$currentDate' BETWEEN l.fromDate AND l.toDate
         WHERE a.attendanceDate = '$currentDate'
         AND map.organisationID = '$organisationID'
         AND a.checkInTime IS NOT NULL
@@ -1347,6 +1354,10 @@ class DashboardComponent{
             s.sectionName,
             a.checkInTime,
             a.checkOutTime,
+            l.fromDate,
+            l.toDate,
+            l.typeOfLeave,
+            l.reason,
             CASE WHEN emp.isTemporary = 1 THEN 'Temporary' ELSE 'Permanent' END as employeeType,
             CASE WHEN map.branchID = 1 THEN 'Head Office' ELSE 'Branch' END as locationType
         FROM tblAttendance a
@@ -1355,6 +1366,9 @@ class DashboardComponent{
         JOIN tblBranch b ON map.branchID = b.branchID
         LEFT JOIN tblAssignedSection assign ON emp.employeeID = assign.employeeID AND assign.isActive = 1
         LEFT JOIN tblSection s ON assign.sectionID = s.sectionID
+        LEFT JOIN tblApplyLeave l ON emp.employeeID = l.employeeID 
+            AND l.status IN ('Approved', 'Yet To Be Approved') 
+            AND '$currentDate' BETWEEN l.fromDate AND l.toDate
         WHERE a.attendanceDate = '$currentDate'
         AND map.organisationID = '$organisationID'
         AND a.isLateCheckIN = 1
@@ -1399,6 +1413,10 @@ class DashboardComponent{
             b.branchName as location,
             s.sectionName,
             att.checkOutTime,
+            l.fromDate,
+            l.toDate,
+            l.typeOfLeave,
+            l.reason,
             CASE WHEN emp.isTemporary = 1 THEN 'Temporary' ELSE 'Permanent' END as employeeType,
             CASE WHEN map.branchID = 1 THEN 'Head Office' ELSE 'Branch' END as locationType
         FROM tblEmployee emp
@@ -1407,6 +1425,9 @@ class DashboardComponent{
         LEFT JOIN tblAssignedSection assign ON emp.employeeID = assign.employeeID AND assign.isActive = 1
         LEFT JOIN tblSection s ON assign.sectionID = s.sectionID
         JOIN tblAttendance att ON emp.employeeID = att.employeeID
+        LEFT JOIN tblApplyLeave l ON emp.employeeID = l.employeeID 
+            AND l.status IN ('Approved', 'Yet To Be Approved') 
+            AND '$currentDate' BETWEEN l.fromDate AND l.toDate
         WHERE DATE(att.attendanceDate) = '$currentDate'
         AND map.organisationID = '$organisationID'
         AND att.checkOutTime IS NOT NULL
