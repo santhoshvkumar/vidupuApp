@@ -105,6 +105,7 @@ class SimplePayslipProcessor:
     def __init__(self):
         self.connection = None
         self.account_types = {}
+        self.lop_data = {}  # Store LOP data for each employee
     def connect_db(self):
         """Connect to MySQL database"""
         try:
@@ -458,6 +459,18 @@ class SimplePayslipProcessor:
                     # Get amount from Balance column (column F, index 5)
                     amount = row.iloc[5]  # Balance
                     
+                    # Get LOP days from Excel columns U and V (index 20 and 21)
+                    current_lop_days = row.iloc[20] if len(row) > 20 else 0  # Column U
+                    total_lop_days = row.iloc[21] if len(row) > 21 else 0     # Column V
+                    
+                    # Store LOP data for this employee
+                    emp_key = f"{emp_id}_{month}_{year}"
+                    if emp_key not in self.lop_data:
+                        self.lop_data[emp_key] = {
+                            'current_lop_days': current_lop_days,
+                            'total_lop_days': total_lop_days
+                        }
+                    
                     # Skip if amount is null, zero, or empty
                     if pd.isna(amount) or amount == 0:
                         skipped_count += 1
@@ -489,6 +502,53 @@ class SimplePayslipProcessor:
                     # Create mapping and insert record
                     self.create_account_mapping(emp_id, account_type_id)
                     self.insert_account_record(employee_id, emp_id, account_type_id, amount, month, year)
+                    
+                    # Special handling for SPA: Subtract SPA amount from BASIC only if SPA exists
+                    if component_name == 'SPA' and pay_type == 'E':
+                        # Check if SPA amount is greater than 0 (SPA exists)
+                        if amount > 0:
+                            # Find BASIC account type ID
+                            basic_account_type_id = self.get_or_create_account_type('BASIC', 'earnings')
+                            
+                            # Get current BASIC amount for this employee
+                            cursor = self.connection.cursor()
+                            try:
+                                cursor.execute(
+                                    "SELECT accountID, amount FROM tblAccounts WHERE empID = %s AND accountTypeID = %s AND month = %s AND year = %s",
+                                    (emp_id, basic_account_type_id, month, year)
+                                )
+                                basic_result = cursor.fetchone()
+                                
+                                if basic_result:
+                                    # Subtract SPA amount from BASIC
+                                    current_basic_amount = basic_result[1] or 0
+                                    new_basic_amount = current_basic_amount - amount
+                                    
+                                    cursor.execute(
+                                        "UPDATE tblAccounts SET amount = %s WHERE accountID = %s",
+                                        (new_basic_amount, basic_result[0])
+                                    )
+                                    self.connection.commit()
+                                    logger.info(f"Subtracted SPA amount {amount} from BASIC for empID {emp_id}. New BASIC amount: {new_basic_amount}")
+                                else:
+                                    logger.warning(f"BASIC record not found for empID {emp_id} to subtract SPA amount")
+                            except Exception as e:
+                                logger.error(f"Error subtracting SPA from BASIC for {emp_id}: {e}")
+                                self.connection.rollback()
+                            finally:
+                                cursor.close()
+                        else:
+                            logger.info(f"SPA amount is 0 or negative for empID {emp_id}, skipping BASIC adjustment")
+                    
+                    # Special handling for CMonthLOP and LOP: Remove from deductions if they exist
+                    if component_name in ['CMonthLOP', 'LOP'] and pay_type in ['LD', 'LD1']:
+                        # Check if LOP amount is greater than 0 (LOP exists)
+                        if amount > 0:
+                            # Find the corresponding deduction account type (usually TOTAL_DEDUCTIONS or similar)
+                            # We'll remove it from the total deductions calculation in the payslip generation
+                            logger.info(f"LOP component '{component_name}' with amount {amount} found for empID {emp_id}. Will be excluded from deductions.")
+                        else:
+                            logger.info(f"LOP amount is 0 or negative for empID {emp_id}, component '{component_name}', skipping deduction adjustment")
 
                   
                     processed_count += 1
@@ -508,11 +568,17 @@ class SimplePayslipProcessor:
                 # If month is an int, convert to month name
                 logger.info(f"Starting payslip generation for employeeID={employee_id},  month={month}, year={year}")
                 month_name = calendar.month_name[month] if isinstance(month, int) else month
+                
+                # Get LOP data for this employee
+                emp_key = f"{employee_id}_{month}_{year}"
+                lop_data = self.lop_data.get(emp_key, None)
+                
                 generate_payslip(
                     employeeID=employee_id,
                     Month=month_name,
                     Year=year,
-                    OrgID=organisation_id
+                    OrgID=organisation_id,
+                    lop_data=lop_data
                 )
                 logger.info(f"Payslip generated for employeeID={employee_id}, empID={emp_id}, month={month}, year={year}")
         except Exception as e:
@@ -543,7 +609,7 @@ def main():
     finally:
         processor.close_db()
 
-def generate_payslip(employeeID, Month, Year, OrgID):
+def generate_payslip(employeeID, Month, Year, OrgID, lop_data=None):
     logger.info("inisde Function")
     # Step 2: Connect to MySQL
     conn = pymysql.connect(
@@ -683,31 +749,43 @@ def generate_payslip(employeeID, Month, Year, OrgID):
         if workingDaysResult:
             workingDays = workingDaysResult['noOfWorkingDays']
 
-    # Step 8: Calculate LOP (Loss of Pay) - days with no check-in and check-out
-    lopDays = 0
-    if employee:
-        # Set LOP to 0 for April (month 4) and May (month 5) and June (month 6) and July (month 7)
-        if month == 4 or month == 5 or month == 6 or month == 7:
-            lopDays = 0
-        else:
-            employeeIDFromDB = employee['employeeID']
-            monthStart = f"{Year}-{month:02d}-01"
-            import datetime
-            monthEnd = (datetime.datetime(Year, month, 1) + datetime.timedelta(days=32)).replace(day=1) - datetime.timedelta(days=1)
-            monthEnd = monthEnd.strftime('%Y-%m-%d')
-            queryLOP = f"""SELECT COUNT(*) as absentDays 
-                          FROM (
-                            SELECT DATE(attendanceDate) as workDate
-                            FROM tblAttendance 
-                            WHERE employeeID = '{employeeIDFromDB}' 
-                            AND organisationID = '{OrgID}'
-                            AND attendanceDate BETWEEN '{monthStart}' AND '{monthEnd}'
-                            AND (checkInTime IS NULL OR checkOutTime IS NULL)
-                          ) as absentDays"""
-            cursor.execute(queryLOP)
-            lopResult = cursor.fetchone()
-            if lopResult:
-                lopDays = lopResult['absentDays']
+    # Step 8: Get LOP days from Excel data or calculate from attendance
+    current_lop_days = 0
+    total_lop_days = 0
+    
+    if lop_data:
+        # Use LOP data from Excel
+        current_lop_days = lop_data.get('current_lop_days', 0)
+        total_lop_days = lop_data.get('total_lop_days', 0)
+        logger.info(f"Using LOP data from Excel - Current: {current_lop_days}, Total: {total_lop_days}")
+    else:
+        # Fallback to attendance calculation
+        lopDays = 0
+        if employee:
+            # Set LOP to 0 for April (month 4) and May (month 5) and June (month 6) and July (month 7)
+            if month == 4 or month == 5 or month == 6 or month == 7:
+                lopDays = 0
+            else:
+                employeeIDFromDB = employee['employeeID']
+                monthStart = f"{Year}-{month:02d}-01"
+                import datetime
+                monthEnd = (datetime.datetime(Year, month, 1) + datetime.timedelta(days=32)).replace(day=1) - datetime.timedelta(days=1)
+                monthEnd = monthEnd.strftime('%Y-%m-%d')
+                queryLOP = f"""SELECT COUNT(*) as absentDays 
+                              FROM (
+                                SELECT DATE(attendanceDate) as workDate
+                                FROM tblAttendance 
+                                WHERE employeeID = '{employeeIDFromDB}' 
+                                AND organisationID = '{OrgID}'
+                                AND attendanceDate BETWEEN '{monthStart}' AND '{monthEnd}'
+                                AND (checkInTime IS NULL OR checkOutTime IS NULL)
+                              ) as absentDays"""
+                cursor.execute(queryLOP)
+                lopResult = cursor.fetchone()
+                if lopResult:
+                    lopDays = lopResult['absentDays']
+            current_lop_days = lopDays
+            total_lop_days = lopDays
 
     # Step 9: Logo path handling
     logoWebPath = ''
@@ -777,6 +855,7 @@ def generate_payslip(employeeID, Month, Year, OrgID):
       AND acc.month = {month}
       AND acc.year = {Year}
       AND accType.typeOfAccount = 'deductions'
+      AND accType.accountTypeName NOT IN ('CMonthLOP', 'LOP')
     GROUP BY acc.accountID
     ORDER BY accType.accountTypeName
     """
@@ -918,7 +997,8 @@ def generate_payslip(employeeID, Month, Year, OrgID):
         'department': department,
         'branchName': branchName,
         'workingDays': workingDays,
-        'lopDays': lopDays,
+        'currentLopDays': current_lop_days,
+        'totalLopDays': total_lop_days,
         'earnings': earnings,
         'deductions': deductions,
         'loanDeductions': loanDeductions,
@@ -1116,8 +1196,8 @@ def generate_payslip(employeeID, Month, Year, OrgID):
       <td><strong>PF UAN:</strong> {{ pfUAN }}</td>
     </tr>
     <tr>
-      <td><strong>LOP:</strong> {{ lopDays }}</td>
-      <td></td>
+      <td><strong>Current LOP:</strong> {{ currentLopDays }}</td>
+      <td><strong>Total LOP:</strong> {{ totalLopDays }}</td>
     </tr>
   </table>
 
