@@ -695,9 +695,11 @@ class DashboardComponent{
         if (isset($data['currentDate']) && isset($data['organisationID'])) {
             $this->currentDate = $data['currentDate'];
             $this->organisationID = $data['organisationID'];
+            $this->branchID = isset($data['branchID']) ? $data['branchID'] : '';
             
             error_log("📅 Enhanced API Date processed: " . $this->currentDate);
             error_log("🏢 Enhanced API Org: " . $this->organisationID);
+            error_log("🏢 Enhanced API Branch: " . $this->branchID);
             
             return true;
         } else {
@@ -715,9 +717,122 @@ class DashboardComponent{
 
             $organisationID = mysqli_real_escape_string($connect_var, $this->organisationID);
             $currentDate = mysqli_real_escape_string($connect_var, $this->currentDate);
+            $branchID = mysqli_real_escape_string($connect_var, $this->branchID);
+            
+            error_log("Enhanced Dashboard - Branch Filter: " . ($branchID ? $branchID : 'All Branches'));
     
             // Enhanced query that splits HO vs Branch and Permanent vs Temporary
-            $queryEnhancedDetails = "SELECT
+            // If branchID is provided, filter by that specific branch, otherwise show all
+            if (!empty($branchID)) {
+                error_log("Applying branch filter: branchID = $branchID");
+                // For specific branch, show total counts only (no HO/Branch split)
+                $queryEnhancedDetails = "SELECT
+                    -- ACTIVE EMPLOYEES (total for selected branch)
+                    (SELECT COUNT(DISTINCT emp.employeeID)
+                    FROM tblEmployee AS emp
+                    JOIN tblmapEmp AS map ON emp.employeeID = map.employeeID
+                    WHERE emp.organisationID = '$organisationID'
+                    AND emp.isActive = 1
+                    AND emp.isTemporary = 0
+                    AND map.branchID = '$branchID') AS hoEmployeesPermanent,
+
+                    (SELECT COUNT(DISTINCT emp.employeeID)
+                    FROM tblEmployee AS emp
+                    JOIN tblmapEmp AS map ON emp.employeeID = map.employeeID
+                    WHERE emp.organisationID = '$organisationID'
+                    AND emp.isActive = 1
+                    AND emp.isTemporary = 1
+                    AND map.branchID = '$branchID') AS hoEmployeesTemporary,
+
+                    -- Set branch counts to 0 to show only total
+                    0 AS branchEmployeesPermanent,
+                    0 AS branchEmployeesTemporary,
+
+                    -- CHECKED IN (total for selected branch)
+                    (SELECT COUNT(*)
+                    FROM tblAttendance AS a
+                    JOIN tblmapEmp AS map ON a.employeeID = map.employeeID
+                    WHERE a.attendanceDate = '$currentDate' 
+                    AND map.organisationID = '$organisationID'
+                    AND map.branchID = '$branchID') AS hoCheckedIn,
+
+                    0 AS branchCheckedIn,
+
+                    -- LATE CHECK IN (total for selected branch)
+                    (SELECT COUNT(*)
+                    FROM tblAttendance AS a
+                    JOIN tblmapEmp AS map ON a.employeeID = map.employeeID
+                    WHERE a.attendanceDate = '$currentDate'
+                    AND map.organisationID = '$organisationID'
+                    AND a.isLateCheckIN = 1
+                    AND map.branchID = '$branchID') AS hoLateCheckin,
+
+                    0 AS branchLateCheckin,
+
+                    -- EARLY CHECK OUT (total for selected branch)
+                    (SELECT COUNT(*)
+                    FROM tblAttendance AS a
+                    JOIN tblEmployee AS emp ON a.employeeID = emp.employeeID
+                    JOIN tblmapEmp AS m ON emp.employeeID = m.employeeID
+                    LEFT JOIN tblBranch AS b ON m.branchID = b.branchID
+                    WHERE a.attendanceDate = '$currentDate' 
+                    AND m.organisationID = '$organisationID'
+                    AND m.branchID = '$branchID'
+                    AND a.checkOutTime IS NOT NULL
+                    AND b.checkOutTime IS NOT NULL
+                    AND a.checkOutTime < b.checkOutTime) AS hoEarlyCheckout,
+
+                    0 AS branchEarlyCheckout,
+
+                    -- ON LEAVE (total for selected branch)
+                    (SELECT COUNT(*)
+                    FROM tblApplyLeave AS l
+                    JOIN tblmapEmp AS map ON l.employeeID = map.employeeID
+                    WHERE '$currentDate' BETWEEN l.fromDate AND l.toDate 
+                    AND map.organisationID = '$organisationID'
+                    AND map.branchID = '$branchID'
+                    AND l.status = 'Approved') AS hoOnLeave,
+
+                    0 AS branchOnLeave,
+
+                    -- ABSENCE (total for selected branch)
+                    (SELECT COUNT(*)
+                    FROM tblEmployee AS emp
+                    LEFT JOIN tblmapEmp AS m ON emp.employeeID = m.employeeID
+                    LEFT JOIN tblAttendance AS att 
+                        ON emp.employeeID = att.employeeID 
+                        AND DATE(att.attendanceDate) = '$currentDate'
+                    WHERE emp.isActive = 1
+                    AND m.organisationID = '$organisationID'
+                    AND m.branchID = '$branchID'
+                    AND att.checkInTime IS NULL
+                    AND emp.employeeID NOT IN (
+                        SELECT employeeID
+                        FROM tblApplyLeave
+                        WHERE status IN ('Approved', 'Yet To Be Approved') AND employeeID <> 888
+                            AND '$currentDate' BETWEEN fromDate AND toDate
+                    )) AS hoAbsent,
+
+                    0 AS branchAbsent,
+
+                    -- PENDING LEAVE (total for selected branch)
+                    (SELECT COUNT(*)
+                    FROM tblApplyLeave l
+                    JOIN tblEmployee e ON l.employeeID = e.employeeID
+                    JOIN tblmapEmp m ON e.employeeID = m.employeeID
+                    WHERE l.status = 'Yet To Be Approved'
+                    AND e.organisationID = '$organisationID'
+                    AND m.branchID = '$branchID'
+                    AND '$currentDate' BETWEEN l.fromDate AND l.toDate
+                    ) AS hoPendingLeave,
+
+                    0 AS branchPendingLeave
+
+                FROM (SELECT 1) AS dummy;";
+            } else {
+                error_log("No branch filter applied - showing all branches");
+                // Original query for all branches
+                $queryEnhancedDetails = "SELECT
                 -- ACTIVE EMPLOYEES BREAKDOWN
                 -- HO Permanent Employees
                 (SELECT COUNT(DISTINCT emp.employeeID)
@@ -901,6 +1016,7 @@ class DashboardComponent{
                 ) AS branchPendingLeave
 
             FROM (SELECT 1) AS dummy;";
+            }
 
             error_log("Enhanced Dashboard Query: " . $queryEnhancedDetails);
 
@@ -1026,6 +1142,7 @@ class DashboardComponent{
             $this->listType = $data['listType']; // 'active', 'checkedIn', 'lateCheckIn', 'onLeave', 'absent', 'pendingLeave'
             $this->locationFilter = isset($data['locationFilter']) ? $data['locationFilter'] : 'all'; // 'ho', 'branch', 'all'
             $this->employeeType = isset($data['employeeType']) ? $data['employeeType'] : 'all'; // 'permanent', 'temporary', 'all'
+            $this->branchID = isset($data['branchID']) ? $data['branchID'] : ''; // For specific branch filtering
             return true;
         } else {
             error_log("Missing required parameters in loadDashboardEmployeeListEnhanced: " . print_r($data, true));
@@ -1043,30 +1160,31 @@ class DashboardComponent{
             $listType = mysqli_real_escape_string($connect_var, $this->listType);
             $locationFilter = mysqli_real_escape_string($connect_var, $this->locationFilter);
             $employeeType = mysqli_real_escape_string($connect_var, $this->employeeType);
+            $branchID = mysqli_real_escape_string($connect_var, $this->branchID);
             
             $employees = [];
             
             switch ($listType) {
                 case 'active':
-                    $employees = $this->getActiveEmployeesList($connect_var, $organisationID, $locationFilter, $employeeType);
+                    $employees = $this->getActiveEmployeesList($connect_var, $organisationID, $locationFilter, $employeeType, $branchID);
                     break;
                 case 'checkedIn':
-                    $employees = $this->getCheckedInEmployeesList($connect_var, $organisationID, $currentDate, $locationFilter);
+                    $employees = $this->getCheckedInEmployeesList($connect_var, $organisationID, $currentDate, $locationFilter, $branchID);
                     break;
                 case 'lateCheckIn':
-                    $employees = $this->getLateCheckInEmployeesList($connect_var, $organisationID, $currentDate, $locationFilter);
+                    $employees = $this->getLateCheckInEmployeesList($connect_var, $organisationID, $currentDate, $locationFilter, $branchID);
                     break;
                 case 'earlyCheckOut':
-                    $employees = $this->getEarlyCheckOutEmployeesList($connect_var, $organisationID, $currentDate, $locationFilter);
+                    $employees = $this->getEarlyCheckOutEmployeesList($connect_var, $organisationID, $currentDate, $locationFilter, $branchID);
                     break;
                 case 'onLeave':
-                    $employees = $this->getOnLeaveEmployeesList($connect_var, $organisationID, $currentDate, $locationFilter);
+                    $employees = $this->getOnLeaveEmployeesList($connect_var, $organisationID, $currentDate, $locationFilter, $branchID);
                     break;
                 case 'absent':
-                    $employees = $this->getAbsentEmployeesList($connect_var, $organisationID, $currentDate, $locationFilter);
+                    $employees = $this->getAbsentEmployeesList($connect_var, $organisationID, $currentDate, $locationFilter, $branchID);
                     break;
                 case 'pendingLeave':
-                    $employees = $this->getPendingLeaveEmployeesList($connect_var, $organisationID, $currentDate, $locationFilter);
+                    $employees = $this->getPendingLeaveEmployeesList($connect_var, $organisationID, $currentDate, $locationFilter, $branchID);
                     break;
                 default:
                     throw new Exception("Invalid list type: $listType");
@@ -1093,12 +1211,19 @@ class DashboardComponent{
         }
     }
 
-    private function getActiveEmployeesList($connect_var, $organisationID, $locationFilter, $employeeType) {
+    private function getActiveEmployeesList($connect_var, $organisationID, $locationFilter, $employeeType, $branchID = '') {
         $locationCondition = "";
-        if ($locationFilter === 'ho') {
-            $locationCondition = "AND map.branchID = 1";
-        } elseif ($locationFilter === 'branch') {
-            $locationCondition = "AND map.branchID != 1";
+        
+        // If specific branchID is provided, filter by that branch
+        if (!empty($branchID)) {
+            $locationCondition = "AND map.branchID = '$branchID'";
+        } else {
+            // Use locationFilter logic for organization-wide views
+            if ($locationFilter === 'ho') {
+                $locationCondition = "AND map.branchID = 1";
+            } elseif ($locationFilter === 'branch') {
+                $locationCondition = "AND map.branchID != 1";
+            }
         }
         
         $employeeTypeCondition = "";
@@ -1143,12 +1268,19 @@ class DashboardComponent{
         return $employees;
     }
 
-    private function getCheckedInEmployeesList($connect_var, $organisationID, $currentDate, $locationFilter) {
+    private function getCheckedInEmployeesList($connect_var, $organisationID, $currentDate, $locationFilter, $branchID = '') {
         $locationCondition = "";
-        if ($locationFilter === 'ho') {
-            $locationCondition = "AND (a.checkInBranchID = 1 OR map.branchID = 1)";
-        } elseif ($locationFilter === 'branch') {
-            $locationCondition = "AND a.checkInBranchID != 1 AND map.branchID != 1";
+        
+        // If specific branchID is provided, filter by that branch
+        if (!empty($branchID)) {
+            $locationCondition = "AND map.branchID = '$branchID'";
+        } else {
+            // Use locationFilter logic for organization-wide views
+            if ($locationFilter === 'ho') {
+                $locationCondition = "AND (a.checkInBranchID = 1 OR map.branchID = 1)";
+            } elseif ($locationFilter === 'branch') {
+                $locationCondition = "AND a.checkInBranchID != 1 AND map.branchID != 1";
+            }
         }
         
         $query = "SELECT 
@@ -1189,12 +1321,19 @@ class DashboardComponent{
         return $employees;
     }
 
-    private function getLateCheckInEmployeesList($connect_var, $organisationID, $currentDate, $locationFilter) {
+    private function getLateCheckInEmployeesList($connect_var, $organisationID, $currentDate, $locationFilter, $branchID = '') {
         $locationCondition = "";
-        if ($locationFilter === 'ho') {
-            $locationCondition = "AND (a.checkInBranchID = 1 OR map.branchID = 1)";
-        } elseif ($locationFilter === 'branch') {
-            $locationCondition = "AND a.checkInBranchID != 1 AND map.branchID != 1";
+        
+        // If specific branchID is provided, filter by that branch
+        if (!empty($branchID)) {
+            $locationCondition = "AND map.branchID = '$branchID'";
+        } else {
+            // Use locationFilter logic for organization-wide views
+            if ($locationFilter === 'ho') {
+                $locationCondition = "AND (a.checkInBranchID = 1 OR map.branchID = 1)";
+            } elseif ($locationFilter === 'branch') {
+                $locationCondition = "AND a.checkInBranchID != 1 AND map.branchID != 1";
+            }
         }
         
         $query = "SELECT 
@@ -1235,12 +1374,19 @@ class DashboardComponent{
         return $employees;
     }
 
-    private function getEarlyCheckOutEmployeesList($connect_var, $organisationID, $currentDate, $locationFilter) {
+    private function getEarlyCheckOutEmployeesList($connect_var, $organisationID, $currentDate, $locationFilter, $branchID = '') {
         $locationCondition = "";
-        if ($locationFilter === 'ho') {
-            $locationCondition = "AND map.branchID = 1";
-        } elseif ($locationFilter === 'branch') {
-            $locationCondition = "AND map.branchID != 1";
+        
+        // If specific branchID is provided, filter by that branch
+        if (!empty($branchID)) {
+            $locationCondition = "AND map.branchID = '$branchID'";
+        } else {
+            // Use locationFilter logic for organization-wide views
+            if ($locationFilter === 'ho') {
+                $locationCondition = "AND map.branchID = 1";
+            } elseif ($locationFilter === 'branch') {
+                $locationCondition = "AND map.branchID != 1";
+            }
         }
         
         $query = "SELECT 
@@ -1281,12 +1427,19 @@ class DashboardComponent{
         return $employees;
     }
 
-    private function getOnLeaveEmployeesList($connect_var, $organisationID, $currentDate, $locationFilter) {
+    private function getOnLeaveEmployeesList($connect_var, $organisationID, $currentDate, $locationFilter, $branchID = '') {
         $locationCondition = "";
-        if ($locationFilter === 'ho') {
-            $locationCondition = "AND map.branchID = 1";
-        } elseif ($locationFilter === 'branch') {
-            $locationCondition = "AND map.branchID != 1";
+        
+        // If specific branchID is provided, filter by that branch
+        if (!empty($branchID)) {
+            $locationCondition = "AND map.branchID = '$branchID'";
+        } else {
+            // Use locationFilter logic for organization-wide views
+            if ($locationFilter === 'ho') {
+                $locationCondition = "AND map.branchID = 1";
+            } elseif ($locationFilter === 'branch') {
+                $locationCondition = "AND map.branchID != 1";
+            }
         }
         
         $query = "SELECT 
@@ -1329,12 +1482,19 @@ class DashboardComponent{
         return $employees;
     }
 
-    private function getAbsentEmployeesList($connect_var, $organisationID, $currentDate, $locationFilter) {
+    private function getAbsentEmployeesList($connect_var, $organisationID, $currentDate, $locationFilter, $branchID = '') {
         $locationCondition = "";
-        if ($locationFilter === 'ho') {
-            $locationCondition = "AND m.branchID = 1";
-        } elseif ($locationFilter === 'branch') {
-            $locationCondition = "AND m.branchID != 1";
+        
+        // If specific branchID is provided, filter by that branch
+        if (!empty($branchID)) {
+            $locationCondition = "AND m.branchID = '$branchID'";
+        } else {
+            // Use locationFilter logic for organization-wide views
+            if ($locationFilter === 'ho') {
+                $locationCondition = "AND m.branchID = 1";
+            } elseif ($locationFilter === 'branch') {
+                $locationCondition = "AND m.branchID != 1";
+            }
         }
         
         $query = "SELECT 
@@ -1379,12 +1539,19 @@ class DashboardComponent{
         return $employees;
     }
 
-    private function getPendingLeaveEmployeesList($connect_var, $organisationID, $currentDate, $locationFilter) {
+    private function getPendingLeaveEmployeesList($connect_var, $organisationID, $currentDate, $locationFilter, $branchID = '') {
         $locationCondition = "";
-        if ($locationFilter === 'ho') {
-            $locationCondition = "AND m.branchID = 1";
-        } elseif ($locationFilter === 'branch') {
-            $locationCondition = "AND m.branchID != 1";
+        
+        // If specific branchID is provided, filter by that branch
+        if (!empty($branchID)) {
+            $locationCondition = "AND m.branchID = '$branchID'";
+        } else {
+            // Use locationFilter logic for organization-wide views
+            if ($locationFilter === 'ho') {
+                $locationCondition = "AND m.branchID = 1";
+            } elseif ($locationFilter === 'branch') {
+                $locationCondition = "AND m.branchID != 1";
+            }
         }
         
         $query = "SELECT 
