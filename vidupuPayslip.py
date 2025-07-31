@@ -461,7 +461,7 @@ class SimplePayslipProcessor:
                     
                     # Get LOP days from Excel columns U and V (index 20 and 21)
                     current_lop_days = row.iloc[20] if len(row) > 20 else 0  # Column U
-                    total_lop_days = row.iloc[21] if len(row) > 21 else 0     # Column V
+                    total_lop_days = row.iloc[19] if len(row) > 21 else 0     # Column T
                     
                     # Store LOP data for this employee
                     emp_key = f"{emp_id}_{month}_{year}"
@@ -509,7 +509,8 @@ class SimplePayslipProcessor:
                         if amount > 0:
                             # Find BASIC account type ID
                             basic_account_type_id = self.get_or_create_account_type('BASIC', 'earnings')
-                            
+
+                            logger.info("Account Details SPA", basic_account_type_id)
                             # Get current BASIC amount for this employee
                             cursor = self.connection.cursor()
                             try:
@@ -522,7 +523,7 @@ class SimplePayslipProcessor:
                                 if basic_result:
                                     # Subtract SPA amount from BASIC
                                     current_basic_amount = basic_result[1] or 0
-                                    new_basic_amount = current_basic_amount - amount
+                                    new_basic_amount = float(current_basic_amount) - float(amount)
                                     
                                     cursor.execute(
                                         "UPDATE tblAccounts SET amount = %s WHERE accountID = %s",
