@@ -1798,7 +1798,16 @@ $query = "
                LEFT JOIN (
                    SELECT 
                        a.employeeID,
-                       COUNT(CASE WHEN a.checkInTime IS NOT NULL THEN 1 END) as present_days,
+                       COUNT(CASE 
+                           WHEN a.checkInTime IS NOT NULL 
+                           AND NOT EXISTS (
+                               SELECT 1 FROM tblApplyLeave al 
+                               WHERE al.employeeID = a.employeeID 
+                               AND al.status = 'Approved'
+                               AND a.attendanceDate BETWEEN al.fromDate AND al.toDate
+                           )
+                           THEN 1 
+                           END) as present_days,
                        COUNT(CASE 
                            WHEN a.checkInTime IS NOT NULL 
                            AND b.checkInTime IS NOT NULL 
