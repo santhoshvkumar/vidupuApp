@@ -1527,6 +1527,8 @@ class DashboardComponent{
             emp.isTemporary,
             b.branchName as location,
             s.sectionName,
+            mng.employeeName AS managerName,
+            mng.empID AS managerID,
             CASE WHEN emp.isTemporary = 1 THEN 'Temporary' ELSE 'Permanent' END as employeeType,
             CASE WHEN m.branchID = 1 THEN 'Head Office' ELSE 'Branch' END as locationType
         FROM tblEmployee emp
@@ -1534,6 +1536,7 @@ class DashboardComponent{
         JOIN tblBranch b ON m.branchID = b.branchID
         LEFT JOIN tblAssignedSection assign ON emp.employeeID = assign.employeeID AND assign.isActive = 1
         LEFT JOIN tblSection s ON assign.sectionID = s.sectionID
+        LEFT JOIN tblEmployee mng ON emp.managerID = mng.employeeID
         LEFT JOIN tblAttendance att ON emp.employeeID = att.employeeID AND DATE(att.attendanceDate) = '$currentDate'
         WHERE emp.isActive = 1
         AND m.organisationID = '$organisationID'
