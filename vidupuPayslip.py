@@ -523,7 +523,7 @@ class SimplePayslipProcessor:
                                 if basic_result:
                                     # Subtract SPA amount from BASIC
                                     current_basic_amount = basic_result[1] or 0
-                                    new_basic_amount = current_basic_amount - amount
+                                    new_basic_amount = float(current_basic_amount) - float(amount)
                                     
                                     cursor.execute(
                                         "UPDATE tblAccounts SET amount = %s WHERE accountID = %s",
