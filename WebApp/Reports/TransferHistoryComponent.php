@@ -23,7 +23,7 @@ class TransferHistoryComponent {
             
             error_log("TransferHistory: EmployeeID = $employeeID, OrganisationID = $organisationID");
             
-            // Get employee details with branch mapping from tblMapEmp
+            // Get employee details with branch mapping from tblmapEmp
             $employeeQuery = "SELECT e.*, b.branchName, b.branchID as currentBranchID,
                                     CASE 
                                         WHEN e.employeePhoto IS NOT NULL AND e.employeePhoto != '' 
@@ -31,7 +31,7 @@ class TransferHistoryComponent {
                                         ELSE NULL 
                                     END as employeePhoto
                              FROM tblEmployee e 
-                             LEFT JOIN tblMapEmp me ON e.employeeID = me.employeeID
+                             LEFT JOIN tblmapEmp me ON e.employeeID = me.employeeID
                              LEFT JOIN tblBranch b ON me.branchID = b.branchID
                              WHERE e.employeeID = ? AND e.organisationID = ?";
             
