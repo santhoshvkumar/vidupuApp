@@ -509,7 +509,8 @@ class SimplePayslipProcessor:
                         if amount > 0:
                             # Find BASIC account type ID
                             basic_account_type_id = self.get_or_create_account_type('BASIC', 'earnings')
-                            
+
+                            logger.info("Account Details SPA", basic_account_type_id)
                             # Get current BASIC amount for this employee
                             cursor = self.connection.cursor()
                             try:
