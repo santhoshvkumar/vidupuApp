@@ -461,7 +461,7 @@ class SimplePayslipProcessor:
                     
                     # Get LOP days from Excel columns U and V (index 20 and 21)
                     current_lop_days = row.iloc[20] if len(row) > 20 else 0  # Column U
-                    total_lop_days = row.iloc[21] if len(row) > 21 else 0     # Column V
+                    total_lop_days = row.iloc[19] if len(row) > 21 else 0     # Column T
                     
                     # Store LOP data for this employee
                     emp_key = f"{emp_id}_{month}_{year}"
