@@ -1786,6 +1786,7 @@ $query = "
                    COALESCE(attendance_stats.present_days, 0) as present_days,
                    COALESCE(leave_stats.leave_days, 0) as leave_days,
                    GREATEST(0, ? - COALESCE(attendance_stats.present_days, 0) - COALESCE(leave_stats.leave_days, 0)) as absent_days,
+                   GREATEST(0, COALESCE(attendance_stats.present_days, 0) - ?) as extra_days,
                    COALESCE(attendance_stats.late_checkins, 0) as late_checkins,
                    COALESCE(attendance_stats.early_checkouts, 0) as early_checkouts,
                    COALESCE(attendance_stats.auto_checkouts, 0) as auto_checkouts,
@@ -1894,7 +1895,8 @@ if (!$stmt) {
 throw new Exception("Database prepare failed: " . mysqli_error($connect_var));
 }
 
-mysqli_stmt_bind_param($stmt, "iissssssi", 
+mysqli_stmt_bind_param($stmt, "iiissssssi", 
+$totalWorkingDays,
 $totalWorkingDays,
 $totalWorkingDays,
 $monthStart,
