@@ -1758,24 +1758,21 @@ $monthEnd = min($monthEnd, $currentDate);
 
 
 
-// Calculate working days first
-$workingDaysQuery = "
-    SELECT COUNT(*) as total_working_days
-    FROM (
-        SELECT DATE(?) + INTERVAL (a.a + (10 * b.a) + (100 * c.a)) DAY as working_date
-        FROM (SELECT 0 as a UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) as a
-        CROSS JOIN (SELECT 0 as a UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) as b
-        CROSS JOIN (SELECT 0 as a UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) as c
-    ) date_range
-    WHERE working_date BETWEEN ? AND ?
-    AND DAYOFWEEK(working_date) NOT IN (1, 7)";
+// Get working days from tblworkingdays table
+$monthNames = [
+    1 => 'JANUARY', 2 => 'FEBRUARY', 3 => 'MARCH', 4 => 'APRIL',
+    5 => 'MAY', 6 => 'JUNE', 7 => 'JULY', 8 => 'AUGUST',
+    9 => 'SEPTEMBER', 10 => 'OCTOBER', 11 => 'NOVEMBER', 12 => 'DECEMBER'
+];
+$monthName = $monthNames[$this->selectedMonth] ?? '';
 
+$workingDaysQuery = "SELECT noOfWorkingDays FROM tblworkingdays WHERE monthName = ? AND year = ?";
 $workingDaysStmt = mysqli_prepare($connect_var, $workingDaysQuery);
-mysqli_stmt_bind_param($workingDaysStmt, "sss", $monthStart, $monthStart, $monthEnd);
+mysqli_stmt_bind_param($workingDaysStmt, "ss", $monthName, $currentYear);
 mysqli_stmt_execute($workingDaysStmt);
 $workingDaysResult = mysqli_stmt_get_result($workingDaysStmt);
 $workingDaysRow = mysqli_fetch_assoc($workingDaysResult);
-$totalWorkingDays = $workingDaysRow['total_working_days'];
+$totalWorkingDays = $workingDaysRow['noOfWorkingDays'] ?? 0;
 mysqli_stmt_close($workingDaysStmt);
 
 $query = "
@@ -1801,12 +1798,25 @@ $query = "
                LEFT JOIN (
                    SELECT 
                        a.employeeID,
-                       COUNT(*) as present_days,
-                       COUNT(CASE WHEN a.isLateCheckIN = 1 THEN 1 END) as late_checkins,
-                       COUNT(CASE WHEN a.isEarlyCheckOut = 1 THEN 1 END) as early_checkouts,
+                       COUNT(CASE WHEN a.checkInTime IS NOT NULL THEN 1 END) as present_days,
+                       COUNT(CASE 
+                           WHEN a.checkInTime IS NOT NULL 
+                           AND b.checkInTime IS NOT NULL 
+                           AND a.checkInTime > b.checkInTime 
+                           THEN 1 
+                           END) as late_checkins,
+                       COUNT(CASE 
+                           WHEN a.checkOutTime IS NOT NULL 
+                           AND b.checkOutTime IS NOT NULL 
+                           AND a.checkOutTime < b.checkOutTime 
+                           THEN 1 
+                           END) as early_checkouts,
                        COUNT(CASE WHEN a.isAutoCheckout = 1 THEN 1 END) as auto_checkouts,
                        GROUP_CONCAT(
-                           CASE WHEN a.isLateCheckIN = 1 
+                           CASE 
+                               WHEN a.checkInTime IS NOT NULL 
+                               AND b.checkInTime IS NOT NULL 
+                               AND a.checkInTime > b.checkInTime
                                THEN DATE_FORMAT(a.attendanceDate, '%d/%m/%Y') 
                                ELSE NULL 
                            END
@@ -1814,7 +1824,10 @@ $query = "
                            SEPARATOR ', '
                        ) as late_checkin_dates,
                        GROUP_CONCAT(
-                           CASE WHEN a.isEarlyCheckOut = 1 
+                           CASE 
+                               WHEN a.checkOutTime IS NOT NULL 
+                               AND b.checkOutTime IS NOT NULL 
+                               AND a.checkOutTime < b.checkOutTime
                                THEN DATE_FORMAT(a.attendanceDate, '%d/%m/%Y') 
                                ELSE NULL 
                            END
@@ -1832,6 +1845,7 @@ $query = "
                    FROM 
                        tblAttendance a
                    JOIN tblmapEmp m ON a.employeeID = m.employeeID
+                   LEFT JOIN tblBranch b ON m.branchID = b.branchID
                    WHERE 
                        a.attendanceDate BETWEEN ? AND ?
                        AND m.organisationID = ?
@@ -1841,13 +1855,20 @@ $query = "
                LEFT JOIN (
                    SELECT 
                        al.employeeID,
-                       SUM(al.leaveDuration) as leave_days
+                       COUNT(DISTINCT leave_date.date) as leave_days
                    FROM 
                        tblApplyLeave al
+                   CROSS JOIN (
+                       SELECT DATE(?) + INTERVAL (a.a + (10 * b.a) + (100 * c.a)) DAY as date
+                       FROM (SELECT 0 as a UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) as a
+                       CROSS JOIN (SELECT 0 as a UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) as b
+                       CROSS JOIN (SELECT 0 as a UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) as c
+                   ) leave_date
                    WHERE 
                        al.status = 'Approved'
-                       AND al.fromDate >= ?
-                       AND al.fromDate <= ?
+                       AND leave_date.date BETWEEN al.fromDate AND al.toDate
+                       AND leave_date.date BETWEEN ? AND ?
+                       AND DAYOFWEEK(leave_date.date) NOT IN (1, 7)
                    GROUP BY 
                        al.employeeID
                ) leave_stats ON e.employeeID = leave_stats.employeeID,
@@ -1864,12 +1885,13 @@ if (!$stmt) {
 throw new Exception("Database prepare failed: " . mysqli_error($connect_var));
 }
 
-mysqli_stmt_bind_param($stmt, "iisssssi", 
+mysqli_stmt_bind_param($stmt, "iissssssi", 
 $totalWorkingDays,
 $totalWorkingDays,
 $monthStart,
 $monthEnd,
 $this->organisationID,
+$monthStart,
 $monthStart,
 $monthEnd,
 $this->organisationID
