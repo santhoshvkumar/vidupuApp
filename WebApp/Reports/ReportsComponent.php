@@ -1534,21 +1534,28 @@ while ($row = mysqli_fetch_assoc($result)) {
 
 mysqli_stmt_close($stmt);
 
-// Get attendance data for the year
+// Get attendance data for the year (excluding leave days)
 $attendanceQuery = "SELECT 
-               MONTH(attendanceDate) as month,
-               attendanceDate,
-               checkInTime,
-               checkOutTime,
-               isLateCheckIN,
-               isEarlyCheckOut
+               MONTH(a.attendanceDate) as month,
+               a.attendanceDate,
+               a.checkInTime,
+               a.checkOutTime,
+               a.isLateCheckIN,
+               a.isEarlyCheckOut
            FROM 
-               tblAttendance 
+               tblAttendance a
            WHERE 
-               employeeID = ? AND
-               YEAR(attendanceDate) = ?
+               a.employeeID = ? AND
+               YEAR(a.attendanceDate) = ? AND
+               a.checkInTime IS NOT NULL AND
+               NOT EXISTS (
+                   SELECT 1 FROM tblApplyLeave al 
+                   WHERE al.employeeID = a.employeeID 
+                   AND al.status = 'Approved'
+                   AND a.attendanceDate BETWEEN al.fromDate AND al.toDate
+               )
            ORDER BY 
-               attendanceDate";
+               a.attendanceDate";
 
 $stmt = mysqli_prepare($connect_var, $attendanceQuery);
 if (!$stmt) {
@@ -1586,16 +1593,24 @@ mysqli_stmt_close($stmt);
 // Format the response
 $formattedLeaveData = [];
 foreach ($monthlyData as $month => $data) {
-$formattedLeaveData[] = [
-'month' => str_pad($month, 2, '0', STR_PAD_LEFT),
-'leaveCount' => $data['leaveCount'],
-'leaveDetails' => $data['leaveDetails'],
-'dates' => array_unique($data['dates']),
-'presentCount' => $attendanceData[$month]['presentCount'],
-'lateCheckIns' => $attendanceData[$month]['lateCheckIns'],
-'earlyCheckOuts' => $attendanceData[$month]['earlyCheckOuts'],
-'workingDays' => $workingDaysData[$month]
-];
+    $workingDays = $workingDaysData[$month];
+    $presentCount = $attendanceData[$month]['presentCount'];
+    $leaveCount = $data['leaveCount'];
+    
+    // Calculate absent days: Working Days - Present Days - Leave Days
+    $absentDays = max(0, $workingDays - $presentCount - $leaveCount);
+    
+    $formattedLeaveData[] = [
+        'month' => str_pad($month, 2, '0', STR_PAD_LEFT),
+        'leaveCount' => $data['leaveCount'],
+        'leaveDetails' => $data['leaveDetails'],
+        'dates' => array_unique($data['dates']),
+        'presentCount' => $presentCount,
+        'absentDays' => $absentDays,
+        'lateCheckIns' => $attendanceData[$month]['lateCheckIns'],
+        'earlyCheckOuts' => $attendanceData[$month]['earlyCheckOuts'],
+        'workingDays' => $workingDays
+    ];
 }
 
 $totalLeaves = array_sum(array_column($formattedLeaveData, 'leaveCount'));
