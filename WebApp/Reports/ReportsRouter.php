@@ -374,4 +374,25 @@ function DebugAutoCheckoutRecords($decoded_items) {
         echo json_encode(array("status" => "error", "message_text" => "Invalid input parameters"), JSON_FORCE_OBJECT);
     }
 }
+
+$f3->route('POST /GetWorkingDays',
+    function($f3) {
+        header('Content-Type: application/json');
+        $decoded_items = json_decode($f3->get('BODY'), true);
+        if($decoded_items != NULL) {
+            GetWorkingDays($decoded_items);
+        } else {
+            echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
+        }
+    }
+);
+
+function GetWorkingDays($decoded_items) {
+    $ReportsObject = new ReportsComponent();
+    if ($ReportsObject->loadSelectedMonth($decoded_items)) {
+        $ReportsObject->GetWorkingDays();
+    } else {
+        echo json_encode(array("status" => "error", "message_text" => "Invalid input parameters"), JSON_FORCE_OBJECT);
+    }
+}
 ?>

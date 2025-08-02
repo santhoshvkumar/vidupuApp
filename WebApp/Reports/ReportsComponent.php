@@ -1335,9 +1335,11 @@ echo json_encode([
 public function loadSelectedMonth(array $data) {
 if (isset($data['selectedMonth'])) {
 $this->selectedMonth = $data['selectedMonth'];
-return true;
 }
-return false;
+if (isset($data['selectedYear'])) {
+$this->selectedYear = $data['selectedYear'];
+}
+return true;
 }
 
 public function loadEmployeeType(array $data) {
@@ -2157,6 +2159,71 @@ echo json_encode([
                 "status" => "error",
                 "message_text" => $e->getMessage()
             ], JSON_FORCE_OBJECT);
+        }
+    }
+
+    public function GetWorkingDays() {
+        include('config.inc');
+        header('Content-Type: application/json');
+
+        try {
+            $selectedMonth = isset($this->selectedMonth) ? $this->selectedMonth : date('n');
+            $selectedYear = isset($this->selectedYear) ? $this->selectedYear : date('Y');
+            
+            error_log("GetWorkingDays called with month: $selectedMonth, year: $selectedYear");
+
+            // Try numeric month first, then text month
+            $query = "SELECT noOfWorkingDays, monthName FROM tblworkingdays WHERE (monthName = ? OR monthName = ?) AND year = ?";
+            $stmt = mysqli_prepare($connect_var, $query);
+            if (!$stmt) {
+                throw new Exception("Failed to prepare statement: " . mysqli_error($connect_var));
+            }
+
+            // Convert numeric month to text month name
+            $monthNames = [
+                1 => 'January', 2 => 'February', 3 => 'March', 4 => 'April',
+                5 => 'May', 6 => 'June', 7 => 'July', 8 => 'August',
+                9 => 'September', 10 => 'October', 11 => 'November', 12 => 'December'
+            ];
+            $textMonth = isset($monthNames[$selectedMonth]) ? $monthNames[$selectedMonth] : '';
+
+            mysqli_stmt_bind_param($stmt, "ssi", $selectedMonth, $textMonth, $selectedYear);
+            
+            if (!mysqli_stmt_execute($stmt)) {
+                throw new Exception("Failed to execute statement: " . mysqli_error($connect_var));
+            }
+
+            $result = mysqli_stmt_get_result($stmt);
+            if (!$result) {
+                throw new Exception("Failed to get result: " . mysqli_error($connect_var));
+            }
+
+            $data = mysqli_fetch_assoc($result);
+            mysqli_stmt_close($stmt);
+
+            if ($data) {
+                echo json_encode([
+                    "status" => "success",
+                    "data" => [
+                        "noOfWorkingDays" => (int)$data['noOfWorkingDays'],
+                        "monthName" => $data['monthName'],
+                        "month" => $selectedMonth,
+                        "year" => $selectedYear
+                    ]
+                ]);
+            } else {
+                echo json_encode([
+                    "status" => "error",
+                    "message" => "No working days found for the selected month and year"
+                ]);
+            }
+
+        } catch (Exception $e) {
+            error_log("Error in GetWorkingDays: " . $e->getMessage());
+            echo json_encode([
+                "status" => "error",
+                "message" => $e->getMessage()
+            ]);
         }
     }
 }
