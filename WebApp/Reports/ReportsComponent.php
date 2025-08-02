@@ -53,9 +53,9 @@ $queryforGetAttendanceReport = "SELECT DISTINCT
    e.employeeName AS Employee_Name,
    e.employeePhone AS Employee_Phone,
    e.Designation,
-   DATE_ADD(?, INTERVAL n.num DAY) AS attendanceDate,
-   a.checkInTime AS CheckIn_Time,
-   a.checkOutTime AS CheckOut_Time,
+   DATE_FORMAT(DATE_ADD(?, INTERVAL n.num DAY), '%d/%m/%Y') AS attendanceDate,
+   TIME_FORMAT(a.checkInTime, '%H:%i:%s') AS CheckIn_Time,
+   TIME_FORMAT(a.checkOutTime, '%H:%i:%s') AS CheckOut_Time,
    CASE
        WHEN a.checkInTime IS NOT NULL THEN 'Present'
        WHEN EXISTS (
@@ -160,9 +160,9 @@ $queryforGetAttendanceReport = "SELECT DISTINCT
    e.employeePhone AS Employee_Phone,
    e.Designation,
    s.sectionName AS Section_Name,
-   DATE_ADD(?, INTERVAL n.num DAY) AS attendanceDate,
-   a.checkInTime AS CheckIn_Time,
-   a.checkOutTime AS CheckOut_Time,
+   DATE_FORMAT(DATE_ADD(?, INTERVAL n.num DAY), '%d/%m/%Y') AS attendanceDate,
+   TIME_FORMAT(a.checkInTime, '%H:%i:%s') AS CheckIn_Time,
+   TIME_FORMAT(a.checkOutTime, '%H:%i:%s') AS CheckOut_Time,
    CASE
        WHEN a.checkInTime IS NOT NULL THEN 'Present'
        WHEN EXISTS (
@@ -391,7 +391,7 @@ try {
 $data = [];
 $queryforGetAttendanceReport = "SELECT
    e.designation,
-   DATE_ADD(?, INTERVAL n.n DAY) AS AttendanceDate,
+   DATE_FORMAT(DATE_ADD(?, INTERVAL n.n DAY), '%d/%m/%Y') AS AttendanceDate,
    SUM(CASE WHEN b.BranchName = 'Head Office' THEN 1 ELSE 0 END) AS HeadOffice_Total,
    SUM(CASE WHEN b.BranchName <> 'Head Office' THEN 1 ELSE 0 END) AS Branch_Total,
    SUM(CASE 
@@ -1478,7 +1478,7 @@ $startDate = max($fromDate, $yearStart);
 $endDate = min($toDate, $yearEnd);
 
 $typeOfLeave = $row['typeOfLeave'] == 'Privilege Leave(Medical Grounds)' ? 'PL(Medical)' : $row['typeOfLeave'];
-$leaveDetail = $startDate->format('d M Y') . ' - ' . $endDate->format('d M Y') . ' (' . $typeOfLeave . ')';
+$leaveDetail = $startDate->format('d/m/Y') . ' - ' . $endDate->format('d/m/Y') . ' (' . $typeOfLeave . ')';
 
 // Calculate leave days per month
 $currentDate = clone $startDate;
