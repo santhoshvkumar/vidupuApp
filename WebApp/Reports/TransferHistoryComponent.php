@@ -50,6 +50,7 @@ class TransferHistoryComponent {
             }
             
             // Get transfer history (show all transfers, not just active ones)
+            // Order by fromDate ASC to show chronological journey from oldest to newest
             $transferQuery = "SELECT th.*, 
                                     b1.branchName as fromBranchName,
                                     b2.branchName as toBranchName
@@ -57,7 +58,7 @@ class TransferHistoryComponent {
                              LEFT JOIN tblBranch b1 ON th.fromBranch = b1.branchID
                              LEFT JOIN tblBranch b2 ON th.toBranch = b2.branchID
                              WHERE th.employeeID = ?
-                             ORDER BY th.fromDate DESC";
+                             ORDER BY th.fromDate ASC";
             
             $transferStmt = mysqli_prepare($connect_var, $transferQuery);
             mysqli_stmt_bind_param($transferStmt, "s", $employeeID);
