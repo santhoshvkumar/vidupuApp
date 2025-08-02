@@ -1642,61 +1642,56 @@ if ($month == $currentMonth && $currentYear == (int)$this->selectedYear) {
     error_log("Current month ({$month}) working days: Using total month working days = {$workingDays}");
 }
     
-    // Calculate absent days
+    // Calculate working days, present days, absent days, and leave days using new logic
     if ($month == $currentMonth && $currentYear == (int)$this->selectedYear) {
-        // Get all attendance dates for current month up to today
-        $attendanceQuery = "SELECT DISTINCT a.attendanceDate
-                           FROM tblAttendance a
-                           WHERE a.employeeID = ? 
-                           AND MONTH(a.attendanceDate) = ? 
-                           AND YEAR(a.attendanceDate) = ?
-                           AND a.attendanceDate <= ?
-                           AND a.checkInTime IS NOT NULL";
+        // For current month: Calculate working days up to today minus holidays minus present days minus leave days
         
-        $stmt = mysqli_prepare($connect_var, $attendanceQuery);
-        if ($stmt) {
-            mysqli_stmt_bind_param($stmt, "iiis", $this->employeeID, $currentMonth, $currentYear, $currentDate->format('Y-m-d'));
-            mysqli_stmt_execute($stmt);
-            $result = mysqli_stmt_get_result($stmt);
-            
-            $presentDates = [];
-            while ($row = mysqli_fetch_assoc($result)) {
-                $presentDates[] = $row['attendanceDate'];
-            }
-            mysqli_stmt_close($stmt);
+        // Get number of days till today for this month
+        $daysTillToday = $currentDay;
+        
+        // Get number of holidays till today for this month
+        $holidayQuery = "SELECT COUNT(*) AS numberOfHolidays 
+                        FROM tblHoliday 
+                        WHERE MONTH(date) = MONTH(CURDATE()) 
+                        AND YEAR(date) = YEAR(CURDATE()) 
+                        AND date <= CURDATE()";
+        
+        $stmt = mysqli_prepare($connect_var, $holidayQuery);
+        if (!$stmt) {
+            throw new Exception("Database prepare failed for holiday query: " . mysqli_error($connect_var));
         }
         
-        // Calculate working days up to today and count absences
-        $absentDays = 0;
-        $monthStart = new DateTime("{$currentYear}-{$month}-01");
-        $monthEnd = new DateTime("{$currentYear}-{$month}-{$currentDay}");
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
+        $holidayRow = mysqli_fetch_assoc($result);
+        $numberOfHolidays = (int)$holidayRow['numberOfHolidays'];
+        mysqli_stmt_close($stmt);
         
-        $currentWorkingDay = clone $monthStart;
-        while ($currentWorkingDay <= $monthEnd) {
-            // Check if it's a working day (not weekend)
-            $dayOfWeek = (int)$currentWorkingDay->format('w'); // 0 = Sunday, 6 = Saturday
-            if ($dayOfWeek != 0 && $dayOfWeek != 6) {
-                // Check if it's not a holiday
-                if (!$this->isHoliday($currentWorkingDay->format('Y-m-d'), $connect_var)) {
-                    $currentDateStr = $currentWorkingDay->format('Y-m-d');
-                    
-                    // Check if employee was present on this day
-                    $wasPresent = in_array($currentDateStr, $presentDates);
-                    
-                    // Check if employee was on leave on this day
-                    $wasOnLeave = in_array($currentDateStr, $data['dates']);
-                    
-                    // If not present and not on leave, count as absent
-                    if (!$wasPresent && !$wasOnLeave) {
-                        $absentDays++;
-                    }
-                }
-            }
-            $currentWorkingDay->add(new DateInterval('P1D'));
-        }
+        // Calculate working days up to today
+        $workingDaysUpToToday = $daysTillToday - $numberOfHolidays;
+        
+        // Get present days up to today
+        $presentDaysUpToToday = $presentCount;
+        
+        // Get leave days up to today
+        $leaveDaysUpToToday = $leaveCount;
+        
+        // Calculate absent days: Working days up to today - Present days - Leave days
+        $absentDays = max(0, $workingDaysUpToToday - $presentDaysUpToToday - $leaveDaysUpToToday);
+        
+        // Update working days to show working days up to today for current month
+        $workingDays = $workingDaysUpToToday;
     } else {
-        // For previous months: Calculate as Working Days - Present Days - Leave Days
-        $absentDays = max(0, $workingDays - $presentCount - $leaveCount);
+        
+        // Working days from tblworkingdays table
+        $workingDays = $workingDaysData[$month];
+        
+        // Present days and leave days from queries
+        $presentDaysUpToToday = $presentCount;
+        $leaveDaysUpToToday = $leaveCount;
+        
+        // Calculate absent days: Working days - Present days - Leave days
+        $absentDays = max(0, $workingDays - $presentDaysUpToToday - $leaveDaysUpToToday);
     }
     
     $formattedLeaveData[] = [
@@ -1704,7 +1699,7 @@ if ($month == $currentMonth && $currentYear == (int)$this->selectedYear) {
         'leaveCount' => $data['leaveCount'],
         'leaveDetails' => $data['leaveDetails'],
         'dates' => array_unique($data['dates']),
-        'presentCount' => $presentCount,
+        'presentCount' => $presentDaysUpToToday,
         'absentDays' => $absentDays,
         'lateCheckIns' => $attendanceData[$month]['lateCheckIns'],
         'earlyCheckOuts' => $attendanceData[$month]['earlyCheckOuts'],
