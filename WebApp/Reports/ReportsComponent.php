@@ -7,6 +7,7 @@ public $selectedMonth;
 public $employeeID;
 public $selectedYear;
 public $selectedDate;
+public $employeeType;
 
 public function loadOrganisationID(array $data) {
 if (isset($data['organisationID'])) {
@@ -1339,6 +1340,17 @@ return true;
 return false;
 }
 
+public function loadEmployeeType(array $data) {
+error_log("loadEmployeeType called with data: " . json_encode($data));
+if (isset($data['employeeType'])) {
+$this->employeeType = $data['employeeType'];
+error_log("Employee type set to: " . $this->employeeType);
+return true;
+}
+error_log("Employee type not found in data, using default (0)");
+return false;
+}
+
 private function isHoliday($date, $connect_var) {
 $formattedDate = date('Y-m-d', strtotime($date));
 $sql = "SELECT COUNT(*) as count FROM tblHoliday WHERE date = ?";
@@ -1620,34 +1632,72 @@ foreach ($monthlyData as $month => $data) {
     $presentCount = $attendanceData[$month]['presentCount'];
     $leaveCount = $data['leaveCount'];
     
-    // For current month, calculate working days up to today
+    // For current month, use total working days from tblworkingdays table
+    // Present days and leave days are calculated up to today from the queries
 if ($month == $currentMonth && $currentYear == (int)$this->selectedYear) {
-    // Calculate working days up to current date for current month
-    $workingDaysUpToToday = 0;
-    $monthStart = new DateTime("{$currentYear}-{$month}-01");
-    $monthEnd = new DateTime("{$currentYear}-{$month}-{$currentDay}");
-    
-    $currentWorkingDay = clone $monthStart;
-    while ($currentWorkingDay <= $monthEnd) {
-        // Check if it's a working day (not weekend)
-        $dayOfWeek = (int)$currentWorkingDay->format('w'); // 0 = Sunday, 6 = Saturday
-        if ($dayOfWeek != 0 && $dayOfWeek != 6) {
-            // Check if it's not a holiday
-            if (!$this->isHoliday($currentWorkingDay->format('Y-m-d'), $connect_var)) {
-                $workingDaysUpToToday++;
-            }
-        }
-        $currentWorkingDay->add(new DateInterval('P1D'));
-    }
-    
-    $workingDays = $workingDaysUpToToday;
+    // Use total working days for the month from tblworkingdays table
+    $workingDays = $workingDaysData[$month];
     
     // Log for debugging
-    error_log("Current month ({$month}) working days calculation: Full month = {$workingDaysData[$month]}, Up to today = {$workingDays}");
+    error_log("Current month ({$month}) working days: Using total month working days = {$workingDays}");
 }
     
-    // Calculate absent days: Working Days - Present Days - Leave Days
-    $absentDays = max(0, $workingDays - $presentCount - $leaveCount);
+    // Calculate absent days
+    if ($month == $currentMonth && $currentYear == (int)$this->selectedYear) {
+        // Get all attendance dates for current month up to today
+        $attendanceQuery = "SELECT DISTINCT a.attendanceDate
+                           FROM tblAttendance a
+                           WHERE a.employeeID = ? 
+                           AND MONTH(a.attendanceDate) = ? 
+                           AND YEAR(a.attendanceDate) = ?
+                           AND a.attendanceDate <= ?
+                           AND a.checkInTime IS NOT NULL";
+        
+        $stmt = mysqli_prepare($connect_var, $attendanceQuery);
+        if ($stmt) {
+            mysqli_stmt_bind_param($stmt, "iiis", $this->employeeID, $currentMonth, $currentYear, $currentDate->format('Y-m-d'));
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+            
+            $presentDates = [];
+            while ($row = mysqli_fetch_assoc($result)) {
+                $presentDates[] = $row['attendanceDate'];
+            }
+            mysqli_stmt_close($stmt);
+        }
+        
+        // Calculate working days up to today and count absences
+        $absentDays = 0;
+        $monthStart = new DateTime("{$currentYear}-{$month}-01");
+        $monthEnd = new DateTime("{$currentYear}-{$month}-{$currentDay}");
+        
+        $currentWorkingDay = clone $monthStart;
+        while ($currentWorkingDay <= $monthEnd) {
+            // Check if it's a working day (not weekend)
+            $dayOfWeek = (int)$currentWorkingDay->format('w'); // 0 = Sunday, 6 = Saturday
+            if ($dayOfWeek != 0 && $dayOfWeek != 6) {
+                // Check if it's not a holiday
+                if (!$this->isHoliday($currentWorkingDay->format('Y-m-d'), $connect_var)) {
+                    $currentDateStr = $currentWorkingDay->format('Y-m-d');
+                    
+                    // Check if employee was present on this day
+                    $wasPresent = in_array($currentDateStr, $presentDates);
+                    
+                    // Check if employee was on leave on this day
+                    $wasOnLeave = in_array($currentDateStr, $data['dates']);
+                    
+                    // If not present and not on leave, count as absent
+                    if (!$wasPresent && !$wasOnLeave) {
+                        $absentDays++;
+                    }
+                }
+            }
+            $currentWorkingDay->add(new DateInterval('P1D'));
+        }
+    } else {
+        // For previous months: Calculate as Working Days - Present Days - Leave Days
+        $absentDays = max(0, $workingDays - $presentCount - $leaveCount);
+    }
     
     $formattedLeaveData[] = [
         'month' => str_pad($month, 2, '0', STR_PAD_LEFT),
@@ -1799,24 +1849,28 @@ return true;
 return false;
 }
 
-public function GetMonthlyCheckoutReport() {
-include(dirname(__FILE__) . '/../../config.inc');
-header('Content-Type: application/json');
-try {
-// Get year and month - use current year
-$currentYear = date('Y');
-$selectedMonth = str_pad($this->selectedMonth, 2, '0', STR_PAD_LEFT);
-$monthStart = "$currentYear-$selectedMonth-01";
-$monthEnd = date('Y-m-t', strtotime($monthStart));
+    public function GetMonthlyCheckoutReport() {
+        include(dirname(__FILE__) . '/../../config.inc');
+        header('Content-Type: application/json');
+        try {
+            // Get year and month - use current year
+            $currentYear = date('Y');
+            $selectedMonth = str_pad($this->selectedMonth, 2, '0', STR_PAD_LEFT);
+            $monthStart = "$currentYear-$selectedMonth-01";
+            $monthEnd = date('Y-m-t', strtotime($monthStart));
 
-// Get current date to limit data "as of today"
-$currentDate = date('Y-m-d');
-$isCurrentMonth = (date('Y-m') === "$currentYear-$selectedMonth");
+            // Get current date to limit data "as of today"
+            $currentDate = date('Y-m-d');
+            $isCurrentMonth = (date('Y-m') === "$currentYear-$selectedMonth");
 
-// If we're in the selected month, limit to today's date
-if ($isCurrentMonth) {
-$monthEnd = min($monthEnd, $currentDate);
-}
+            // If we're in the selected month, limit to today's date
+            if ($isCurrentMonth) {
+                $monthEnd = min($monthEnd, $currentDate);
+            }
+
+            // Get employee type filter - default to permanent (0) if not specified
+            $employeeType = isset($this->employeeType) ? $this->employeeType : 0;
+            error_log("Final employee type used in query: " . $employeeType);
 
 
 
@@ -1948,7 +2002,7 @@ $query = "
                WHERE 
                    emp_map.organisationID = ? AND
                    e.isActive = 1 AND
-                   e.isTemporary = 0
+                   e.isTemporary = ?
                ORDER BY 
                    e.employeeName ASC";
 
@@ -1957,7 +2011,7 @@ if (!$stmt) {
 throw new Exception("Database prepare failed: " . mysqli_error($connect_var));
 }
 
-mysqli_stmt_bind_param($stmt, "iiissssssi", 
+mysqli_stmt_bind_param($stmt, "iiissssssii", 
 $totalWorkingDays,
 $totalWorkingDays,
 $totalWorkingDays,
@@ -1967,7 +2021,8 @@ $this->organisationID,
 $monthStart,
 $monthStart,
 $monthEnd,
-$this->organisationID
+$this->organisationID,
+$employeeType
 );
 
 if (!mysqli_stmt_execute($stmt)) {

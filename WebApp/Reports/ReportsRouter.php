@@ -342,8 +342,13 @@ function GetMonthlyCheckoutReport($decoded_items) {
         return;
     }
 
+    // Load required parameters
     if ($ReportsObject->loadOrganisationID($decoded_items) && 
         $ReportsObject->loadSelectedMonth($decoded_items)) {
+        
+        // Load employee type (optional parameter)
+        $ReportsObject->loadEmployeeType($decoded_items);
+        
         $ReportsObject->GetMonthlyCheckoutReport();
     } else {
         echo json_encode(array("status" => "error", "message_text" => "Invalid input parameters"), JSON_FORCE_OBJECT);
