@@ -1869,34 +1869,68 @@ return false;
 
 
 
-// Get working days from tblworkingdays table
-$monthNames = [
-    1 => 'JANUARY', 2 => 'FEBRUARY', 3 => 'MARCH', 4 => 'APRIL',
-    5 => 'MAY', 6 => 'JUNE', 7 => 'JULY', 8 => 'AUGUST',
-    9 => 'SEPTEMBER', 10 => 'OCTOBER', 11 => 'NOVEMBER', 12 => 'DECEMBER'
-];
-$monthName = $monthNames[$this->selectedMonth] ?? '';
+            // Calculate working days using the same logic as employee leave report
+            $monthNames = [
+                1 => 'JANUARY', 2 => 'FEBRUARY', 3 => 'MARCH', 4 => 'APRIL',
+                5 => 'MAY', 6 => 'JUNE', 7 => 'JULY', 8 => 'AUGUST',
+                9 => 'SEPTEMBER', 10 => 'OCTOBER', 11 => 'NOVEMBER', 12 => 'DECEMBER'
+            ];
+            $monthName = $monthNames[$this->selectedMonth] ?? '';
 
-$workingDaysQuery = "SELECT noOfWorkingDays FROM tblworkingdays WHERE monthName = ? AND year = ?";
-$workingDaysStmt = mysqli_prepare($connect_var, $workingDaysQuery);
-mysqli_stmt_bind_param($workingDaysStmt, "ss", $monthName, $currentYear);
-mysqli_stmt_execute($workingDaysStmt);
-$workingDaysResult = mysqli_stmt_get_result($workingDaysStmt);
-$workingDaysRow = mysqli_fetch_assoc($workingDaysResult);
-$totalWorkingDays = $workingDaysRow['noOfWorkingDays'] ?? 0;
-mysqli_stmt_close($workingDaysStmt);
+            if ($isCurrentMonth) {
+                // For current month: Calculate working days up to today minus holidays
+                $currentDay = (int)date('j'); // Current day of month
+                
+                // Get number of holidays till today for this month
+                $holidayQuery = "SELECT COUNT(*) AS numberOfHolidays 
+                                FROM tblHoliday 
+                                WHERE MONTH(date) = MONTH(CURDATE()) 
+                                AND YEAR(date) = YEAR(CURDATE()) 
+                                AND date <= CURDATE()";
+                
+                $stmt = mysqli_prepare($connect_var, $holidayQuery);
+                if (!$stmt) {
+                    throw new Exception("Database prepare failed for holiday query: " . mysqli_error($connect_var));
+                }
+                
+                mysqli_stmt_execute($stmt);
+                $result = mysqli_stmt_get_result($stmt);
+                $holidayRow = mysqli_fetch_assoc($result);
+                $numberOfHolidays = (int)$holidayRow['numberOfHolidays'];
+                mysqli_stmt_close($stmt);
+                
+                // Calculate working days up to today
+                $totalWorkingDays = $currentDay - $numberOfHolidays;
+                
+                // Log for debugging (commented out for production)
+                // error_log("Current month working days calculation:");
+                // error_log("Days till today: {$currentDay}");
+                // error_log("Number of holidays: {$numberOfHolidays}");
+                // error_log("Working days up to today: {$totalWorkingDays}");
+                
+            } else {
+                // For previous months: Use working days from tblworkingdays table
+                $workingDaysQuery = "SELECT noOfWorkingDays FROM tblworkingdays WHERE monthName = ? AND year = ?";
+                $workingDaysStmt = mysqli_prepare($connect_var, $workingDaysQuery);
+                mysqli_stmt_bind_param($workingDaysStmt, "ss", $monthName, $currentYear);
+                mysqli_stmt_execute($workingDaysStmt);
+                $workingDaysResult = mysqli_stmt_get_result($workingDaysStmt);
+                $workingDaysRow = mysqli_fetch_assoc($workingDaysResult);
+                $totalWorkingDays = $workingDaysRow['noOfWorkingDays'] ?? 0;
+                mysqli_stmt_close($workingDaysStmt);
+            }
 
-$query = "
+            $query = "
                SELECT 
                    (@row_number := @row_number + 1) as sNo,
                    e.employeeID,
                    e.empID,
                    e.employeeName,
                    e.Designation,
-                   ? as total_working_days,
-                   COALESCE(attendance_stats.present_days, 0) as present_days,
-                   COALESCE(leave_stats.leave_days, 0) as leave_days,
-                   GREATEST(0, ? - COALESCE(attendance_stats.present_days, 0) - COALESCE(leave_stats.leave_days, 0)) as absent_days,
+                   ? as total_working_days, -- Working days (up to today for current month, full month for previous months)
+                   COALESCE(attendance_stats.present_days, 0) as present_days, -- Present days (up to today for current month)
+                   COALESCE(leave_stats.leave_days, 0) as leave_days, -- Leave days (up to today for current month)
+                   GREATEST(0, ? - COALESCE(attendance_stats.present_days, 0) - COALESCE(leave_stats.leave_days, 0)) as absent_days, -- Absent days = Working days - Present days - Leave days
                    GREATEST(0, COALESCE(attendance_stats.present_days, 0) - ?) as extra_days,
                    COALESCE(attendance_stats.late_checkins, 0) as late_checkins,
                    COALESCE(attendance_stats.early_checkouts, 0) as early_checkouts,
@@ -1968,7 +2002,7 @@ $query = "
                    JOIN tblmapEmp m ON a.employeeID = m.employeeID
                    LEFT JOIN tblBranch b ON m.branchID = b.branchID
                    WHERE 
-                       a.attendanceDate BETWEEN ? AND ?
+                       a.attendanceDate BETWEEN ? AND ? -- Date range (up to today for current month, full month for previous months)
                        AND m.organisationID = ?
                    GROUP BY 
                        a.employeeID
@@ -1988,7 +2022,7 @@ $query = "
                    WHERE 
                        al.status = 'Approved'
                        AND leave_date.date BETWEEN al.fromDate AND al.toDate
-                       AND leave_date.date BETWEEN ? AND ?
+                       AND leave_date.date BETWEEN ? AND ? -- Date range (up to today for current month, full month for previous months)
                        AND DAYOFWEEK(leave_date.date) NOT IN (1, 7)
                    GROUP BY 
                        al.employeeID
