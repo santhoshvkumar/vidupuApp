@@ -51,7 +51,6 @@ $data = [];
 $queryforGetAttendanceReport = "SELECT DISTINCT
    e.empID AS Employee_ID,
    e.employeeName AS Employee_Name,
-   e.employeePhone AS Employee_Phone,
    e.Designation,
    DATE_FORMAT(DATE_ADD(?, INTERVAL n.num DAY), '%d/%m/%Y') AS attendanceDate,
    TIME_FORMAT(a.checkInTime, '%H:%i:%s') AS CheckIn_Time,
@@ -72,7 +71,7 @@ $queryforGetAttendanceReport = "SELECT DISTINCT
    b.branchName
 FROM 
    (
-       SELECT empID, employeeName, employeePhone, Designation, employeeID
+       SELECT empID, employeeName, Designation, employeeID
        FROM tblEmployee 
        WHERE isTemporary = 0 AND isActive = 1
    ) e
@@ -157,7 +156,6 @@ $data = [];
 $queryforGetAttendanceReport = "SELECT DISTINCT
    e.empID AS Employee_ID,
    e.employeeName AS Employee_Name,
-   e.employeePhone AS Employee_Phone,
    e.Designation,
    s.sectionName AS Section_Name,
    DATE_FORMAT(DATE_ADD(?, INTERVAL n.num DAY), '%d/%m/%Y') AS attendanceDate,
@@ -179,7 +177,7 @@ $queryforGetAttendanceReport = "SELECT DISTINCT
    b.branchName
 FROM 
    (
-       SELECT empID, employeeName, employeePhone, Designation, employeeID
+       SELECT empID, employeeName, Designation, employeeID
        FROM tblEmployee 
        WHERE isTemporary = 0 AND isActive = 1
    ) e
@@ -271,7 +269,6 @@ $queryforGetLeaveReport = "SELECT
 e.empID AS Employee_ID, 
 e.employeeName AS Employee_Name, 
 e.Designation, 
-e.employeePhone AS Employee_Phone, 
 b.branchName AS Branch_Name,
 l.MedicalCertificatePath AS Medical_Certificate_Path,
 l.FitnessCertificatePath AS Fitness_Certificate_Path,
@@ -299,7 +296,6 @@ $queryforGetLeaveReport = "SELECT
 e.empID AS Employee_ID, 
 e.employeeName AS Employee_Name, 
 e.Designation, 
-e.employeePhone AS Employee_Phone, 
 b.branchName AS Branch_Name,
 l.MedicalCertificatePath AS Medical_Certificate_Path,
 l.FitnessCertificatePath AS Fitness_Certificate_Path,
@@ -615,6 +611,7 @@ $query = "
                    e.employeeName,
                    e.empID as employeeCode,
                    e.Designation,
+                   b.branchName,
                    COALESCE(SUM(CASE WHEN al.typeOfLeave = 'Casual Leave' THEN al.leaveDuration ELSE 0 END), 0) as cl,
                    COALESCE(SUM(CASE WHEN al.typeOfLeave = 'Privilege Leave' THEN al.leaveDuration ELSE 0 END), 0) as pl,
                    COALESCE(SUM(CASE WHEN al.typeOfLeave = 'Privilege Leave(Medical Grounds)' THEN al.leaveDuration ELSE 0 END), 0) as plMedical,
@@ -627,6 +624,10 @@ $query = "
                FROM 
                    tblEmployee e
                LEFT JOIN 
+                   tblmapEmp m ON e.employeeID = m.employeeID
+               LEFT JOIN 
+                   tblBranch b ON m.branchID = b.branchID
+               LEFT JOIN 
                    tblApplyLeave al ON e.employeeID = al.employeeID 
                    AND al.status = 'Approved'
                    AND YEAR(al.fromDate) = ?
@@ -638,7 +639,8 @@ $query = "
                    e.employeeID,
                    e.employeeName,
                    e.empID,
-                   e.Designation
+                   e.Designation,
+                   b.branchName
                HAVING total > 0
                ORDER BY 
                    total DESC,
@@ -688,6 +690,7 @@ $query = "
                    e.employeeName,
                    e.empID as employeeCode,
                    e.Designation,
+                   b.branchName,
                    COALESCE(SUM(CASE WHEN al.typeOfLeave = 'Casual Leave' THEN al.leaveDuration ELSE 0 END), 0) as cl,
                    COALESCE(SUM(CASE WHEN al.typeOfLeave = 'Privilege Leave' THEN al.leaveDuration ELSE 0 END), 0) as pl,
                    COALESCE(SUM(CASE WHEN al.typeOfLeave = 'Privilege Leave(Medical Grounds)' THEN al.leaveDuration ELSE 0 END), 0) as plMedical,
@@ -700,6 +703,10 @@ $query = "
                FROM 
                    tblEmployee e
                LEFT JOIN 
+                   tblmapEmp m ON e.employeeID = m.employeeID
+               LEFT JOIN 
+                   tblBranch b ON m.branchID = b.branchID
+               LEFT JOIN 
                    tblApplyLeave al ON e.employeeID = al.employeeID 
                    AND al.status = 'Approved'
                    AND DATE_FORMAT(al.fromDate, '%Y-%m') = ?
@@ -711,7 +718,8 @@ $query = "
                    e.employeeID,
                    e.employeeName,
                    e.empID,
-                   e.Designation
+                   e.Designation,
+                   b.branchName
                HAVING total > 0
                ORDER BY 
                    total DESC,
@@ -1402,7 +1410,6 @@ $employeeQuery = "SELECT
                employeeID,
                empID,
                employeeName,
-               employeePhone,
                Designation
            FROM 
                tblEmployee 
@@ -1643,7 +1650,6 @@ $query = "SELECT
                e.empID,
                e.employeeName,
                e.Designation,
-               e.employeePhone,
                b.branchName,
                a.checkInTime,
                a.checkOutTime,
@@ -1707,7 +1713,6 @@ $checkoutData[] = [
 'empID' => $row['empID'],
 'employeeName' => $row['employeeName'],
 'designation' => $row['Designation'],
-'employeePhone' => $row['employeePhone'],
 'branchName' => $row['branchName'],
 'checkInTime' => $row['checkInTime'],
 'checkOutTime' => $row['checkOutTime'],
