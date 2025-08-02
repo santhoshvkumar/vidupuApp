@@ -1405,6 +1405,12 @@ public function GetEmployeeLeaveReport() {
 include(dirname(__FILE__) . '/../../config.inc');
 header('Content-Type: application/json');
 try {
+// Get current date for calculating working days up to today for current month
+$currentDate = new DateTime();
+$currentYear = (int)$currentDate->format('Y');
+$currentMonth = (int)$currentDate->format('n');
+$currentDay = (int)$currentDate->format('j');
+
 // First get employee details
 $employeeQuery = "SELECT 
                employeeID,
@@ -1549,12 +1555,6 @@ while ($row = mysqli_fetch_assoc($result)) {
 }
 
 mysqli_stmt_close($stmt);
-
-// Get current date for calculating working days up to today for current month
-$currentDate = new DateTime();
-$currentYear = (int)$currentDate->format('Y');
-$currentMonth = (int)$currentDate->format('n');
-$currentDay = (int)$currentDate->format('j');
 
 // Get attendance data for the year (excluding leave days)
 $attendanceQuery = "SELECT 
