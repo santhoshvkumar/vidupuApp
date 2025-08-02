@@ -1450,7 +1450,8 @@ $leaveQuery = "SELECT
            WHERE 
                employeeID = ? AND
                status = 'Approved' AND
-               YEAR(fromDate) = ?
+               YEAR(fromDate) = ? AND
+               (MONTH(fromDate) != ? OR fromDate <= ?)
            ORDER BY 
                fromDate";
 
@@ -1459,7 +1460,7 @@ if (!$stmt) {
 throw new Exception("Database prepare failed: " . mysqli_error($connect_var));
 }
 
-mysqli_stmt_bind_param($stmt, "is", $this->employeeID, $this->selectedYear);
+mysqli_stmt_bind_param($stmt, "isis", $this->employeeID, $this->selectedYear, $currentMonth, $currentDate->format('Y-m-d'));
 
 if (!mysqli_stmt_execute($stmt)) {
 throw new Exception("Database execute failed: " . mysqli_error($connect_var));
@@ -1488,17 +1489,25 @@ $typeOfLeave = $row['typeOfLeave'] == 'Privilege Leave(Medical Grounds)' ? 'PL(M
 $leaveDetail = $startDate->format('d/m/Y') . ' - ' . $endDate->format('d/m/Y') . ' (' . $typeOfLeave . ')';
 
 // Calculate leave days per month
-$currentDate = clone $startDate;
+$currentLeaveDate = clone $startDate;
 $daysInMonth = 0;
 $datesInMonth = [];
 
-while ($currentDate <= $endDate) {
-$currentMonth = (int)$currentDate->format('n');
-if ($currentMonth === $month) {
-$daysInMonth++;
-$datesInMonth[] = $currentDate->format('Y-m-d');
+while ($currentLeaveDate <= $endDate) {
+$currentLeaveMonth = (int)$currentLeaveDate->format('n');
+if ($currentLeaveMonth === $month) {
+// For current month, only count leaves up to current date
+if ($month == $currentMonth && $currentYear == (int)$this->selectedYear) {
+    if ($currentLeaveDate <= $currentDate) {
+        $daysInMonth++;
+        $datesInMonth[] = $currentLeaveDate->format('Y-m-d');
+    }
+} else {
+    $daysInMonth++;
+    $datesInMonth[] = $currentLeaveDate->format('Y-m-d');
 }
-$currentDate->add(new DateInterval('P1D'));
+}
+$currentLeaveDate->add(new DateInterval('P1D'));
 }
 
 if ($daysInMonth > 0) {
@@ -1541,6 +1550,12 @@ while ($row = mysqli_fetch_assoc($result)) {
 
 mysqli_stmt_close($stmt);
 
+// Get current date for calculating working days up to today for current month
+$currentDate = new DateTime();
+$currentYear = (int)$currentDate->format('Y');
+$currentMonth = (int)$currentDate->format('n');
+$currentDay = (int)$currentDate->format('j');
+
 // Get attendance data for the year (excluding leave days)
 $attendanceQuery = "SELECT 
                MONTH(a.attendanceDate) as month,
@@ -1560,7 +1575,8 @@ $attendanceQuery = "SELECT
                    WHERE al.employeeID = a.employeeID 
                    AND al.status = 'Approved'
                    AND a.attendanceDate BETWEEN al.fromDate AND al.toDate
-               )
+               ) AND
+               (MONTH(a.attendanceDate) != ? OR a.attendanceDate <= ?)
            ORDER BY 
                a.attendanceDate";
 
@@ -1569,7 +1585,7 @@ if (!$stmt) {
 throw new Exception("Database prepare failed: " . mysqli_error($connect_var));
 }
 
-mysqli_stmt_bind_param($stmt, "is", $this->employeeID, $this->selectedYear);
+mysqli_stmt_bind_param($stmt, "isis", $this->employeeID, $this->selectedYear, $currentMonth, $currentDate->format('Y-m-d'));
 
 if (!mysqli_stmt_execute($stmt)) {
 throw new Exception("Database execute failed: " . mysqli_error($connect_var));
@@ -1603,6 +1619,32 @@ foreach ($monthlyData as $month => $data) {
     $workingDays = $workingDaysData[$month];
     $presentCount = $attendanceData[$month]['presentCount'];
     $leaveCount = $data['leaveCount'];
+    
+    // For current month, calculate working days up to today
+if ($month == $currentMonth && $currentYear == (int)$this->selectedYear) {
+    // Calculate working days up to current date for current month
+    $workingDaysUpToToday = 0;
+    $monthStart = new DateTime("{$currentYear}-{$month}-01");
+    $monthEnd = new DateTime("{$currentYear}-{$month}-{$currentDay}");
+    
+    $currentWorkingDay = clone $monthStart;
+    while ($currentWorkingDay <= $monthEnd) {
+        // Check if it's a working day (not weekend)
+        $dayOfWeek = (int)$currentWorkingDay->format('w'); // 0 = Sunday, 6 = Saturday
+        if ($dayOfWeek != 0 && $dayOfWeek != 6) {
+            // Check if it's not a holiday
+            if (!$this->isHoliday($currentWorkingDay->format('Y-m-d'), $connect_var)) {
+                $workingDaysUpToToday++;
+            }
+        }
+        $currentWorkingDay->add(new DateInterval('P1D'));
+    }
+    
+    $workingDays = $workingDaysUpToToday;
+    
+    // Log for debugging
+    error_log("Current month ({$month}) working days calculation: Full month = {$workingDaysData[$month]}, Up to today = {$workingDays}");
+}
     
     // Calculate absent days: Working Days - Present Days - Leave Days
     $absentDays = max(0, $workingDays - $presentCount - $leaveCount);
