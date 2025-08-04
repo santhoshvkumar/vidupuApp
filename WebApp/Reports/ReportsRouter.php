@@ -395,4 +395,31 @@ function GetWorkingDays($decoded_items) {
         echo json_encode(array("status" => "error", "message_text" => "Invalid input parameters"), JSON_FORCE_OBJECT);
     }
 }
+
+$f3->route('POST /DeleteCertificate',
+    function($f3) {
+        header('Content-Type: application/json');
+        $decoded_items = json_decode($f3->get('BODY'), true);
+        if($decoded_items != NULL) {
+            DeleteCertificate($decoded_items);
+        } else {
+            echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
+        }
+    }
+);
+
+function DeleteCertificate($decoded_items) {
+    $ReportsObject = new ReportsComponent();
+    if (!isset($decoded_items['certificatePath'])) {
+        echo json_encode(array("status" => "error", "message_text" => "Missing certificatePath parameter"), JSON_FORCE_OBJECT);
+        return;
+    }
+    
+    if (!isset($decoded_items['leaveID'])) {
+        echo json_encode(array("status" => "error", "message_text" => "Missing leaveID parameter"), JSON_FORCE_OBJECT);
+        return;
+    }
+    
+    $ReportsObject->deleteCertificate($decoded_items);
+}
 ?>

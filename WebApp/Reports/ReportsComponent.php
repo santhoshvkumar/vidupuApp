@@ -2253,5 +2253,111 @@ echo json_encode([
             ]);
         }
     }
+
+    public function deleteCertificate($data) {
+        include('config.inc');
+        header('Content-Type: application/json');
+        error_reporting(E_ALL);
+        ini_set('display_errors', 1);
+
+        try {
+            // Validate required fields
+            if (!isset($data['certificatePath']) || !isset($data['leaveID'])) {
+                throw new Exception("Certificate path and leave ID are required");
+            }
+
+            $certificatePath = $data['certificatePath'];
+            $leaveID = $data['leaveID'];
+            $certificateType = isset($data['certificateType']) ? $data['certificateType'] : '';
+
+            // Remove API_URL prefix if present
+            $certificatePath = str_replace('http://localhost:8888/vidupuApi/', '', $certificatePath);
+            $certificatePath = str_replace('http://localhost/vidupuApi/', '', $certificatePath);
+
+            // Check if the certificate exists in the database
+            $checkQuery = "SELECT medicalCertificate, fitnessCertificate FROM tblApplyLeave WHERE leaveID = ?";
+            $checkStmt = mysqli_prepare($connect_var, $checkQuery);
+            if (!$checkStmt) {
+                throw new Exception("Failed to prepare check query: " . mysqli_error($connect_var));
+            }
+            mysqli_stmt_bind_param($checkStmt, "i", $leaveID);
+            mysqli_stmt_execute($checkStmt);
+            $checkResult = mysqli_stmt_get_result($checkStmt);
+            $leaveRecord = mysqli_fetch_assoc($checkResult);
+
+            if (!$leaveRecord) {
+                echo json_encode(array(
+                    "status" => "error",
+                    "message_text" => "Leave record not found"
+                ));
+                return;
+            }
+
+            // Determine which certificate field to update
+            $certificateField = '';
+            if (strpos(strtolower($certificateType), 'medical') !== false) {
+                $certificateField = 'medicalCertificate';
+            } elseif (strpos(strtolower($certificateType), 'fitness') !== false) {
+                $certificateField = 'fitnessCertificate';
+            } else {
+                echo json_encode(array(
+                    "status" => "error",
+                    "message_text" => "Invalid certificate type"
+                ));
+                return;
+            }
+
+            // Delete the certificate file if it exists
+            $fileDeleted = false;
+            if ($certificatePath && file_exists($certificatePath)) {
+                if (unlink($certificatePath)) {
+                    $fileDeleted = true;
+                }
+            }
+
+            // Update the database to set the certificate field to NULL
+            $updateQuery = "UPDATE tblApplyLeave SET $certificateField = NULL WHERE leaveID = ?";
+            
+            $stmt = mysqli_prepare($connect_var, $updateQuery);
+            if (!$stmt) {
+                throw new Exception("Failed to prepare update query: " . mysqli_error($connect_var));
+            }
+            mysqli_stmt_bind_param($stmt, "i", $leaveID);
+            
+            if (mysqli_stmt_execute($stmt)) {
+                if (mysqli_affected_rows($connect_var) > 0) {
+                    $message = "Certificate deleted successfully";
+                    if ($fileDeleted) {
+                        $message .= " and file removed from server";
+                    } else {
+                        $message .= " (file was not found on server)";
+                    }
+                    
+                    echo json_encode(array(
+                        "status" => "success",
+                        "message_text" => $message
+                    ));
+                } else {
+                    echo json_encode(array(
+                        "status" => "error",
+                        "message_text" => "Failed to update record"
+                    ));
+                }
+            } else {
+                throw new Exception("Failed to update certificate: " . mysqli_error($connect_var));
+            }
+
+        } catch (Exception $e) {
+            error_log("Error in deleteCertificate: " . $e->getMessage());
+            echo json_encode(array(
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ));
+        } finally {
+            if (isset($connect_var)) {
+                mysqli_close($connect_var);
+            }
+        }
+    }
 }
 ?>

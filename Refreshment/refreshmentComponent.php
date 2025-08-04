@@ -12,7 +12,7 @@ class RefreshmentMaster {
     public function loadRefreshmentData($decoded_items){
         if (isset($decoded_items['organisationID'])) {
             $this->organisationID = $decoded_items['organisationID'];
-        }
+        }        
         if (isset($decoded_items['month'])) {
             $this->month = $decoded_items['month'];
         }
@@ -53,8 +53,8 @@ class RefreshmentMaster {
             // Get all employees from tblEmployee
             $query = "SELECT 
                         e.employeeID,
-                        e.empID,
-                        e.employeeName,
+    e.empID,
+    e.employeeName,
                         e.isWashingAllowance,
                         e.isPhysicallyHandicapped,
                         e.isTemporary,
@@ -65,23 +65,23 @@ class RefreshmentMaster {
                     WHERE m.organisationID = ? AND e.isActive = 1
                     ORDER BY e.employeeName";
 
-            $stmt = mysqli_prepare($connect_var, $query);
-            if (!$stmt) {
-                throw new Exception("Failed to prepare statement: " . mysqli_error($connect_var));
-            }
-
+                $stmt = mysqli_prepare($connect_var, $query);
+                if (!$stmt) {
+                    throw new Exception("Failed to prepare statement: " . mysqli_error($connect_var));
+                }
+                
             mysqli_stmt_bind_param($stmt, "i", $organisationID);
-            
-            if (!mysqli_stmt_execute($stmt)) {
-                throw new Exception("Failed to execute statement: " . mysqli_error($connect_var));
-            }
+                
+                if (!mysqli_stmt_execute($stmt)) {
+                    throw new Exception("Failed to execute statement: " . mysqli_error($connect_var));
+                }
 
-            $result = mysqli_stmt_get_result($stmt);
-            if (!$result) {
-                throw new Exception("Failed to get result: " . mysqli_error($connect_var));
-            }
+                $result = mysqli_stmt_get_result($stmt);
+                if (!$result) {
+                    throw new Exception("Failed to get result: " . mysqli_error($connect_var));
+                }
 
-            $data = [];
+                $data = [];
             while ($row = mysqli_fetch_assoc($result)) {
                 $employeeID = $row['employeeID'];
                 
@@ -212,33 +212,33 @@ class RefreshmentMaster {
                     'TotalAllowances' => number_format((float)$totalAmount, 2, '.', ''),
                     'status' => $status
                 );
-            }
-
-            if (count($data) > 0) {
-                echo json_encode([
-                    "status" => "success",
+                }
+                
+                if (count($data) > 0) {
+                    echo json_encode([
+                        "status" => "success",
                     "message" => "Refreshment allowances calculated successfully",
-                    "record_count" => count($data),
-                    "data" => $data
-                ]);
-            } else {
+                        "record_count" => count($data),
+                        "data" => $data
+                    ]);
+                } else {
+                    echo json_encode([
+                        "status" => "error",
+                    "message" => "No employees found for this organization"
+                    ], JSON_FORCE_OBJECT);
+                }           
+               
+            } catch (Exception $e) {
+            error_log("Error in getRefreshmentAllowancesByOrganisationID: " . $e->getMessage());
                 echo json_encode([
                     "status" => "error",
-                    "message" => "No employees found for this organization"
+                    "message" => $e->getMessage()
                 ], JSON_FORCE_OBJECT);
+            } finally {
+                if (isset($connect_var)) {
+                    mysqli_close($connect_var);
+                }
             }
-
-        } catch (Exception $e) {
-            error_log("Error in getRefreshmentAllowancesByOrganisationID: " . $e->getMessage());
-            echo json_encode([
-                "status" => "error",
-                "message" => $e->getMessage()
-            ], JSON_FORCE_OBJECT);
-        } finally {
-            if (isset($connect_var)) {
-                mysqli_close($connect_var);
-            }
-        }
     }
 
     public function calculateRefreshmentAllowance($data) {
@@ -526,7 +526,7 @@ class RefreshmentMaster {
         header('Content-Type: application/json');
         error_reporting(E_ALL);
         ini_set('display_errors', 1);
-
+    
         try {
             // Validate required fields
             if (!isset($data['employeeID']) || !isset($data['month']) || !isset($data['year'])) {
@@ -919,7 +919,7 @@ class RefreshmentMaster {
             }
             
             echo json_encode($response);
-
+    
         } catch (Exception $e) {
             error_log("Error in bulkApproveRefreshmentAllowances: " . $e->getMessage());
             echo json_encode(array(
@@ -1003,7 +1003,7 @@ class RefreshmentMaster {
                             "message_text" => "No record found to reject"
                         ));
                     }
-                } else {
+    } else {
                     throw new Exception("Failed to reject allowance: " . mysqli_error($connect_var));
                 }
             }
