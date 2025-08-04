@@ -182,7 +182,15 @@ class RefreshmentMaster {
                 // Calculate total amount
                 $totalAmount = $refreshmentAmount + $washingAmount + $physicallyHandicappedAmount + $medicalAmount;
 
-
+                // Check if record exists in tblRefreshment to get status
+                $statusQuery = "SELECT Status FROM tblRefreshment 
+                               WHERE EmployeeID = ? AND Month = ? AND Year = ?";
+                $statusStmt = mysqli_prepare($connect_var, $statusQuery);
+                mysqli_stmt_bind_param($statusStmt, "sii", $row['employeeID'], $month, $year);
+                mysqli_stmt_execute($statusStmt);
+                $statusResult = mysqli_stmt_get_result($statusStmt);
+                $statusRow = mysqli_fetch_assoc($statusResult);
+                $status = $statusRow ? $statusRow['Status'] : 'Pending';
 
                 $data[] = array(
                     'employeeID' => (int)$row['employeeID'],
@@ -201,7 +209,8 @@ class RefreshmentMaster {
                     'WashingAllowanceAmount' => number_format((float)$washingAmount, 2, '.', ''),
                     'PhysicallyChallangedAllowance' => (int)$physicallyHandicappedAmount,
                     'MedicalAmount' => number_format((float)$medicalAmount, 2, '.', ''),
-                    'TotalAllowances' => number_format((float)$totalAmount, 2, '.', '')
+                    'TotalAllowances' => number_format((float)$totalAmount, 2, '.', ''),
+                    'status' => $status
                 );
             }
 
@@ -913,6 +922,94 @@ class RefreshmentMaster {
 
         } catch (Exception $e) {
             error_log("Error in bulkApproveRefreshmentAllowances: " . $e->getMessage());
+            echo json_encode(array(
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ));
+        } finally {
+            if (isset($connect_var)) {
+                mysqli_close($connect_var);
+            }
+        }
+    }
+
+    public function rejectRefreshmentAllowance($data) {
+        include('config.inc');
+        header('Content-Type: application/json');
+        error_reporting(E_ALL);
+        ini_set('display_errors', 1);
+
+        try {
+            // Validate required fields
+            if (!isset($data['employeeID']) || !isset($data['month']) || !isset($data['year'])) {
+                throw new Exception("Missing required fields");
+            }
+
+            $employeeID = $data['employeeID'];
+            $month = $data['month'];
+            $year = $data['year'];
+
+            // Check if record exists
+            $checkQuery = "SELECT RefreshmentID FROM tblRefreshment 
+                          WHERE EmployeeID = ? AND Month = ? AND Year = ?";
+            $checkStmt = mysqli_prepare($connect_var, $checkQuery);
+            if (!$checkStmt) {
+                throw new Exception("Failed to prepare check query: " . mysqli_error($connect_var));
+            }
+            mysqli_stmt_bind_param($checkStmt, "sii", $employeeID, $month, $year);
+            mysqli_stmt_execute($checkStmt);
+            $checkResult = mysqli_stmt_get_result($checkStmt);
+            
+            if (mysqli_num_rows($checkResult) == 0) {
+                // Record doesn't exist, create it with rejected status
+                $insertQuery = "INSERT INTO tblRefreshment 
+                              (EmployeeID, Month, Year, Status) 
+                              VALUES (?, ?, ?, 'Rejected')";
+                $insertStmt = mysqli_prepare($connect_var, $insertQuery);
+                if (!$insertStmt) {
+                    throw new Exception("Failed to prepare insert query: " . mysqli_error($connect_var));
+                }
+                mysqli_stmt_bind_param($insertStmt, "sii", $employeeID, $month, $year);
+                
+                if (mysqli_stmt_execute($insertStmt)) {
+                    echo json_encode(array(
+                        "status" => "success",
+                        "message_text" => "Refreshment allowance rejected successfully"
+                    ));
+                } else {
+                    throw new Exception("Failed to reject allowance: " . mysqli_error($connect_var));
+                }
+            } else {
+                // Record exists, update status to rejected
+                $updateQuery = "UPDATE tblRefreshment 
+                              SET Status = 'Rejected'
+                              WHERE EmployeeID = ? AND Month = ? AND Year = ?";
+                
+                $stmt = mysqli_prepare($connect_var, $updateQuery);
+                if (!$stmt) {
+                    throw new Exception("Failed to prepare update query: " . mysqli_error($connect_var));
+                }
+                mysqli_stmt_bind_param($stmt, "sii", $employeeID, $month, $year);
+                
+                if (mysqli_stmt_execute($stmt)) {
+                    if (mysqli_affected_rows($connect_var) > 0) {
+                        echo json_encode(array(
+                            "status" => "success",
+                            "message_text" => "Refreshment allowance rejected successfully"
+                        ));
+                    } else {
+                        echo json_encode(array(
+                            "status" => "error",
+                            "message_text" => "No record found to reject"
+                        ));
+                    }
+                } else {
+                    throw new Exception("Failed to reject allowance: " . mysqli_error($connect_var));
+                }
+            }
+
+        } catch (Exception $e) {
+            error_log("Error in rejectRefreshmentAllowance: " . $e->getMessage());
             echo json_encode(array(
                 "status" => "error",
                 "message_text" => $e->getMessage()
