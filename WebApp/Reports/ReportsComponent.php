@@ -125,7 +125,7 @@ if (!$stmt) {
 throw new Exception("Database prepare failed");
 }
 
-mysqli_stmt_bind_param($stmt, "sssssssssssssss", 
+mysqli_stmt_bind_param($stmt, "ssssssssssssssss", 
 $this->startDate,  // For attendanceDate
 $this->startDate,  // For present check - leave conflict
 $this->startDate,  // For present check - weekend
