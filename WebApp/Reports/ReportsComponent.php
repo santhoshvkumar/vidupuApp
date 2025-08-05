@@ -95,9 +95,10 @@ $queryforGetAttendanceReport = "SELECT DISTINCT
    b.branchName
 FROM 
    (
-       SELECT empID, employeeName, Designation, employeeID
-       FROM tblEmployee 
-       WHERE isTemporary = 0 AND isActive = 1 AND organisationID = ?
+       SELECT e.empID, e.employeeName, e.Designation, e.employeeID
+       FROM tblEmployee e
+       INNER JOIN tblmapEmp m ON e.employeeID = m.employeeID
+       WHERE e.isTemporary = 0 AND e.isActive = 1 AND m.organisationID = ?
    ) e
 LEFT JOIN tblAttendance a 
    ON e.employeeID = a.employeeID  
@@ -139,17 +140,18 @@ $queryforGetAttendanceReport = "SELECT DISTINCT
    TIME_FORMAT(a.checkInTime, '%H:%i:%s') AS CheckIn_Time,
    TIME_FORMAT(a.checkOutTime, '%H:%i:%s') AS CheckOut_Time,
    CASE
+       WHEN l.applyLeaveID IS NOT NULL THEN 'Leave'
        WHEN a.checkInTime IS NOT NULL THEN 'Present'
-       WHEN l.leaveID IS NOT NULL THEN 'Leave'
        WHEN DAYOFWEEK(d.date_value) IN (1, 7) THEN 'Weekend'
        ELSE 'Absent'
    END AS Status,
    b.branchName
 FROM 
    (
-       SELECT empID, employeeName, Designation, employeeID
-       FROM tblEmployee 
-       WHERE isTemporary = 0 AND isActive = 1 AND organisationID = ?
+       SELECT e.empID, e.employeeName, e.Designation, e.employeeID
+       FROM tblEmployee e
+       INNER JOIN tblmapEmp m ON e.employeeID = m.employeeID
+       WHERE e.isTemporary = 0 AND e.isActive = 1 AND m.organisationID = ?
    ) e
 CROSS JOIN (
    SELECT DATE_ADD(?, INTERVAL seq DAY) as date_value
@@ -174,7 +176,7 @@ LEFT JOIN tblAttendance a
    ON e.employeeID = a.employeeID  
    AND a.attendanceDate = d.date_value
 LEFT JOIN (
-   SELECT DISTINCT al.employeeID, al.fromDate, al.toDate
+   SELECT DISTINCT al.applyLeaveID, al.employeeID, al.fromDate, al.toDate
    FROM tblApplyLeave al
    JOIN tblmapEmp map ON al.employeeID = map.employeeID
    WHERE al.status = 'Approved' 
@@ -198,7 +200,7 @@ if (!$stmt) {
 throw new Exception("Database prepare failed");
 }
 
-mysqli_stmt_bind_param($stmt, "ssssssssssss", 
+mysqli_stmt_bind_param($stmt, "sssssssssssss", 
 $this->organisationID,  // For employee subquery organisationID
 $this->startDate,       // For date generation start
 $this->startDate,       // For date generation WHERE clause
@@ -211,7 +213,7 @@ $this->startDate,       // For leave date range start
 $this->endDate,         // For leave date range end
 $this->startDate,       // For leave overlap start
 $this->endDate,         // For leave overlap end
-$this->organisationID   // For m.organisationID
+$this->organisationID   // For main WHERE clause m.organisationID
 );
 }
 
@@ -277,9 +279,10 @@ $queryforGetAttendanceReport = "SELECT DISTINCT
    b.branchName
 FROM 
    (
-       SELECT empID, employeeName, Designation, employeeID
-       FROM tblEmployee 
-       WHERE isTemporary = 0 AND isActive = 1
+       SELECT e.empID, e.employeeName, e.Designation, e.employeeID
+       FROM tblEmployee e
+       INNER JOIN tblmapEmp m ON e.employeeID = m.employeeID
+       WHERE e.isTemporary = 0 AND e.isActive = 1 AND m.organisationID = ?
    ) e
 CROSS JOIN (
    SELECT a.N + b.N * 10 + c.N * 100 AS num
