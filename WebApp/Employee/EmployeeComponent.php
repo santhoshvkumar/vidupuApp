@@ -500,7 +500,7 @@ class EmployeeComponent{
                 ON tblE.employeeID = tblA.employeeID AND tblA.isActive = 1
             LEFT JOIN tblSection tblS ON tblA.sectionID = tblS.sectionID
             LEFT JOIN tblLeaveBalance tblL ON tblE.employeeID = tblL.employeeID
-            WHERE tblE.isTemporary = 0 AND tblE.organisationID = ?";
+            WHERE tblE.isTemporary = 0 AND tblE.isActive = 1 AND tblE.organisationID = ?";
             
             $stmt = mysqli_prepare($connect_var, $queryGetEmployeeDetails);
             if (!$stmt) {
@@ -588,7 +588,7 @@ class EmployeeComponent{
         LEFT JOIN 
             tblLeaveBalance tblL ON tblE.employeeID = tblL.employeeID
         WHERE 
-            tblE.isTemporary = 0 AND tblE.empID = ?";
+            tblE.isTemporary = 0 AND tblE.isActive = 1 AND tblE.empID = ?";
             $debug_query = str_replace(
                 ['?'],
                 [

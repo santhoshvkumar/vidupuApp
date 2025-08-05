@@ -137,7 +137,7 @@ class SectionComponent {
     //ADDED SECTION HEAD NAME in the query
             $queryGetSectionsByOrg = "SELECT s.*, e.employeeName as sectionHeadName 
                                      FROM tblSection s 
-                                     LEFT JOIN tblEmployee e ON s.sectionHeadID = e.employeeID 
+                                     LEFT JOIN tblEmployee e ON s.sectionHeadID = e.employeeID AND e.isActive = 1
                                      WHERE s.organisationID = ? 
                                      ORDER BY s.sectionID DESC";
             $stmt = mysqli_prepare($connect_var, $queryGetSectionsByOrg);

@@ -340,7 +340,7 @@ class TransferEmployeeComponent{
                         th.isActive,
                         th.isImmediateTransfer
                     FROM tblTransferHistory th
-                    LEFT JOIN tblEmployee e ON th.employeeID = e.employeeID
+                    LEFT JOIN tblEmployee e ON th.employeeID = e.employeeID AND e.isActive = 1
                     LEFT JOIN tblBranch fb ON th.fromBranch = fb.branchID
                     LEFT JOIN tblBranch tb ON th.toBranch = tb.branchID
                     LEFT JOIN tblUser u ON th.createdBy = u.userID

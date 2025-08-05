@@ -241,7 +241,7 @@ class VisitorPassComponent {
         try {
             $queryGetAllVisitorPasses = "SELECT v.*, e.employeeName as toMeetName 
                                        FROM tblVisitor v 
-                                       LEFT JOIN tblEmployee e ON v.toMeet = e.employeeID 
+                                       LEFT JOIN tblEmployee e ON v.toMeet = e.employeeID AND e.isActive = 1
                                        WHERE v.organisationId = ? 
                                        ORDER BY v.createdOn DESC";
             
@@ -338,7 +338,7 @@ class VisitorPassComponent {
         try {
             $queryGetVisitorPass = "SELECT v.*, e.employeeName as toMeetName 
                                    FROM tblVisitor v 
-                                   LEFT JOIN tblEmployee e ON v.toMeet = e.employeeID 
+                                   LEFT JOIN tblEmployee e ON v.toMeet = e.employeeID AND e.isActive = 1
                                    WHERE v.visitorId = ?";
             $stmt = mysqli_prepare($connect_var, $queryGetVisitorPass);
             
