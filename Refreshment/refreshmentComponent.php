@@ -35,17 +35,17 @@ class RefreshmentMaster {
             }
 
             $organisationID = $data['organisationID'];
-            $month = isset($data['month']) ? $data['month'] : date('m');
+            $month = isset($data['month']) ? $data['month'] : (isset($data['Month']) ? $data['Month'] : date('m'));
             $year = isset($data['year']) ? $data['year'] : date('Y');
             
-            // Check if the requested month is current month or future month
+            // Check if the requested month is future month (not current or past)
             $currentMonth = date('m');
             $currentYear = date('Y');
             
-            if (($year > $currentYear) || ($year == $currentYear && $month >= $currentMonth)) {
+            if ($year > $currentYear || ($year == $currentYear && $month > $currentMonth)) {
                 echo json_encode(array(
                     "status" => "error",
-                    "message" => "Can only view refreshment allowances for previous months"
+                    "message" => "Can only view refreshment allowances for current and previous months"
                 ), JSON_FORCE_OBJECT);
                 return;
             }
