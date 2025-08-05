@@ -87,7 +87,7 @@ class RefreshmentMaster {
                 
                 // Calculate working days for the month
                 $workingDaysQuery = "SELECT noOfWorkingDays, monthName 
-                                   FROM tblWorkingDays 
+                                   FROM tblworkingdays
                                    WHERE workingDayID = ? AND Year = ?";
                 $workingStmt = mysqli_prepare($connect_var, $workingDaysQuery);
                 mysqli_stmt_bind_param($workingStmt, "ii", $month, $year);
@@ -276,7 +276,7 @@ class RefreshmentMaster {
 
             // Get total working days for the month
             $workingDaysQuery = "SELECT noOfWorkingDays, monthName 
-                               FROM tblWorkingDays 
+                               FROM tblworkingdays
                                WHERE workingDayID = ? AND Year = ?";
             $stmt = mysqli_prepare($connect_var, $workingDaysQuery);
             if (!$stmt) {
@@ -566,7 +566,7 @@ class RefreshmentMaster {
                 }
                 
                 // Get working days
-                $workingDaysQuery = "SELECT noOfWorkingDays FROM tblWorkingDays 
+                $workingDaysQuery = "SELECT noOfWorkingDays FROM tblworkingdays
                                    WHERE workingDayID = ? AND Year = ?";
                 $workingStmt = mysqli_prepare($connect_var, $workingDaysQuery);
                 mysqli_stmt_bind_param($workingStmt, "ii", $month, $year);
@@ -777,7 +777,7 @@ class RefreshmentMaster {
                         // Record doesn't exist, calculate and create it
                         
                         // Get working days
-                        $workingDaysQuery = "SELECT noOfWorkingDays FROM tblWorkingDays 
+                        $workingDaysQuery = "SELECT noOfWorkingDays FROM tblworkingdays
                                            WHERE workingDayID = ? AND Year = ?";
                         $workingStmt = mysqli_prepare($connect_var, $workingDaysQuery);
                         mysqli_stmt_bind_param($workingStmt, "ii", $month, $year);
