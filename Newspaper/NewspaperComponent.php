@@ -437,8 +437,8 @@ class NewspaperMaster {
 		}
 		mysqli_stmt_close($stmt);
 		
-		// Check if newspapers exist
-		$newspaperQuery = "SELECT newspaperID FROM tblNewspaper WHERE newspaperID IN (?, ?)";
+		// Check if newspapers exist and get their costs
+		$newspaperQuery = "SELECT newspaperID, cost FROM tblNewspaper WHERE newspaperID IN (?, ?)";
 		$stmt = mysqli_prepare($connect_var, $newspaperQuery);
 		mysqli_stmt_bind_param($stmt, "ii", $firstNewspaperID, $secondNewspaperID);
 		mysqli_stmt_execute($stmt);
@@ -447,7 +447,17 @@ class NewspaperMaster {
 		if (mysqli_num_rows($result) !== 2) {
 			throw new Exception("One or both newspapers not found");
 		}
+		
+		$newspaperCosts = [];
+		while ($row = mysqli_fetch_assoc($result)) {
+			$newspaperCosts[$row['newspaperID']] = $row['cost'];
+		}
 		mysqli_stmt_close($stmt);
+		
+		// Get the costs for the selected newspapers
+		$firstNewspaperCost = $newspaperCosts[$firstNewspaperID] ?? 0;
+		$secondNewspaperCost = $newspaperCosts[$secondNewspaperID] ?? 0;
+		$totalCost = $firstNewspaperCost + $secondNewspaperCost;
 		
 		// Check if allowance already exists for this month/year
 		$checkQuery = "SELECT subscriptionID FROM tblNewspaperAllowance WHERE employeeID = ? AND month = ? AND year = ?";
@@ -462,9 +472,9 @@ class NewspaperMaster {
 		mysqli_stmt_close($stmt);
 		
 		// Insert new newspaper allowance
-		$insertQuery = "INSERT INTO tblNewspaperAllowance (employeeID, firstNewspaperID, secondNewspaperID, month, year, billImage, status) VALUES (?, ?, ?, ?, ?, ?, 'Pending')";
+		$insertQuery = "INSERT INTO tblNewspaperAllowance (employeeID, firstNewspaperID, secondNewspaperID, month, year, billImage, status, firstNewspaperCost, secondNewspaperCost, totalCost) VALUES (?, ?, ?, ?, ?, ?, 'Pending', ?, ?, ?)";
 		$stmt = mysqli_prepare($connect_var, $insertQuery);
-		mysqli_stmt_bind_param($stmt, "siiiss", $employeeID, $firstNewspaperID, $secondNewspaperID, $month, $year, $billImage);
+		mysqli_stmt_bind_param($stmt, "siiissddd", $employeeID, $firstNewspaperID, $secondNewspaperID, $month, $year, $billImage, $firstNewspaperCost, $secondNewspaperCost, $totalCost);
 		
 		if (mysqli_stmt_execute($stmt)) {
 			echo json_encode(array(
@@ -489,6 +499,15 @@ public function getNewspaperHistory($employeeID) {
 	header('Content-Type: application/json');
 	
 	try {
+		// Validate employeeID
+		if (empty($employeeID)) {
+			echo json_encode(array(
+				"status" => "error",
+				"message_text" => "Employee ID is required"
+			));
+			return;
+		}
+		
 		// Get newspaper history for the employee
 		$query = "SELECT 
 			n.subscriptionID,
@@ -496,6 +515,8 @@ public function getNewspaperHistory($employeeID) {
 			n.year,
 			n.status,
 			n.billImage,
+			n.firstNewspaperID,
+			n.secondNewspaperID,
 			n1.newspaperName as firstNewspaperName,
 			n2.newspaperName as secondNewspaperName,
 			n.firstNewspaperCost,
@@ -508,24 +529,48 @@ public function getNewspaperHistory($employeeID) {
 		ORDER BY n.year DESC, n.month DESC";
 		
 		$stmt = mysqli_prepare($connect_var, $query);
+		if (!$stmt) {
+			throw new Exception("Database prepare failed: " . mysqli_error($connect_var));
+		}
+		
 		mysqli_stmt_bind_param($stmt, "s", $employeeID);
-		mysqli_stmt_execute($stmt);
+		
+		if (!mysqli_stmt_execute($stmt)) {
+			throw new Exception("Database execute failed: " . mysqli_error($connect_var));
+		}
+		
 		$result = mysqli_stmt_get_result($stmt);
+		if (!$result) {
+			throw new Exception("Failed to get result: " . mysqli_error($connect_var));
+		}
 		
 		$history = [];
 		while ($row = mysqli_fetch_assoc($result)) {
 			$history[] = array(
-				'subscriptionID' => $row['subscriptionID'],
-				'month' => $row['month'],
-				'year' => $row['year'],
-				'status' => $row['status'],
-				'billImage' => $row['billImage'],
-				'firstNewspaperName' => $row['firstNewspaperName'],
-				'secondNewspaperName' => $row['secondNewspaperName'],
-				'firstNewspaperCost' => number_format($row['firstNewspaperCost'], 2, '.', ''),
-				'secondNewspaperCost' => number_format($row['secondNewspaperCost'], 2, '.', ''),
-				'totalCost' => number_format($row['totalCost'], 2, '.', '')
+				'subscriptionID' => (string)($row['subscriptionID'] ?? ''),
+				'month' => (string)($row['month'] ?? ''),
+				'year' => (string)($row['year'] ?? ''),
+				'status' => (string)($row['status'] ?? ''),
+				'billImage' => (string)($row['billImage'] ?? ''),
+				'firstNewspaperName' => (string)($row['firstNewspaperName'] ?? ''),
+				'secondNewspaperName' => (string)($row['secondNewspaperName'] ?? ''),
+				'firstNewspaperCost' => number_format($row['firstNewspaperCost'] ?? 0, 2, '.', ''),
+				'secondNewspaperCost' => number_format($row['secondNewspaperCost'] ?? 0, 2, '.', ''),
+				'totalCost' => number_format($row['totalCost'] ?? 0, 2, '.', ''),
+				// Add any missing fields that might be expected by the frontend
+				'employeeID' => (string)($employeeID ?? ''),
+				'firstNewspaperID' => (string)($row['firstNewspaperID'] ?? ''),
+				'secondNewspaperID' => (string)($row['secondNewspaperID'] ?? ''),
+				// Add aliases for React Native app compatibility
+				'totalAmount' => number_format($row['totalCost'] ?? 0, 2, '.', ''),
+				'id' => (string)($row['subscriptionID'] ?? ''),
+				'createdDate' => date('Y-m-d H:i:s') // Current date since we don't have it in DB
 			);
+		}
+		
+		// Ensure we always return a valid array, even if empty
+		if (empty($history)) {
+			$history = [];
 		}
 		mysqli_stmt_close($stmt);
 		
@@ -540,6 +585,10 @@ public function getNewspaperHistory($employeeID) {
 			"status" => "error",
 			"message_text" => $e->getMessage()
 		));
+	} finally {
+		if (isset($connect_var)) {
+			mysqli_close($connect_var);
+		}
 	}
 }
 }
