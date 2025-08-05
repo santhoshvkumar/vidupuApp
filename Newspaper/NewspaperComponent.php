@@ -405,5 +405,142 @@ class NewspaperMaster {
             }
         }
     }
+
+    public function submitNewspaperAllowance($data) {
+	include('config.inc');
+	header('Content-Type: application/json');
+	
+	try {
+		// Validate required fields
+		if (!isset($data['employeeID']) || !isset($data['firstNewspaperID']) || 
+			!isset($data['secondNewspaperID']) || !isset($data['month']) || 
+			!isset($data['year']) || !isset($data['billImage'])) {
+			throw new Exception("All fields are required");
+		}
+		
+		$employeeID = $data['employeeID'];
+		$firstNewspaperID = $data['firstNewspaperID'];
+		$secondNewspaperID = $data['secondNewspaperID'];
+		$month = $data['month'];
+		$year = $data['year'];
+		$billImage = $data['billImage'];
+		
+		// Check if employee exists
+		$employeeQuery = "SELECT employeeID FROM tblEmployee WHERE employeeID = ? AND isActive = 1";
+		$stmt = mysqli_prepare($connect_var, $employeeQuery);
+		mysqli_stmt_bind_param($stmt, "s", $employeeID);
+		mysqli_stmt_execute($stmt);
+		$result = mysqli_stmt_get_result($stmt);
+		
+		if (mysqli_num_rows($result) === 0) {
+			throw new Exception("Employee not found or inactive");
+		}
+		mysqli_stmt_close($stmt);
+		
+		// Check if newspapers exist
+		$newspaperQuery = "SELECT newspaperID FROM tblNewspaper WHERE newspaperID IN (?, ?)";
+		$stmt = mysqli_prepare($connect_var, $newspaperQuery);
+		mysqli_stmt_bind_param($stmt, "ii", $firstNewspaperID, $secondNewspaperID);
+		mysqli_stmt_execute($stmt);
+		$result = mysqli_stmt_get_result($stmt);
+		
+		if (mysqli_num_rows($result) !== 2) {
+			throw new Exception("One or both newspapers not found");
+		}
+		mysqli_stmt_close($stmt);
+		
+		// Check if allowance already exists for this month/year
+		$checkQuery = "SELECT subscriptionID FROM tblNewspaperAllowance WHERE employeeID = ? AND month = ? AND year = ?";
+		$stmt = mysqli_prepare($connect_var, $checkQuery);
+		mysqli_stmt_bind_param($stmt, "sii", $employeeID, $month, $year);
+		mysqli_stmt_execute($stmt);
+		$result = mysqli_stmt_get_result($stmt);
+		
+		if (mysqli_num_rows($result) > 0) {
+			throw new Exception("Newspaper allowance already exists for this month and year");
+		}
+		mysqli_stmt_close($stmt);
+		
+		// Insert new newspaper allowance
+		$insertQuery = "INSERT INTO tblNewspaperAllowance (employeeID, firstNewspaperID, secondNewspaperID, month, year, billImage, status) VALUES (?, ?, ?, ?, ?, ?, 'Pending')";
+		$stmt = mysqli_prepare($connect_var, $insertQuery);
+		mysqli_stmt_bind_param($stmt, "siiiss", $employeeID, $firstNewspaperID, $secondNewspaperID, $month, $year, $billImage);
+		
+		if (mysqli_stmt_execute($stmt)) {
+			echo json_encode(array(
+				"status" => "success",
+				"message_text" => "Newspaper allowance submitted successfully"
+			));
+		} else {
+			throw new Exception("Failed to insert newspaper allowance: " . mysqli_error($connect_var));
+		}
+		mysqli_stmt_close($stmt);
+		
+	} catch (Exception $e) {
+		echo json_encode(array(
+			"status" => "error",
+			"message_text" => $e->getMessage()
+		));
+	}
+}
+
+public function getNewspaperHistory($employeeID) {
+	include('config.inc');
+	header('Content-Type: application/json');
+	
+	try {
+		// Get newspaper history for the employee
+		$query = "SELECT 
+			n.subscriptionID,
+			n.month,
+			n.year,
+			n.status,
+			n.billImage,
+			n1.newspaperName as firstNewspaperName,
+			n2.newspaperName as secondNewspaperName,
+			n.firstNewspaperCost,
+			n.secondNewspaperCost,
+			(n.firstNewspaperCost + n.secondNewspaperCost) as totalCost
+		FROM tblNewspaperAllowance n
+		LEFT JOIN tblNewspaper n1 ON n.firstNewspaperID = n1.newspaperID
+		LEFT JOIN tblNewspaper n2 ON n.secondNewspaperID = n2.newspaperID
+		WHERE n.employeeID = ?
+		ORDER BY n.year DESC, n.month DESC";
+		
+		$stmt = mysqli_prepare($connect_var, $query);
+		mysqli_stmt_bind_param($stmt, "s", $employeeID);
+		mysqli_stmt_execute($stmt);
+		$result = mysqli_stmt_get_result($stmt);
+		
+		$history = [];
+		while ($row = mysqli_fetch_assoc($result)) {
+			$history[] = array(
+				'subscriptionID' => $row['subscriptionID'],
+				'month' => $row['month'],
+				'year' => $row['year'],
+				'status' => $row['status'],
+				'billImage' => $row['billImage'],
+				'firstNewspaperName' => $row['firstNewspaperName'],
+				'secondNewspaperName' => $row['secondNewspaperName'],
+				'firstNewspaperCost' => number_format($row['firstNewspaperCost'], 2, '.', ''),
+				'secondNewspaperCost' => number_format($row['secondNewspaperCost'], 2, '.', ''),
+				'totalCost' => number_format($row['totalCost'], 2, '.', '')
+			);
+		}
+		mysqli_stmt_close($stmt);
+		
+		echo json_encode(array(
+			"status" => "success",
+			"result" => $history,
+			"message" => "Newspaper history retrieved successfully"
+		));
+		
+	} catch (Exception $e) {
+		echo json_encode(array(
+			"status" => "error",
+			"message_text" => $e->getMessage()
+		));
+	}
+}
 }
 ?> 
