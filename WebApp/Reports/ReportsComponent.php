@@ -130,42 +130,18 @@ $this->organisationID  // For m.organisationID
 );
 
 } else {
-// Original query for date range
+// new query
 $queryforGetAttendanceReport = "SELECT DISTINCT
    e.empID AS Employee_ID,
    e.employeeName AS Employee_Name,
    e.Designation,
-   DATE_FORMAT(DATE_ADD(?, INTERVAL n.num DAY), '%d/%m/%Y') AS attendanceDate,
+   DATE_FORMAT(d.date_value, '%d/%m/%Y') AS attendanceDate,
    TIME_FORMAT(a.checkInTime, '%H:%i:%s') AS CheckIn_Time,
    TIME_FORMAT(a.checkOutTime, '%H:%i:%s') AS CheckOut_Time,
    CASE
-       WHEN a.checkInTime IS NOT NULL 
-           AND NOT EXISTS (
-               SELECT 1 FROM tblApplyLeave al 
-               WHERE al.employeeID = e.employeeID 
-               AND al.status = 'Approved'
-               AND DATE_ADD(?, INTERVAL n.num DAY) BETWEEN al.fromDate AND al.toDate
-               AND DAYOFWEEK(DATE_ADD(?, INTERVAL n.num DAY)) NOT IN (1, 7)
-           )
-           AND DAYOFWEEK(DATE_ADD(?, INTERVAL n.num DAY)) NOT IN (1, 7)
-       THEN 'Present'
-       WHEN EXISTS (
-           SELECT 1
-           FROM tblApplyLeave al
-           JOIN tblmapEmp map ON al.employeeID = map.employeeID
-           WHERE al.employeeID = e.employeeID
-             AND DATE_ADD(?, INTERVAL n.num DAY) BETWEEN al.fromDate AND al.toDate
-             AND al.Status = 'Approved'
-             AND map.organisationID = ?
-             AND DAYOFWEEK(DATE_ADD(?, INTERVAL n.num DAY)) NOT IN (1, 7)
-             AND NOT EXISTS (
-                 SELECT 1 FROM tblAttendance a2 
-                 WHERE a2.employeeID = e.employeeID 
-                 AND a2.attendanceDate = DATE_ADD(?, INTERVAL n.num DAY)
-                 AND a2.checkInTime IS NOT NULL
-             )
-       ) THEN 'Leave'
-       WHEN DAYOFWEEK(DATE_ADD(?, INTERVAL n.num DAY)) IN (1, 7) THEN 'Weekend'
+       WHEN a.checkInTime IS NOT NULL THEN 'Present'
+       WHEN l.leaveID IS NOT NULL THEN 'Leave'
+       WHEN DAYOFWEEK(d.date_value) IN (1, 7) THEN 'Weekend'
        ELSE 'Absent'
    END AS Status,
    b.branchName
@@ -176,26 +152,43 @@ FROM
        WHERE isTemporary = 0 AND isActive = 1 AND organisationID = ?
    ) e
 CROSS JOIN (
-   SELECT a.N + b.N * 10 + c.N * 100 AS num
-   FROM 
-       (SELECT 0 AS N UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
-        UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) a
-   CROSS JOIN 
-       (SELECT 0 AS N UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
-        UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) b
-   CROSS JOIN 
-       (SELECT 0 AS N UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
-        UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) c
-   WHERE a.N + b.N * 10 + c.N * 100 <= DATEDIFF(?, ?)
-) n
+   SELECT DATE_ADD(?, INTERVAL seq DAY) as date_value
+   FROM (
+       SELECT 0 as seq UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
+       UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9
+       UNION ALL SELECT 10 UNION ALL SELECT 11 UNION ALL SELECT 12 UNION ALL SELECT 13 UNION ALL SELECT 14
+       UNION ALL SELECT 15 UNION ALL SELECT 16 UNION ALL SELECT 17 UNION ALL SELECT 18 UNION ALL SELECT 19
+       UNION ALL SELECT 20 UNION ALL SELECT 21 UNION ALL SELECT 22 UNION ALL SELECT 23 UNION ALL SELECT 24
+       UNION ALL SELECT 25 UNION ALL SELECT 26 UNION ALL SELECT 27 UNION ALL SELECT 28 UNION ALL SELECT 29
+       UNION ALL SELECT 30 UNION ALL SELECT 31 UNION ALL SELECT 32 UNION ALL SELECT 33 UNION ALL SELECT 34
+       UNION ALL SELECT 35 UNION ALL SELECT 36 UNION ALL SELECT 37 UNION ALL SELECT 38 UNION ALL SELECT 39
+       UNION ALL SELECT 40 UNION ALL SELECT 41 UNION ALL SELECT 42 UNION ALL SELECT 43 UNION ALL SELECT 44
+       UNION ALL SELECT 45 UNION ALL SELECT 46 UNION ALL SELECT 47 UNION ALL SELECT 48 UNION ALL SELECT 49
+       UNION ALL SELECT 50 UNION ALL SELECT 51 UNION ALL SELECT 52 UNION ALL SELECT 53 UNION ALL SELECT 54
+       UNION ALL SELECT 55 UNION ALL SELECT 56 UNION ALL SELECT 57 UNION ALL SELECT 58 UNION ALL SELECT 59
+       UNION ALL SELECT 60
+   ) seq_table
+   WHERE DATE_ADD(?, INTERVAL seq DAY) BETWEEN ? AND ?
+) d
 LEFT JOIN tblAttendance a 
    ON e.employeeID = a.employeeID  
-   AND a.attendanceDate = DATE_ADD(?, INTERVAL n.num DAY)
+   AND a.attendanceDate = d.date_value
+LEFT JOIN (
+   SELECT DISTINCT al.employeeID, al.fromDate, al.toDate
+   FROM tblApplyLeave al
+   JOIN tblmapEmp map ON al.employeeID = map.employeeID
+   WHERE al.status = 'Approved' 
+   AND map.organisationID = ?
+   AND (
+       (al.fromDate BETWEEN ? AND ?) OR
+       (al.toDate BETWEEN ? AND ?) OR
+       (al.fromDate <= ? AND al.toDate >= ?)
+   )
+) l ON e.employeeID = l.employeeID 
+   AND d.date_value BETWEEN l.fromDate AND l.toDate
 INNER JOIN tblmapEmp m ON e.employeeID = m.employeeID
 INNER JOIN tblBranch b ON m.branchID = b.branchID
-WHERE 
-   DATE_ADD(?, INTERVAL n.num DAY) BETWEEN ? AND ?
-   AND m.organisationID = ?
+WHERE m.organisationID = ?
 ORDER BY 
    e.empID, attendanceDate;
 ";
@@ -205,24 +198,20 @@ if (!$stmt) {
 throw new Exception("Database prepare failed");
 }
 
-mysqli_stmt_bind_param($stmt, "sssssssssssssssss", 
-$this->startDate,  // For attendanceDate
-$this->startDate,  // For present check - leave conflict
-$this->startDate,  // For present check - weekend
-$this->startDate,  // For present check - weekend
-$this->startDate,  // For leave check
-$this->organisationID,  // For organisationID in leave check
-$this->startDate,  // For leave check - weekend
-$this->startDate,  // For leave check - attendance conflict
-$this->startDate,  // For weekend check
+mysqli_stmt_bind_param($stmt, "ssssssssssss", 
 $this->organisationID,  // For employee subquery organisationID
-$this->endDate,    // For DATEDIFF
-$this->startDate,  // For DATEDIFF
-$this->startDate,  // For attendance join
-$this->startDate,  // For WHERE clause
-$this->startDate,  // For WHERE clause start
-$this->endDate,    // For WHERE clause end
-$this->organisationID  // For m.organisationID
+$this->startDate,       // For date generation start
+$this->startDate,       // For date generation WHERE clause
+$this->startDate,       // For date range start
+$this->endDate,         // For date range end
+$this->organisationID,  // For leave subquery organisationID
+$this->startDate,       // For leave date range start
+$this->endDate,         // For leave date range end
+$this->startDate,       // For leave date range start
+$this->endDate,         // For leave date range end
+$this->startDate,       // For leave overlap start
+$this->endDate,         // For leave overlap end
+$this->organisationID   // For m.organisationID
 );
 }
 
