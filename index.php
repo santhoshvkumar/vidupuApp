@@ -69,8 +69,8 @@ require 'WebApp/Reports/TransferHistoryRouter.php';
 require 'Refreshment/refreshmentRouter.php';
 require 'Refreshment/refreshmentComponent.php';
 
-require 'Newspaper/NewspaperRouter.php';
 require 'Newspaper/NewspaperComponent.php';
+require 'Newspaper/NewspaperRouter.php';
 
 // require 'WebApp/ApproveRefreshment/ApproveRefreshmentComponent.php';
 // require 'WebApp/ApproveRefreshment/ApproveRefreshmentRouter.php';

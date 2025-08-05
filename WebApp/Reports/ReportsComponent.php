@@ -2359,5 +2359,135 @@ echo json_encode([
             }
         }
     }
+
+    public function uploadCertificate($data) {
+        include('config.inc');
+        header('Content-Type: application/json');
+        error_reporting(E_ALL);
+        ini_set('display_errors', 1);
+
+        try {
+            // Validate required fields
+            if (!isset($data['leaveID']) || !isset($data['certificateType'])) {
+                throw new Exception("Leave ID and certificate type are required");
+            }
+
+            $leaveID = $data['leaveID'];
+            $certificateType = $data['certificateType'];
+
+            // Check if the leave record exists
+            $checkQuery = "SELECT leaveID FROM tblApplyLeave WHERE leaveID = ?";
+            $checkStmt = mysqli_prepare($connect_var, $checkQuery);
+            if (!$checkStmt) {
+                throw new Exception("Failed to prepare check query: " . mysqli_error($connect_var));
+            }
+            mysqli_stmt_bind_param($checkStmt, "i", $leaveID);
+            mysqli_stmt_execute($checkStmt);
+            $checkResult = mysqli_stmt_get_result($checkStmt);
+            
+            if (mysqli_num_rows($checkResult) === 0) {
+                echo json_encode(array(
+                    "status" => "error",
+                    "message_text" => "Leave record not found"
+                ));
+                return;
+            }
+
+            // Handle file upload
+            if (!isset($_FILES['certificate']) || $_FILES['certificate']['error'] !== UPLOAD_ERR_OK) {
+                throw new Exception("No file uploaded or upload error occurred");
+            }
+
+            $uploadedFile = $_FILES['certificate'];
+            $fileName = $uploadedFile['name'];
+            $fileTmpName = $uploadedFile['tmp_name'];
+            $fileSize = $uploadedFile['size'];
+            $fileError = $uploadedFile['error'];
+
+            // Validate file
+            $allowedExtensions = ['jpg', 'jpeg', 'png', 'pdf'];
+            $fileExtension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+            
+            if (!in_array($fileExtension, $allowedExtensions)) {
+                throw new Exception("Invalid file type. Only JPG, JPEG, PNG, and PDF files are allowed.");
+            }
+
+            if ($fileSize > 5 * 1024 * 1024) { // 5MB limit
+                throw new Exception("File size too large. Maximum size is 5MB.");
+            }
+
+            // Create upload directory if it doesn't exist
+            $uploadDir = 'Uploads/medical/';
+            if (!file_exists($uploadDir)) {
+                mkdir($uploadDir, 0777, true);
+            }
+
+            // Generate unique filename
+            $uniqueFileName = time() . '_' . $leaveID . '_' . $certificateType . '.' . $fileExtension;
+            $uploadPath = $uploadDir . $uniqueFileName;
+
+            // Move uploaded file
+            if (!move_uploaded_file($fileTmpName, $uploadPath)) {
+                throw new Exception("Failed to save uploaded file");
+            }
+
+            // Determine which certificate field to update
+            $certificateField = '';
+            if (strpos(strtolower($certificateType), 'medical') !== false) {
+                $certificateField = 'medicalCertificate';
+            } elseif (strpos(strtolower($certificateType), 'fitness') !== false) {
+                $certificateField = 'fitnessCertificate';
+            } else {
+                // Delete the uploaded file if certificate type is invalid
+                unlink($uploadPath);
+                echo json_encode(array(
+                    "status" => "error",
+                    "message_text" => "Invalid certificate type"
+                ));
+                return;
+            }
+
+            // Update the database
+            $updateQuery = "UPDATE tblApplyLeave SET $certificateField = ? WHERE leaveID = ?";
+            
+            $stmt = mysqli_prepare($connect_var, $updateQuery);
+            if (!$stmt) {
+                throw new Exception("Failed to prepare update query: " . mysqli_error($connect_var));
+            }
+            mysqli_stmt_bind_param($stmt, "si", $uploadPath, $leaveID);
+            
+            if (mysqli_stmt_execute($stmt)) {
+                if (mysqli_affected_rows($connect_var) > 0) {
+                    echo json_encode(array(
+                        "status" => "success",
+                        "message_text" => "Certificate uploaded successfully",
+                        "file_path" => $uploadPath
+                    ));
+                } else {
+                    // Delete the uploaded file if database update failed
+                    unlink($uploadPath);
+                    echo json_encode(array(
+                        "status" => "error",
+                        "message_text" => "Failed to update database record"
+                    ));
+                }
+            } else {
+                // Delete the uploaded file if database update failed
+                unlink($uploadPath);
+                throw new Exception("Failed to update certificate: " . mysqli_error($connect_var));
+            }
+
+        } catch (Exception $e) {
+            error_log("Error in uploadCertificate: " . $e->getMessage());
+            echo json_encode(array(
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ));
+        } finally {
+            if (isset($connect_var)) {
+                mysqli_close($connect_var);
+            }
+        }
+    }
 }
 ?>
