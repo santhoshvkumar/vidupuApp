@@ -788,44 +788,24 @@ public function GetDesignationWiseLeaveReport() {
 include(dirname(__FILE__) . '/../../config.inc');
 header('Content-Type: application/json');
 
-// Debug echo for Postman - show received parameters
-echo "=== DEBUG: GetDesignationWiseLeaveReport START ===\n";
-echo "Received selectedMonth: " . $this->selectedMonth . "\n";
-echo "Received organisationID: " . $this->organisationID . "\n";
-echo "Received selectedYear: " . (isset($this->selectedYear) ? $this->selectedYear : 'NOT SET') . "\n";
-
 try {
-// Debug logging
-error_log("GetDesignationWiseLeaveReport called with selectedMonth: " . $this->selectedMonth);
-error_log("GetDesignationWiseLeaveReport called with organisationID: " . $this->organisationID);
-
 // Check if this is a yearly request - only if selectedYear is explicitly provided
 $isYearlyRequest = false;
 $year = '';
 if (isset($this->selectedYear) && preg_match('/^(\d{4})-01$/', $this->selectedMonth, $matches)) {
 $isYearlyRequest = true;
 $year = $matches[1];
-error_log("Detected yearly request for year: " . $year);
-echo "Detected yearly request for year: " . $year . "\n";
-} else {
-echo "Processing as monthly request\n";
 }
 
 if ($isYearlyRequest) {
 // Handle yearly report
-error_log("Processing yearly designation wise leave report");
-echo "Processing yearly designation wise leave report\n";
 $this->getYearlyDesignationWiseLeaveReport($year, $connect_var);
 } else {
 // Handle monthly report (existing logic)
-error_log("Processing monthly designation wise leave report for month: " . $this->selectedMonth);
-echo "Processing monthly designation wise leave report for month: " . $this->selectedMonth . "\n";
 $this->getMonthlyDesignationWiseLeaveReport($connect_var);
 }
 
 } catch (Exception $e) {
-error_log("Error in GetDesignationWiseLeaveReport: " . $e->getMessage());
-echo "ERROR: " . $e->getMessage() . "\n";
 echo json_encode([
 "status" => "error",
 "message_text" => $e->getMessage()
@@ -966,21 +946,12 @@ echo json_encode($response);
 }
 
 private function getMonthlyDesignationWiseLeaveReport($connect_var) {
-// Debug echo for Postman
-echo "=== DEBUG: getMonthlyDesignationWiseLeaveReport ===\n";
-echo "Selected Month: " . $this->selectedMonth . "\n";
-echo "Organisation ID: " . $this->organisationID . "\n";
-
 // Original monthly logic
 // First get all dates in the selected month
 $dates = [];
 $daysInMonth = date('t', strtotime($this->selectedMonth));
 $monthStart = date('Y-m-01', strtotime($this->selectedMonth));
 $monthEnd = date('Y-m-t', strtotime($this->selectedMonth));
-
-echo "Days in month: " . $daysInMonth . "\n";
-echo "Month start: " . $monthStart . "\n";
-echo "Month end: " . $monthEnd . "\n";
 
 for ($i = 1; $i <= $daysInMonth; $i++) {
 $dates[] = date('Y-m-d', strtotime($this->selectedMonth . '-' . $i));
@@ -1029,12 +1000,8 @@ $query = "
            ORDER BY 
                al.fromDate";
 
-echo "Query: " . $query . "\n";
-echo "Parameters: orgID=" . $this->organisationID . ", start=" . $monthStart . ", end=" . $monthEnd . "\n";
-
 $stmt = mysqli_prepare($connect_var, $query);
 if (!$stmt) {
-echo "Database prepare failed: " . mysqli_error($connect_var) . "\n";
 throw new Exception("Database prepare failed: " . mysqli_error($connect_var));
 }
 
@@ -1049,17 +1016,12 @@ $monthEnd
 );
 
 if (!mysqli_stmt_execute($stmt)) {
-echo "Database execute failed: " . mysqli_error($connect_var) . "\n";
 throw new Exception("Database execute failed: " . mysqli_error($connect_var));
 }
 
 $result = mysqli_stmt_get_result($stmt);
 $leaveData = [];
-$rowCount = 0;
 while ($row = mysqli_fetch_assoc($result)) {
-$rowCount++;
-echo "Row " . $rowCount . ": " . json_encode($row) . "\n";
-
 if (!isset($leaveData[$row['Designation']])) {
 $leaveData[$row['Designation']] = [
 'counts' => array_fill(0, $daysInMonth, 0),
@@ -1091,9 +1053,6 @@ $startDate->add(new DateInterval('P1D'));
 }
 }
 
-echo "Total rows found: " . $rowCount . "\n";
-echo "Leave data by designation: " . json_encode($leaveData) . "\n";
-
 mysqli_stmt_close($stmt);
 
 // Format the response with all designations in order
@@ -1121,8 +1080,6 @@ $row['details_' . ($index + 1)] = $leaveData[$designation]['details'][$index];
 $formattedReport[] = $row;
 }
 
-echo "Formatted report: " . json_encode($formattedReport) . "\n";
-
 $response = [
 "status" => "success",
 "data" => [
@@ -1131,7 +1088,6 @@ $response = [
 ]
 ];
 
-echo "=== END DEBUG ===\n";
 echo json_encode($response);
 }
 
