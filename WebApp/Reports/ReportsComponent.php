@@ -50,7 +50,87 @@ header('Content-Type: application/json');
 try {
 $data = [];
 
-// Apply the same logic as Monthly Checkout Report
+// Check if it's a single day request
+$isSingleDay = ($this->startDate === $this->endDate);
+
+if ($isSingleDay) {
+// Simplified query for single day
+$queryforGetAttendanceReport = "SELECT DISTINCT
+   e.empID AS Employee_ID,
+   e.employeeName AS Employee_Name,
+   e.Designation,
+   DATE_FORMAT(?, '%d/%m/%Y') AS attendanceDate,
+   TIME_FORMAT(a.checkInTime, '%H:%i:%s') AS CheckIn_Time,
+   TIME_FORMAT(a.checkOutTime, '%H:%i:%s') AS CheckOut_Time,
+   CASE
+       WHEN a.checkInTime IS NOT NULL 
+           AND NOT EXISTS (
+               SELECT 1 FROM tblApplyLeave al 
+               WHERE al.employeeID = e.employeeID 
+               AND al.status = 'Approved'
+               AND ? BETWEEN al.fromDate AND al.toDate
+               AND DAYOFWEEK(?) NOT IN (1, 7)
+           )
+           AND DAYOFWEEK(?) NOT IN (1, 7)
+       THEN 'Present'
+       WHEN EXISTS (
+           SELECT 1
+           FROM tblApplyLeave al
+           JOIN tblmapEmp map ON al.employeeID = map.employeeID
+           WHERE al.employeeID = e.employeeID
+             AND ? BETWEEN al.fromDate AND al.toDate
+             AND al.Status = 'Approved'
+             AND map.organisationID = ?
+             AND DAYOFWEEK(?) NOT IN (1, 7)
+             AND NOT EXISTS (
+                 SELECT 1 FROM tblAttendance a2 
+                 WHERE a2.employeeID = e.employeeID 
+                 AND a2.attendanceDate = ?
+                 AND a2.checkInTime IS NOT NULL
+             )
+       ) THEN 'Leave'
+       WHEN DAYOFWEEK(?) IN (1, 7) THEN 'Weekend'
+       ELSE 'Absent'
+   END AS Status,
+   b.branchName
+FROM 
+   (
+       SELECT empID, employeeName, Designation, employeeID
+       FROM tblEmployee 
+       WHERE isTemporary = 0 AND isActive = 1 AND organisationID = ?
+   ) e
+LEFT JOIN tblAttendance a 
+   ON e.employeeID = a.employeeID  
+   AND a.attendanceDate = ?
+INNER JOIN tblmapEmp m ON e.employeeID = m.employeeID
+INNER JOIN tblBranch b ON m.branchID = b.branchID
+WHERE m.organisationID = ?
+ORDER BY 
+   e.empID, attendanceDate;
+";
+
+$stmt = mysqli_prepare($connect_var, $queryforGetAttendanceReport);
+if (!$stmt) {
+throw new Exception("Database prepare failed");
+}
+
+mysqli_stmt_bind_param($stmt, "ssssssssssss", 
+$this->startDate,  // For attendanceDate
+$this->startDate,  // For present check - leave conflict
+$this->startDate,  // For present check - weekend
+$this->startDate,  // For present check - weekend
+$this->startDate,  // For leave check
+$this->organisationID,  // For organisationID in leave check
+$this->startDate,  // For leave check - weekend
+$this->startDate,  // For leave check - attendance conflict
+$this->startDate,  // For weekend check
+$this->organisationID,  // For employee subquery organisationID
+$this->startDate,  // For attendance join
+$this->organisationID  // For m.organisationID
+);
+
+} else {
+// Original query for date range
 $queryforGetAttendanceReport = "SELECT DISTINCT
    e.empID AS Employee_ID,
    e.employeeName AS Employee_Name,
@@ -93,7 +173,7 @@ FROM
    (
        SELECT empID, employeeName, Designation, employeeID
        FROM tblEmployee 
-       WHERE isTemporary = 0 AND isActive = 1
+       WHERE isTemporary = 0 AND isActive = 1 AND organisationID = ?
    ) e
 CROSS JOIN (
    SELECT a.N + b.N * 10 + c.N * 100 AS num
@@ -125,7 +205,7 @@ if (!$stmt) {
 throw new Exception("Database prepare failed");
 }
 
-mysqli_stmt_bind_param($stmt, "ssssssssssssssss", 
+mysqli_stmt_bind_param($stmt, "sssssssssssssssss", 
 $this->startDate,  // For attendanceDate
 $this->startDate,  // For present check - leave conflict
 $this->startDate,  // For present check - weekend
@@ -135,6 +215,7 @@ $this->organisationID,  // For organisationID in leave check
 $this->startDate,  // For leave check - weekend
 $this->startDate,  // For leave check - attendance conflict
 $this->startDate,  // For weekend check
+$this->organisationID,  // For employee subquery organisationID
 $this->endDate,    // For DATEDIFF
 $this->startDate,  // For DATEDIFF
 $this->startDate,  // For attendance join
@@ -143,6 +224,7 @@ $this->startDate,  // For WHERE clause start
 $this->endDate,    // For WHERE clause end
 $this->organisationID  // For m.organisationID
 );
+}
 
 if (!mysqli_stmt_execute($stmt)) {
 throw new Exception("Database execute failed");
@@ -176,6 +258,7 @@ echo json_encode([
 ], JSON_FORCE_OBJECT);
 }
 }
+
 public function GetSectionWiseAttendanceReport() {    
 include('config.inc');
 header('Content-Type: application/json');

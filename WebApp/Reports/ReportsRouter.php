@@ -59,7 +59,12 @@ function GetAttendanceReport($decoded_items) {
         return;
     }
     
-    if ($ReportsObject->loadReportsforGivenDate($decoded_items)) {
+    if (!isset($decoded_items['organisationID'])) {
+        echo json_encode(array("status" => "error", "message_text" => "Missing organisationID parameter"), JSON_FORCE_OBJECT);
+        return;
+    }
+    
+    if ($ReportsObject->loadOrganisationID($decoded_items) && $ReportsObject->loadReportsforGivenDate($decoded_items)) {
         $ReportsObject->GetAttendanceReport();
     } else {
         echo json_encode(array("status" => "error", "message_text" => "Invalid input parameters"), JSON_FORCE_OBJECT);
@@ -78,7 +83,12 @@ function GetSectionWiseAttendanceReport($decoded_items) {
         return;
     }
     
-    if ($ReportsObject->loadReportsforGivenDate($decoded_items)) {
+    if (!isset($decoded_items['organisationID'])) {
+        echo json_encode(array("status" => "error", "message_text" => "Missing organisationID parameter"), JSON_FORCE_OBJECT);
+        return;
+    }
+    
+    if ($ReportsObject->loadOrganisationID($decoded_items) && $ReportsObject->loadReportsforGivenDate($decoded_items)) {
         $ReportsObject->GetSectionWiseAttendanceReport();
     } else {
         echo json_encode(array("status" => "error", "message_text" => "Invalid input parameters"), JSON_FORCE_OBJECT);
@@ -97,7 +107,12 @@ function GetLeaveReport($decoded_items) {
         return;
     }
     
-    if ($ReportsObject->loadReportsforGivenDate($decoded_items)) {
+    if (!isset($decoded_items['organisationID'])) {
+        echo json_encode(array("status" => "error", "message_text" => "Missing organisationID parameter"), JSON_FORCE_OBJECT);
+        return;
+    }
+    
+    if ($ReportsObject->loadOrganisationID($decoded_items) && $ReportsObject->loadReportsforGivenDate($decoded_items)) {
         $ReportsObject->GetLeaveReport();
     } else {
         echo json_encode(array("status" => "error", "message_text" => "Invalid input parameters"), JSON_FORCE_OBJECT);
@@ -116,7 +131,12 @@ function GetDesignationWiseAttendanceReport($decoded_items) {
         return;
     }
     
-    if ($ReportsObject->loadReportsforGivenDate($decoded_items)) {
+    if (!isset($decoded_items['organisationID'])) {
+        echo json_encode(array("status" => "error", "message_text" => "Missing organisationID parameter"), JSON_FORCE_OBJECT);
+        return;
+    }
+    
+    if ($ReportsObject->loadOrganisationID($decoded_items) && $ReportsObject->loadReportsforGivenDate($decoded_items)) {
         $ReportsObject->GetDesignationWiseAttendanceReport();
     } else {
         echo json_encode(array("status" => "error", "message_text" => "Invalid input parameters"), JSON_FORCE_OBJECT);
