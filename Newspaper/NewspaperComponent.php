@@ -32,7 +32,7 @@ class NewspaperMaster {
     }
 
     public function getNewspaperAllowancesByOrganisationID($data) {
-        include('../config.inc');
+        include('config.inc');
         header('Content-Type: application/json');
         error_reporting(E_ALL);
         ini_set('display_errors', 1);
@@ -159,7 +159,7 @@ class NewspaperMaster {
     }
 
     public function approveNewspaperAllowance($data) {
-        include('../config.inc');
+        include('config.inc');
         header('Content-Type: application/json');
         error_reporting(E_ALL);
         ini_set('display_errors', 1);
@@ -213,7 +213,7 @@ class NewspaperMaster {
     }
 
     public function rejectNewspaperAllowance($data) {
-        include('../config.inc');
+        include('config.inc');
         header('Content-Type: application/json');
         error_reporting(E_ALL);
         ini_set('display_errors', 1);
@@ -267,7 +267,7 @@ class NewspaperMaster {
     }
 
     public function deleteNewspaperAllowance($data) {
-        include('../config.inc');
+        include('config.inc');
         header('Content-Type: application/json');
         error_reporting(E_ALL);
         ini_set('display_errors', 1);
@@ -351,7 +351,7 @@ class NewspaperMaster {
     }
 
     public function bulkApproveNewspaperAllowances($data) {
-        include('../config.inc');
+        include('config.inc');
         header('Content-Type: application/json');
         error_reporting(E_ALL);
         ini_set('display_errors', 1);
