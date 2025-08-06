@@ -1001,7 +1001,8 @@ class ApplyLeaveMaster {
             
             // Add employee filter if provided
             if ($employeeID) {
-                $sql .= " WHERE EmployeeID = ?";
+                // Only return requests that are pending or approved (should block new requests)
+                $sql .= " WHERE EmployeeID = ? AND status IN ('Yet To Be Approved', 'Approved')";
                 $stmt = mysqli_prepare($connect_var, $sql);
                 mysqli_stmt_bind_param($stmt, "i", $employeeID);
             } else {

@@ -188,7 +188,8 @@ $f3->route('POST /GetCompOffLeaves',
         header('Access-Control-Allow-Methods: POST');
         header('Access-Control-Allow-Headers: Content-Type');
 
-        $employeeID = $f3->get('POST.employeeID');
+        $data = json_decode($f3->get('BODY'), true);
+        $employeeID = isset($data['employeeID']) ? $data['employeeID'] : null;
         $leaveBalance = new ApplyLeaveMaster();
         $leaveBalance->employeeID = $employeeID;
         $leaveBalance->getCompOffLeaves();
