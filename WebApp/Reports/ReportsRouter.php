@@ -218,6 +218,8 @@ function GetManagementLeaveReport($decoded_items) {
     $ReportsObject = new ReportsComponent();
     if ($ReportsObject->loadOrganisationID($decoded_items) &&
         $ReportsObject->loadSelectedMonth($decoded_items)) {
+        // Load employee type filter (optional parameter)
+        $ReportsObject->loadEmployeeType($decoded_items);
         $ReportsObject->GetManagementLeaveReport();
     } else {
         echo json_encode(array("status" => "error", "message_text" => "Invalid input parameters. Required: organisationID and selectedMonth"), JSON_FORCE_OBJECT);

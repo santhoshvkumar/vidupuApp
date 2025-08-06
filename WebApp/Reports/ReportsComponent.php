@@ -680,6 +680,9 @@ include(dirname(__FILE__) . '/../../config.inc');
 header('Content-Type: application/json');
 try {
 
+// Get employee type filter - default to permanent (0) if not specified
+$employeeType = isset($this->employeeType) ? $this->employeeType : 0;
+
 // Check if this is a yearly request (format: 2025-01 means year 2025)
 $isYearlyRequest = false;
 $year = '';
@@ -690,10 +693,10 @@ $year = $matches[1];
 
 if ($isYearlyRequest) {
 // Handle yearly report
-$this->getYearlyManagementLeaveReport($year, $connect_var);
+$this->getYearlyManagementLeaveReport($year, $connect_var, $employeeType);
 } else {
 // Handle monthly report (existing logic)
-$this->getMonthlyManagementLeaveReport($connect_var);
+$this->getMonthlyManagementLeaveReport($connect_var, $employeeType);
 }
 
 } catch (Exception $e) {
@@ -704,7 +707,7 @@ echo json_encode([
 }
 }
 
-private function getYearlyManagementLeaveReport($year, $connect_var) {
+private function getYearlyManagementLeaveReport($year, $connect_var, $employeeType) {
 $query = "
            SELECT 
                (@row_number := @row_number + 1) as sNo,
@@ -737,7 +740,8 @@ $query = "
                    AND al.typeOfLeave NOT IN ('Maternity Leave')
                WHERE 
                    e.organisationID = ? AND
-                   e.isActive = 1
+                   e.isActive = 1 AND
+                   e.isTemporary = ?
                GROUP BY
                    e.employeeID,
                    e.employeeName,
@@ -756,9 +760,10 @@ if (!$stmt) {
 throw new Exception("Database prepare failed: " . mysqli_error($connect_var));
 }
 
-mysqli_stmt_bind_param($stmt, "si", 
+mysqli_stmt_bind_param($stmt, "sii", 
 $year,
-$this->organisationID
+$this->organisationID,
+$employeeType
 );
 
 if (!mysqli_stmt_execute($stmt)) {
@@ -780,7 +785,7 @@ $response = [
 echo json_encode($response);
 }
 
-private function getMonthlyManagementLeaveReport($connect_var) {
+private function getMonthlyManagementLeaveReport($connect_var, $employeeType) {
 // Convert single month number to YYYY-MM format
 $formattedMonth = '2025-' . str_pad($this->selectedMonth, 2, '0', STR_PAD_LEFT);
 
@@ -816,7 +821,8 @@ $query = "
                    AND al.typeOfLeave NOT IN ('Maternity Leave')
                WHERE 
                    e.organisationID = ? AND
-                   e.isActive = 1
+                   e.isActive = 1 AND
+                   e.isTemporary = ?
                GROUP BY
                    e.employeeID,
                    e.employeeName,
@@ -835,9 +841,10 @@ if (!$stmt) {
 throw new Exception("Database prepare failed: " . mysqli_error($connect_var));
 }
 
-mysqli_stmt_bind_param($stmt, "si", 
+mysqli_stmt_bind_param($stmt, "sii", 
 $formattedMonth,
-$this->organisationID
+$this->organisationID,
+$employeeType
 );
 
 if (!mysqli_stmt_execute($stmt)) {
@@ -1446,13 +1453,12 @@ return true;
 }
 
 public function loadEmployeeType(array $data) {
-error_log("loadEmployeeType called with data: " . json_encode($data));
 if (isset($data['employeeType'])) {
 $this->employeeType = $data['employeeType'];
-error_log("Employee type set to: " . $this->employeeType);
 return true;
 }
-error_log("Employee type not found in data, using default (0)");
+// Set default value when not provided
+$this->employeeType = 0;
 return false;
 }
 
