@@ -316,16 +316,17 @@ if (!$stmt) {
 throw new Exception("Database prepare failed");
 }
 
-mysqli_stmt_bind_param($stmt, "sssssssss", 
-$this->startDate,  // For attendanceDate
-$this->startDate,  // For leave check
-$this->organisationID,  // For organisationID in leave check
-$this->endDate,    // For DATEDIFF
-$this->startDate,  // For DATEDIFF
-$this->startDate,  // For attendance join
-$this->startDate,  // For WHERE clause
-$this->startDate,  // For WHERE clause start
-$this->endDate     // For WHERE clause end
+mysqli_stmt_bind_param($stmt, "ssssssssss", 
+    $this->startDate,  // For attendanceDate (line 263)
+    $this->startDate,  // For leave check (line 273)
+    $this->organisationID,  // For organisationID in leave check (line 275)
+    $this->organisationID,  // For organisationID in employee subquery (line 285)
+    $this->endDate,    // For DATEDIFF (line 298, first ?)
+    $this->startDate,  // For DATEDIFF (line 298, second ?)
+    $this->startDate,  // For attendance join (line 302)
+    $this->startDate,  // For WHERE clause (line 309, first ?)
+    $this->startDate,  // For WHERE clause start (line 309, second ?)
+    $this->endDate     // For WHERE clause end (line 309, third ?)
 );
 
 if (!mysqli_stmt_execute($stmt)) {
