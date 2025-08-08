@@ -460,31 +460,64 @@ class NewspaperMaster {
 		$totalCost = $firstNewspaperCost + $secondNewspaperCost;
 		
 		// Check if allowance already exists for this month/year
-		$checkQuery = "SELECT subscriptionID FROM tblNewspaperAllowance WHERE employeeID = ? AND month = ? AND year = ?";
+		$checkQuery = "SELECT subscriptionID, billImage, status FROM tblNewspaperAllowance WHERE employeeID = ? AND month = ? AND year = ?";
 		$stmt = mysqli_prepare($connect_var, $checkQuery);
 		mysqli_stmt_bind_param($stmt, "sii", $employeeID, $month, $year);
 		mysqli_stmt_execute($stmt);
 		$result = mysqli_stmt_get_result($stmt);
 		
 		if (mysqli_num_rows($result) > 0) {
-			throw new Exception("Newspaper allowance already exists for this month and year");
-		}
-		mysqli_stmt_close($stmt);
-		
-		// Insert new newspaper allowance
-		$insertQuery = "INSERT INTO tblNewspaperAllowance (employeeID, firstNewspaperID, secondNewspaperID, month, year, billImage, status, firstNewspaperCost, secondNewspaperCost, totalCost) VALUES (?, ?, ?, ?, ?, ?, 'Pending', ?, ?, ?)";
-		$stmt = mysqli_prepare($connect_var, $insertQuery);
-		mysqli_stmt_bind_param($stmt, "siiissddd", $employeeID, $firstNewspaperID, $secondNewspaperID, $month, $year, $billImage, $firstNewspaperCost, $secondNewspaperCost, $totalCost);
-		
-		if (mysqli_stmt_execute($stmt)) {
-			echo json_encode(array(
-				"status" => "success",
-				"message_text" => "Newspaper allowance submitted successfully"
-			));
+			$existingRecord = mysqli_fetch_assoc($result);
+			$subscriptionID = $existingRecord['subscriptionID'];
+			$existingBillImage = $existingRecord['billImage'];
+			$existingStatus = $existingRecord['status'];
+			
+			// If record exists but has no bill image (was deleted) OR status is rejected, update it
+			if ($existingBillImage === null || $existingStatus === 'Rejected') {
+				// Update existing record with new bill image and newspaper details
+				$updateQuery = "UPDATE tblNewspaperAllowance SET 
+					firstNewspaperID = ?, 
+					secondNewspaperID = ?, 
+					firstNewspaperCost = ?, 
+					secondNewspaperCost = ?, 
+					totalCost = ?, 
+					billImage = ?, 
+					status = 'Pending',
+					createdDate = NOW()
+					WHERE subscriptionID = ?";
+				
+				$stmt = mysqli_prepare($connect_var, $updateQuery);
+				mysqli_stmt_bind_param($stmt, "iidddsi", $firstNewspaperID, $secondNewspaperID, $firstNewspaperCost, $secondNewspaperCost, $totalCost, $billImage, $subscriptionID);
+				
+				if (mysqli_stmt_execute($stmt)) {
+					echo json_encode(array(
+						"status" => "success",
+						"message_text" => "Newspaper allowance updated successfully"
+					));
+				} else {
+					throw new Exception("Failed to update newspaper allowance: " . mysqli_error($connect_var));
+				}
+				mysqli_stmt_close($stmt);
+			} else {
+				// Record exists and has a bill image and is not rejected, so throw error
+				throw new Exception("Newspaper allowance already exists for this month and year. Only rejected allowances or those without bill images can be resubmitted.");
+			}
 		} else {
-			throw new Exception("Failed to insert newspaper allowance: " . mysqli_error($connect_var));
+			// No existing record, insert new one
+			$insertQuery = "INSERT INTO tblNewspaperAllowance (employeeID, firstNewspaperID, secondNewspaperID, month, year, billImage, status, firstNewspaperCost, secondNewspaperCost, totalCost) VALUES (?, ?, ?, ?, ?, ?, 'Pending', ?, ?, ?)";
+			$stmt = mysqli_prepare($connect_var, $insertQuery);
+			mysqli_stmt_bind_param($stmt, "siiissddd", $employeeID, $firstNewspaperID, $secondNewspaperID, $month, $year, $billImage, $firstNewspaperCost, $secondNewspaperCost, $totalCost);
+			
+			if (mysqli_stmt_execute($stmt)) {
+				echo json_encode(array(
+					"status" => "success",
+					"message_text" => "Newspaper allowance submitted successfully"
+				));
+			} else {
+				throw new Exception("Failed to insert newspaper allowance: " . mysqli_error($connect_var));
+			}
+			mysqli_stmt_close($stmt);
 		}
-		mysqli_stmt_close($stmt);
 		
 	} catch (Exception $e) {
 		echo json_encode(array(
