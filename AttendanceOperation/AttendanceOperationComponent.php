@@ -661,13 +661,14 @@ class AttendanceOperationMaster{
                         WHEN a.checkOutTime IS NOT NULL AND b.checkOutTime IS NOT NULL AND a.checkOutTime < b.checkOutTime THEN 1
                         ELSE 0 
                     END as isEarlyCheckOut,
-                    0 as isHoliday,
-                    NULL as holidayDescription,
+                    CASE WHEN h.date IS NOT NULL THEN 1 ELSE 0 END as isHoliday,
+                    h.holiday as holidayDescription,
                     0 as isLeave,
                     0 as isAbsent,
                     a.checkInBranchID
                 FROM tblAttendance a
                 LEFT JOIN tblBranch b ON a.checkInBranchID = b.branchID
+                LEFT JOIN tblHoliday h ON a.attendanceDate = h.date
                 WHERE a.employeeID = ?
                 AND YEAR(a.attendanceDate) = ?
                 AND MONTH(a.attendanceDate) = ?
@@ -680,7 +681,7 @@ class AttendanceOperationMaster{
 
                 UNION ALL
 
-                -- Holiday records
+                -- Holiday records (only if no actual attendance exists for that date)
                 SELECT 
                     h.date as attendanceDate,
                     NULL as attendanceID,
@@ -705,6 +706,12 @@ class AttendanceOperationMaster{
                      OR (YEAR(h.date) = YEAR(CURRENT_DATE) 
                          AND MONTH(h.date) = MONTH(CURRENT_DATE) 
                          AND h.date <= CURRENT_DATE))
+                AND NOT EXISTS (
+                    SELECT 1 FROM tblAttendance a 
+                    WHERE a.employeeID = ? 
+                    AND a.attendanceDate = h.date
+                    AND a.checkInTime IS NOT NULL
+                )
             ) combined
             ORDER BY attendanceDate DESC";
             
@@ -714,12 +721,13 @@ class AttendanceOperationMaster{
                 throw new Exception("Failed to prepare main query: " . mysqli_error($connect_var));
             }
             
-            mysqli_stmt_bind_param($stmt, "siiii", 
+            mysqli_stmt_bind_param($stmt, "siiiii", 
                 $employeeID,  // for attendance
                 $getYear,     // for attendance
                 $getMonth,    // for attendance
                 $getYear,     // for holiday
-                $getMonth     // for holiday
+                $getMonth,    // for holiday
+                $employeeID   // for NOT EXISTS clause
             );
             
             if (!mysqli_stmt_execute($stmt)) {
