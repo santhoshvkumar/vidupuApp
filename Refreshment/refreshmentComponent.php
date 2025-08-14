@@ -134,19 +134,23 @@ class RefreshmentMaster {
                 $trainingDays = mysqli_fetch_assoc($trainingResult);
                 $totalTrainingDays = $trainingDays ? $trainingDays['trainingDays'] : 0;
 
-                // Calculate absent days (simpler approach - just count days with no check-in)
-                $absentQuery = "SELECT COUNT(DISTINCT attendanceDate) as absentDays 
-                               FROM tblAttendance 
-                               WHERE employeeID = ? 
-                               AND MONTH(attendanceDate) = ? 
-                               AND YEAR(attendanceDate) = ? 
-                               AND checkInTime IS NULL";
-                $absentStmt = mysqli_prepare($connect_var, $absentQuery);
-                mysqli_stmt_bind_param($absentStmt, "sii", $employeeID, $month, $year);
-                mysqli_stmt_execute($absentStmt);
-                $absentResult = mysqli_stmt_get_result($absentStmt);
-                $absentDays = mysqli_fetch_assoc($absentResult);
-                $totalAbsentDays = $absentDays ? $absentDays['absentDays'] : 0;
+                // Calculate present days (days with check-in, excluding training branch)
+                $presentQuery = "SELECT COUNT(DISTINCT attendanceDate) as presentDays 
+                                FROM tblAttendance 
+                                WHERE employeeID = ? 
+                                AND MONTH(attendanceDate) = ? 
+                                AND YEAR(attendanceDate) = ? 
+                                AND checkInTime IS NOT NULL AND checkInBranchID != 56";
+                $presentStmt = mysqli_prepare($connect_var, $presentQuery);
+                mysqli_stmt_bind_param($presentStmt, "sii", $employeeID, $month, $year);
+                mysqli_stmt_execute($presentStmt);
+                $presentResult = mysqli_stmt_get_result($presentStmt);
+                $presentDays = mysqli_fetch_assoc($presentResult);
+                $totalPresentDays = $presentDays ? $presentDays['presentDays'] : 0;
+
+                // Calculate absent days = Working Days - Present Days - Leave Days
+                $totalAbsentDays = $totalWorkingDays - $totalPresentDays - $approvedLeaveDays;
+                $totalAbsentDays = max(0, $totalAbsentDays);
 
                 // Calculate eligible days
                 $eligibleDays = $totalWorkingDays - $approvedLeaveDays - $totalTrainingDays - $totalAbsentDays;
@@ -1010,6 +1014,141 @@ class RefreshmentMaster {
 
         } catch (Exception $e) {
             error_log("Error in rejectRefreshmentAllowance: " . $e->getMessage());
+            echo json_encode(array(
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ));
+        } finally {
+            if (isset($connect_var)) {
+                mysqli_close($connect_var);
+            }
+        }
+    }
+
+    public function getRefreshmentAllowanceByEmployeeID($data) {
+        include('config.inc');
+        header('Content-Type: application/json');
+        error_reporting(E_ALL);
+        ini_set('display_errors', 1);
+
+        try {
+            // Validate required fields
+            if (!isset($data['employeeID']) || !isset($data['month']) || !isset($data['year'])) {
+                throw new Exception("Missing required fields: employeeID, month, year");
+            }
+
+            $employeeID = $data['employeeID'];
+            $month = $data['month'];
+            $year = $data['year'];
+
+            // Get employee details
+            $empQuery = "SELECT e.employeeID, e.empID, e.employeeName, e.isWashingAllowance, 
+                        e.isPhysicallyHandicapped, e.isTemporary, m.organisationID
+                        FROM tblEmployee e
+                        LEFT JOIN tblmapEmp m ON e.employeeID = m.employeeID
+                        WHERE e.employeeID = ? AND e.isActive = 1";
+            
+            $empStmt = mysqli_prepare($connect_var, $empQuery);
+            if (!$empStmt) {
+                throw new Exception("Failed to prepare employee query: " . mysqli_error($connect_var));
+            }
+            mysqli_stmt_bind_param($empStmt, "s", $employeeID);
+            mysqli_stmt_execute($empStmt);
+            $empResult = mysqli_stmt_get_result($empStmt);
+            $employee = mysqli_fetch_assoc($empResult);
+
+            if (!$employee) {
+                throw new Exception("Employee not found");
+            }
+
+            // Get working days for the month
+            $workingDaysQuery = "SELECT noOfWorkingDays, monthName 
+                               FROM tblworkingdays
+                               WHERE workingDayID = ? AND Year = ?";
+            $workingStmt = mysqli_prepare($connect_var, $workingDaysQuery);
+            mysqli_stmt_bind_param($workingStmt, "ii", $month, $year);
+            mysqli_stmt_execute($workingStmt);
+            $workingResult = mysqli_stmt_get_result($workingStmt);
+            $workingDays = mysqli_fetch_assoc($workingResult);
+            $totalWorkingDays = $workingDays ? $workingDays['noOfWorkingDays'] : 0;
+
+            // Calculate approved leave days
+            $leaveQuery = "SELECT COUNT(*) as leaveDays 
+                          FROM tblApplyLeave l
+                          WHERE l.employeeID = ? AND MONTH(l.fromDate) = ? AND YEAR(l.fromDate) = ? 
+                          AND l.status = 'Approved'";
+            $leaveStmt = mysqli_prepare($connect_var, $leaveQuery);
+            mysqli_stmt_bind_param($leaveStmt, "sii", $employeeID, $month, $year);
+            mysqli_stmt_execute($leaveStmt);
+            $leaveResult = mysqli_stmt_get_result($leaveStmt);
+            $leaveDays = mysqli_fetch_assoc($leaveResult)['leaveDays'];
+
+            // Calculate training days (check-in at training branch - branch ID 56)
+            $trainingQuery = "SELECT COUNT(DISTINCT attendanceDate) as trainingDays 
+                             FROM tblAttendance a
+                             WHERE a.employeeID = ? AND MONTH(a.attendanceDate) = ? AND YEAR(a.attendanceDate) = ? 
+                             AND a.checkInBranchID = 56";
+            $trainingStmt = mysqli_prepare($connect_var, $trainingQuery);
+            mysqli_stmt_bind_param($trainingStmt, "sii", $employeeID, $month, $year);
+            mysqli_stmt_execute($trainingStmt);
+            $trainingResult = mysqli_stmt_get_result($trainingStmt);
+            $trainingDays = mysqli_fetch_assoc($trainingResult)['trainingDays'];
+
+            // Calculate present days (days with check-in, excluding training branch)
+            $presentQuery = "SELECT COUNT(DISTINCT attendanceDate) as presentDays 
+                            FROM tblAttendance a
+                            WHERE a.employeeID = ? AND MONTH(a.attendanceDate) = ? AND YEAR(a.attendanceDate) = ? 
+                            AND a.checkInTime IS NOT NULL AND a.checkInBranchID != 56";
+            $presentStmt = mysqli_prepare($connect_var, $presentQuery);
+            mysqli_stmt_bind_param($presentStmt, "sii", $employeeID, $month, $year);
+            mysqli_stmt_execute($presentStmt);
+            $presentResult = mysqli_stmt_get_result($presentStmt);
+            $presentDays = mysqli_fetch_assoc($presentResult)['presentDays'];
+
+                            // Calculate absent days = Working Days - Present Days - Leave Days
+                $absentDays = $totalWorkingDays - $presentDays - $leaveDays;
+                $absentDays = max(0, $absentDays);
+
+            // Calculate eligible days
+            $eligibleDays = $totalWorkingDays - $leaveDays - $trainingDays - $absentDays;
+            $eligibleDays = max(0, $eligibleDays);
+
+            // Calculate allowances
+            $refreshmentAmount = $eligibleDays * 90; // ₹90 per day
+            $medicalAmount = ($month == 5 || $month == 12) ? 1000 : 0; // ₹1000 for May and December
+            $physicallyChallengedAmount = $employee['isPhysicallyHandicapped'] ? 1000 : 0; // ₹1000 if physically challenged
+            $washingAmount = $employee['isWashingAllowance'] ? ($eligibleDays * 25) : 0; // ₹25 per day if washing allowance enabled
+
+            $totalAllowances = $refreshmentAmount + $medicalAmount + $physicallyChallengedAmount + $washingAmount;
+
+            $result = array(
+                "employeeID" => $employeeID,
+                "employeeName" => $employee['employeeName'],
+                "empID" => $employee['empID'],
+                "month" => $month,
+                "year" => $year,
+                "noOfWorkingDays" => $totalWorkingDays,
+                "leaveDaysInMonth" => $leaveDays,
+                "trainingDays" => $trainingDays,
+                "absentDays" => $absentDays,
+                "eligibleDays" => $eligibleDays,
+                "TotalRefreshmentAmount" => $refreshmentAmount,
+                "MedicalAmount" => $medicalAmount,
+                "PhysicallyChallangedAllowance" => $physicallyChallengedAmount,
+                "WashingAllowanceAmount" => $washingAmount,
+                "TotalAllowances" => $totalAllowances,
+                "isTemporary" => $employee['isTemporary'],
+                "isWashingAllowance" => $employee['isWashingAllowance'],
+                "isPhysicallyHandicapped" => $employee['isPhysicallyHandicapped']
+            );
+
+            echo json_encode(array(
+                "status" => "success",
+                "data" => $result
+            ));
+
+        } catch (Exception $e) {
+            error_log("Error in getRefreshmentAllowanceByEmployeeID: " . $e->getMessage());
             echo json_encode(array(
                 "status" => "error",
                 "message_text" => $e->getMessage()
