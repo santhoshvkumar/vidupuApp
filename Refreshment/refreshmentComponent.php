@@ -134,13 +134,28 @@ class RefreshmentMaster {
                 $trainingDays = mysqli_fetch_assoc($trainingResult);
                 $totalTrainingDays = $trainingDays ? $trainingDays['trainingDays'] : 0;
 
-                // Calculate present days (days with check-in, excluding training branch)
+                // Calculate meeting days (check-in at meeting branch - branch ID 60)
+                $meetingQuery = "SELECT COUNT(DISTINCT attendanceDate) as meetingDays 
+                                 FROM tblAttendance 
+                                 WHERE employeeID = ? 
+                                 AND MONTH(attendanceDate) = ? 
+                                 AND YEAR(attendanceDate) = ? 
+                                 AND checkInBranchID = 60 
+                                 AND checkInTime IS NOT NULL";
+                $meetingStmt = mysqli_prepare($connect_var, $meetingQuery);
+                mysqli_stmt_bind_param($meetingStmt, "sii", $employeeID, $month, $year);
+                mysqli_stmt_execute($meetingStmt);
+                $meetingResult = mysqli_stmt_get_result($meetingStmt);
+                $meetingDaysRow = mysqli_fetch_assoc($meetingResult);
+                $totalMeetingDays = $meetingDaysRow ? $meetingDaysRow['meetingDays'] : 0;
+
+                // Calculate present days (days with check-in, include all branches)
                 $presentQuery = "SELECT COUNT(DISTINCT attendanceDate) as presentDays 
                                 FROM tblAttendance 
                                 WHERE employeeID = ? 
                                 AND MONTH(attendanceDate) = ? 
                                 AND YEAR(attendanceDate) = ? 
-                                AND checkInTime IS NOT NULL AND checkInBranchID != 56";
+                                AND checkInTime IS NOT NULL";
                 $presentStmt = mysqli_prepare($connect_var, $presentQuery);
                 mysqli_stmt_bind_param($presentStmt, "sii", $employeeID, $month, $year);
                 mysqli_stmt_execute($presentStmt);
@@ -153,7 +168,7 @@ class RefreshmentMaster {
                 $totalAbsentDays = max(0, $totalAbsentDays);
 
                 // Calculate eligible days
-                $eligibleDays = $totalWorkingDays - $approvedLeaveDays - $totalTrainingDays - $totalAbsentDays;
+                $eligibleDays = $totalWorkingDays - $approvedLeaveDays - $totalTrainingDays - $totalMeetingDays - $totalAbsentDays;
                 $eligibleDays = max(0, $eligibleDays);
                 
                 // Calculate allowances
@@ -207,6 +222,7 @@ class RefreshmentMaster {
                     'noOfWorkingDays' => (int)$totalWorkingDays,
                     'leaveDaysInMonth' => (string)$approvedLeaveDays,
                     'trainingDays' => (string)$totalTrainingDays,
+                    'meetingDays' => (string)$totalMeetingDays,
                     'absentDays' => (string)$totalAbsentDays,
                     'eligibleDays' => (string)$eligibleDays,
                     'TotalRefreshmentAmount' => number_format((float)$refreshmentAmount, 2, '.', ''),
@@ -343,6 +359,24 @@ class RefreshmentMaster {
 
             $totalTrainingDays = $trainingDays['trainingDays'];
 
+            // Get meeting days (check-in at meeting branch - branch ID 60)
+            $meetingQuery = "SELECT COUNT(DISTINCT attendanceDate) as meetingDays 
+                             FROM tblAttendance 
+                             WHERE employeeID = ? 
+                             AND MONTH(attendanceDate) = ? 
+                             AND YEAR(attendanceDate) = ? 
+                             AND checkInBranchID = 60 
+                             AND checkInTime IS NOT NULL";
+            $meetingStmt = mysqli_prepare($connect_var, $meetingQuery);
+            if (!$meetingStmt) {
+                throw new Exception("Failed to prepare meeting query: " . mysqli_error($connect_var));
+            }
+            mysqli_stmt_bind_param($meetingStmt, "sii", $employeeID, $month, $year);
+            mysqli_stmt_execute($meetingStmt);
+            $result = mysqli_stmt_get_result($meetingStmt);
+            $meetingDays = mysqli_fetch_assoc($result);
+            $totalMeetingDays = $meetingDays['meetingDays'];
+
             // Get absent days (simpler approach - just count days with no check-in)
             $absentQuery = "SELECT COUNT(DISTINCT attendanceDate) as absentDays 
                            FROM tblAttendance 
@@ -363,7 +397,7 @@ class RefreshmentMaster {
             $totalAbsentDays = $absentDays['absentDays'];
 
             // Calculate eligible days
-            $eligibleDays = $totalWorkingDays - $approvedLeaveDays - $totalTrainingDays - $totalAbsentDays;
+            $eligibleDays = $totalWorkingDays - $approvedLeaveDays - $totalTrainingDays - $totalMeetingDays - $totalAbsentDays;
             $eligibleDays = max(0, $eligibleDays);
             
             // Calculate individual allowances
@@ -413,6 +447,7 @@ class RefreshmentMaster {
                               SET TotalWorkingDays = ?,
                                   ApprovedLeaveDays = ?,
                                   TrainingDays = ?,
+                                  MeetingDays = ?,
                                   AbsentDays = ?,
                                   EligibleDays = ?,
                                   AmountPerDay = ?,
@@ -432,6 +467,7 @@ class RefreshmentMaster {
                     $totalWorkingDays,
                     $approvedLeaveDays,
                     $totalTrainingDays,
+                    $totalMeetingDays,
                     $totalAbsentDays,
                     $eligibleDays,
                     $amountPerDay,
@@ -448,23 +484,24 @@ class RefreshmentMaster {
                 // Insert new record
                 $insertQuery = "INSERT INTO tblRefreshment 
                               (EmployeeID, Month, Year, TotalWorkingDays, 
-                               ApprovedLeaveDays, TrainingDays, AbsentDays, EligibleDays, AmountPerDay, 
+                               ApprovedLeaveDays, TrainingDays, MeetingDays, AbsentDays, EligibleDays, AmountPerDay, 
                                RefreshmentAmount, WashingAmount, 
                                PhysicallyHandicappedAmount, MedicalAmount,
                                TotalAmount, Status) 
-                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending')";
+                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending')";
                 
                 $stmt = mysqli_prepare($connect_var, $insertQuery);
                 if (!$stmt) {
                     throw new Exception("Failed to prepare insert query: " . mysqli_error($connect_var));
                 }
-                mysqli_stmt_bind_param($stmt, "siiiiiiiiddddd", 
+                mysqli_stmt_bind_param($stmt, "siiiiiiiddddd", 
                     $employeeID,
                     $month,
                     $year,
                     $totalWorkingDays,
                     $approvedLeaveDays,
                     $totalTrainingDays,
+                    $totalMeetingDays,
                     $totalAbsentDays,
                     $eligibleDays,
                     $amountPerDay,
@@ -485,6 +522,7 @@ class RefreshmentMaster {
                         "totalWorkingDays" => $totalWorkingDays,
                         "approvedLeaveDays" => $approvedLeaveDays,
                         "trainingDays" => $totalTrainingDays,
+                        "meetingDays" => $totalMeetingDays,
                         "absentDays" => $totalAbsentDays,
                         "eligibleDays" => $eligibleDays,
                         "allowances" => array(
@@ -614,6 +652,21 @@ class RefreshmentMaster {
                 $trainingDays = mysqli_fetch_assoc($trainingResult);
                 $totalTrainingDays = $trainingDays ? $trainingDays['trainingDays'] : 0;
                 
+                // Get meeting days
+                $meetingQuery = "SELECT COUNT(DISTINCT attendanceDate) as meetingDays 
+                                 FROM tblAttendance 
+                                 WHERE employeeID = ? 
+                                 AND MONTH(attendanceDate) = ? 
+                                 AND YEAR(attendanceDate) = ? 
+                                 AND checkInBranchID = 60 
+                                 AND checkInTime IS NOT NULL";
+                $meetingStmt = mysqli_prepare($connect_var, $meetingQuery);
+                mysqli_stmt_bind_param($meetingStmt, "sii", $employeeID, $month, $year);
+                mysqli_stmt_execute($meetingStmt);
+                $meetingResult = mysqli_stmt_get_result($meetingStmt);
+                $meetingDays = mysqli_fetch_assoc($meetingResult);
+                $totalMeetingDays = $meetingDays ? $meetingDays['meetingDays'] : 0;
+                
                 // Get absent days
                 $absentQuery = "SELECT COUNT(DISTINCT attendanceDate) as absentDays 
                                FROM tblAttendance 
@@ -629,7 +682,7 @@ class RefreshmentMaster {
                 $totalAbsentDays = $absentDays ? $absentDays['absentDays'] : 0;
                 
                 // Calculate eligible days
-                $eligibleDays = $totalWorkingDays - $approvedLeaveDays - $totalTrainingDays - $totalAbsentDays;
+                $eligibleDays = $totalWorkingDays - $approvedLeaveDays - $totalTrainingDays - $totalMeetingDays - $totalAbsentDays;
                 $eligibleDays = max(0, $eligibleDays);
                 
                 // Calculate amounts
@@ -664,16 +717,16 @@ class RefreshmentMaster {
                 
                 // Create record with calculated amounts
                 $insertQuery = "INSERT INTO tblRefreshment 
-                              (EmployeeID, Month, Year, TotalWorkingDays, ApprovedLeaveDays, TrainingDays, 
+                              (EmployeeID, Month, Year, TotalWorkingDays, ApprovedLeaveDays, TrainingDays, MeetingDays, 
                                EligibleDays, AmountPerDay, RefreshmentAmount, WashingAmount, 
                                PhysicallyHandicappedAmount, MedicalAmount, TotalAmount, Status) 
-                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Approved')";
+                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Approved')";
                 $insertStmt = mysqli_prepare($connect_var, $insertQuery);
                 if (!$insertStmt) {
                     throw new Exception("Failed to prepare insert query: " . mysqli_error($connect_var));
                 }
                 mysqli_stmt_bind_param($insertStmt, "siiiiiiiddddd", 
-                    $employeeID, $month, $year, $totalWorkingDays, $approvedLeaveDays, $totalTrainingDays,
+                    $employeeID, $month, $year, $totalWorkingDays, $approvedLeaveDays, $totalTrainingDays, $totalMeetingDays,
                     $eligibleDays, $amountPerDay, $refreshmentAmount, $washingAmount,
                     $physicallyHandicappedAmount, $medicalAmount, $totalAmount
                 );
@@ -825,6 +878,21 @@ class RefreshmentMaster {
                         $trainingDays = mysqli_fetch_assoc($trainingResult);
                         $totalTrainingDays = $trainingDays ? $trainingDays['trainingDays'] : 0;
                         
+                        // Get meeting days
+                        $meetingQuery = "SELECT COUNT(DISTINCT attendanceDate) as meetingDays 
+                                         FROM tblAttendance 
+                                         WHERE employeeID = ? 
+                                         AND MONTH(attendanceDate) = ? 
+                                         AND YEAR(attendanceDate) = ? 
+                                         AND checkInBranchID = 60 
+                                         AND checkInTime IS NOT NULL";
+                        $meetingStmt = mysqli_prepare($connect_var, $meetingQuery);
+                        mysqli_stmt_bind_param($meetingStmt, "sii", $employeeID, $month, $year);
+                        mysqli_stmt_execute($meetingStmt);
+                        $meetingResult = mysqli_stmt_get_result($meetingStmt);
+                        $meetingDays = mysqli_fetch_assoc($meetingResult);
+                        $totalMeetingDays = $meetingDays ? $meetingDays['meetingDays'] : 0;
+                        
                         // Get absent days
                         $absentQuery = "SELECT COUNT(DISTINCT attendanceDate) as absentDays 
                                        FROM tblAttendance 
@@ -840,7 +908,7 @@ class RefreshmentMaster {
                         $totalAbsentDays = $absentDays ? $absentDays['absentDays'] : 0;
                         
                         // Calculate eligible days
-                        $eligibleDays = $totalWorkingDays - $approvedLeaveDays - $totalTrainingDays - $totalAbsentDays;
+                        $eligibleDays = $totalWorkingDays - $approvedLeaveDays - $totalTrainingDays - $totalMeetingDays - $totalAbsentDays;
                         $eligibleDays = max(0, $eligibleDays);
                         
                         // Calculate amounts
@@ -875,16 +943,16 @@ class RefreshmentMaster {
                         
                         // Create record with calculated amounts
                         $insertQuery = "INSERT INTO tblRefreshment 
-                                      (EmployeeID, Month, Year, TotalWorkingDays, ApprovedLeaveDays, TrainingDays, 
+                                      (EmployeeID, Month, Year, TotalWorkingDays, ApprovedLeaveDays, TrainingDays, MeetingDays, 
                                        EligibleDays, AmountPerDay, RefreshmentAmount, WashingAmount, 
                                        PhysicallyHandicappedAmount, MedicalAmount, TotalAmount, Status) 
-                                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Approved')";
+                                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Approved')";
                         $insertStmt = mysqli_prepare($connect_var, $insertQuery);
                         if (!$insertStmt) {
                             throw new Exception("Failed to prepare insert query for employee $employeeID: " . mysqli_error($connect_var));
                         }
                         mysqli_stmt_bind_param($insertStmt, "siiiiiiiddddd", 
-                            $employeeID, $month, $year, $totalWorkingDays, $approvedLeaveDays, $totalTrainingDays,
+                            $employeeID, $month, $year, $totalWorkingDays, $approvedLeaveDays, $totalTrainingDays, $totalMeetingDays,
                             $eligibleDays, $amountPerDay, $refreshmentAmount, $washingAmount,
                             $physicallyHandicappedAmount, $medicalAmount, $totalAmount
                         );
@@ -1094,23 +1162,34 @@ class RefreshmentMaster {
             $trainingResult = mysqli_stmt_get_result($trainingStmt);
             $trainingDays = mysqli_fetch_assoc($trainingResult)['trainingDays'];
 
-            // Calculate present days (days with check-in, excluding training branch)
+            // Calculate meeting days (check-in at meeting branch - branch ID 60)
+            $meetingQuery = "SELECT COUNT(DISTINCT attendanceDate) as meetingDays 
+                             FROM tblAttendance a
+                             WHERE a.employeeID = ? AND MONTH(a.attendanceDate) = ? AND YEAR(a.attendanceDate) = ? 
+                             AND a.checkInBranchID = 60";
+            $meetingStmt = mysqli_prepare($connect_var, $meetingQuery);
+            mysqli_stmt_bind_param($meetingStmt, "sii", $employeeID, $month, $year);
+            mysqli_stmt_execute($meetingStmt);
+            $meetingResult = mysqli_stmt_get_result($meetingStmt);
+            $meetingDays = mysqli_fetch_assoc($meetingResult)['meetingDays'];
+
+            // Calculate present days (days with check-in, include all branches)
             $presentQuery = "SELECT COUNT(DISTINCT attendanceDate) as presentDays 
                             FROM tblAttendance a
                             WHERE a.employeeID = ? AND MONTH(a.attendanceDate) = ? AND YEAR(a.attendanceDate) = ? 
-                            AND a.checkInTime IS NOT NULL AND a.checkInBranchID != 56";
+                            AND a.checkInTime IS NOT NULL";
             $presentStmt = mysqli_prepare($connect_var, $presentQuery);
             mysqli_stmt_bind_param($presentStmt, "sii", $employeeID, $month, $year);
             mysqli_stmt_execute($presentStmt);
             $presentResult = mysqli_stmt_get_result($presentStmt);
             $presentDays = mysqli_fetch_assoc($presentResult)['presentDays'];
 
-                            // Calculate absent days = Working Days - Present Days - Leave Days
-                $absentDays = $totalWorkingDays - $presentDays - $leaveDays;
-                $absentDays = max(0, $absentDays);
+            // Calculate absent days = Working Days - Present Days - Leave Days
+            $absentDays = $totalWorkingDays - $presentDays - $leaveDays;
+            $absentDays = max(0, $absentDays);
 
             // Calculate eligible days
-            $eligibleDays = $totalWorkingDays - $leaveDays - $trainingDays - $absentDays;
+            $eligibleDays = $totalWorkingDays - $leaveDays - $trainingDays - $meetingDays - $absentDays;
             $eligibleDays = max(0, $eligibleDays);
 
             // Calculate allowances
@@ -1130,6 +1209,7 @@ class RefreshmentMaster {
                 "noOfWorkingDays" => $totalWorkingDays,
                 "leaveDaysInMonth" => $leaveDays,
                 "trainingDays" => $trainingDays,
+                "meetingDays" => $meetingDays,
                 "absentDays" => $absentDays,
                 "eligibleDays" => $eligibleDays,
                 "TotalRefreshmentAmount" => $refreshmentAmount,
