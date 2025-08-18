@@ -172,7 +172,7 @@ if ($workingDays == 0) {
     }
 }
 
-// Calculate LOP (Loss of Pay) - days with no check-in and check-out.
+// Calculate LOP (Loss of Pay) - days with no check-in and check-out
 $lopDays = 0;
 if ($employee) {
     $employeeID = $employee['employeeID'];
@@ -1001,31 +1001,7 @@ $fallbackDataNote = '';
         'System Generated on: ' + new Date().toLocaleString();
     </script>
   </div>
-    <button id="download-pdf-btn" style="margin: 10px 0; padding: 8px 16px; font-size: 15px; background: #1a6600; color: #fff; border: none; border-radius: 4px; cursor: pointer;">
-    Download PDF
-  </button>
 </div>
-
-<script>
-document.getElementById('download-pdf-btn').addEventListener('click', function () {
-    // Hide the download button while generating PDF
-    document.getElementById('download-pdf-btn').style.display = 'none';
-    var path = "<?php echo $_GET['Month']; ?>";
-    // Select the payslip container
-    var element = document.getElementById('payslip-container');
-    var opt = {
-        margin:       0.2,
-        filename:     'Payslip_'+path+'.pdf',
-        image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2 },
-        jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
-    };
-
-    html2pdf().set(opt).from(element).save().then(() => {
-        // Show the button again after download
-        document.getElementById('download-pdf-btn').style.display = 'inline-block';
-    });
-});
 </script>
 </body>
 </html>
