@@ -477,6 +477,7 @@ class EmployeeComponent{
                 tblE.employeeGender, 
                 tblE.Designation, 
                 tblE.employeeBloodGroup,
+                tblE.isManager,
                 CASE 
                     WHEN tblE.isManager = 1 THEN 'Yes'
                     ELSE 'No'
