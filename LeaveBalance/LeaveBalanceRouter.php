@@ -195,3 +195,17 @@ $f3->route('POST /GetCompOffLeaves',
         $leaveBalance->getCompOffLeaves();
     }
 );
+
+// Cancel Comp Off Request
+$f3->route('POST /CancelCompOffRequest',
+    function($f3) {
+        header('Content-Type: application/json');
+        header('Access-Control-Allow-Origin: *');
+        header('Access-Control-Allow-Methods: POST');
+        header('Access-Control-Allow-Headers: Content-Type');
+
+        $data = json_decode($f3->get('BODY'), true);
+        $leaveBalance = new ApplyLeaveMaster();
+        $leaveBalance->cancelCompOffRequest($data);
+    }
+);

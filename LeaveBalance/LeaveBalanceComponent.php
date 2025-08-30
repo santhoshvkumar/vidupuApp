@@ -1044,6 +1044,84 @@ class ApplyLeaveMaster {
             ), JSON_FORCE_OBJECT);
         }
     }
+
+    public function cancelCompOffRequest($data) {
+        include('config.inc');
+        header('Content-Type: application/json');
+        
+        try {
+            if (!isset($data['compOffID'])) {
+                throw new Exception("Missing compOffID parameter");
+            }
+            
+            $compOffID = $data['compOffID'];
+            
+            // Check if comp off request exists and is in a cancellable state
+            $checkQuery = "SELECT status, employeeID FROM tblCompOff WHERE compOffID = ?";
+            $stmt = mysqli_prepare($connect_var, $checkQuery);
+            mysqli_stmt_bind_param($stmt, "i", $compOffID);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+            
+            if (mysqli_num_rows($result) == 0) {
+                throw new Exception("Comp off request not found");
+            }
+            
+            $compOffData = mysqli_fetch_assoc($result);
+            $status = $compOffData['status'];
+            $employeeID = $compOffData['employeeID'];
+            
+            // Only allow cancellation if status is 'Pending' or 'Approved' but not used
+            if ($status !== 'Pending' && $status !== 'Approved') {
+                throw new Exception("Cannot cancel comp off request. Status: $status");
+            }
+            
+            // If approved, check if it's already used
+            if ($status === 'Approved') {
+                $usedQuery = "SELECT isUsed FROM tblCompOff WHERE compOffID = ?";
+                $usedStmt = mysqli_prepare($connect_var, $usedQuery);
+                mysqli_stmt_bind_param($usedStmt, "i", $compOffID);
+                mysqli_stmt_execute($usedStmt);
+                $usedResult = mysqli_stmt_get_result($usedStmt);
+                $usedData = mysqli_fetch_assoc($usedResult);
+                
+                if ($usedData['isUsed'] == 1) {
+                    throw new Exception("Cannot cancel comp off request. It has already been used.");
+                }
+                
+                // If approved and not used, reduce the balance
+                $updateBalanceQuery = "UPDATE tblLeaveBalance SET CompensatoryOff = CompensatoryOff - 1 WHERE employeeID = ? AND CompensatoryOff > 0";
+                $balanceStmt = mysqli_prepare($connect_var, $updateBalanceQuery);
+                mysqli_stmt_bind_param($balanceStmt, "s", $employeeID);
+                mysqli_stmt_execute($balanceStmt);
+                mysqli_stmt_close($balanceStmt);
+            }
+            
+            // Update the comp off request status to 'Cancelled'
+            $updateQuery = "UPDATE tblCompOff SET status = 'Cancelled' WHERE compOffID = ?";
+            $updateStmt = mysqli_prepare($connect_var, $updateQuery);
+            mysqli_stmt_bind_param($updateStmt, "i", $compOffID);
+            mysqli_stmt_execute($updateStmt);
+            
+            if (mysqli_affected_rows($connect_var) > 0) {
+                echo json_encode([
+                    "status" => "success",
+                    "message" => "Comp off request cancelled successfully"
+                ]);
+            } else {
+                throw new Exception("Failed to cancel comp off request");
+            }
+            
+            mysqli_stmt_close($updateStmt);
+            mysqli_close($connect_var);
+            
+        } catch (Exception $e) {
+            echo json_encode([
+                "status" => "error",
+                "message" => $e->getMessage()
+            ]);
+        }
+    }
 }
 
 function applyLeave(array $data) {
