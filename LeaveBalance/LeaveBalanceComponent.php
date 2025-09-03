@@ -584,6 +584,7 @@ class ApplyLeaveMaster {
                         WHERE employeeID = '$this->empID' 
                         AND typeOfLeave = 'Casual Leave'
                         AND status != 'Cancelled'
+                        AND status != 'Rejected'
                         AND fromDate >= '$yearStart'";
                     $casualResult = mysqli_query($connect_var, $queryCasualLeaves);
                     $casualData = mysqli_fetch_assoc($casualResult);
