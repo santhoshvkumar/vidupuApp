@@ -8,7 +8,7 @@ class CheckInLockedComponent{
     }
     public function getAllCheckInLockedEmployees() {
         include('config.inc');
-        $query = "SELECT employeeID, empID, employeeName, Designation, branchName FROM tblEmployee WHERE isCheckInLocked = 1";
+        $query = "SELECT employeeID, empID, employeeName, Designation FROM tblEmployee WHERE isCheckInLocked = 1";
         $result = mysqli_query($connect_var, $query);
         $data = [];
         while ($row = mysqli_fetch_assoc($result)) {
