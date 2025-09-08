@@ -8,7 +8,7 @@ class CheckInLockedComponent{
     }
     public function getAllCheckInLockedEmployees() {
         include('config.inc');
-        $query = "SELECT * FROM tblEmployee WHERE isCheckInLocked = 1";
+        $query = "SELECT employeeID, empID, employeeName, Designation, branchName FROM tblEmployee WHERE isCheckInLocked = 1";
         $result = mysqli_query($connect_var, $query);
         $data = [];
         while ($row = mysqli_fetch_assoc($result)) {
@@ -17,6 +17,7 @@ class CheckInLockedComponent{
         if(count($data) > 0) {
         echo json_encode([
                 "status" => "success",
+                "Count" => count($data),
                 "data" => $data
             ]);
         } else {
