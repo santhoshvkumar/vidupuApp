@@ -106,6 +106,9 @@ require 'KeyHandling/KeyHandlingRouter.php';
 require 'WebApp/PendingLeaveRequests/PendingLeaveRequestsRouter.php';
 require 'WebApp/PendingLeaveRequests/PendingLeaveRequestsComponent.php';
 
+require 'WebApp/CheckInLocked/CheckInLockedRouter.php';
+require 'WebApp/CheckInLocked/CheckInLockedComponent.php';
+
 // Register all routers
 \EmployeePaySlip\EmployeePaySlipRouter::register($f3);
 
