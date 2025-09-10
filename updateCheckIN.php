@@ -7,7 +7,8 @@
                                 employeeID,
                                 COUNT(*) as autoCheckoutCount
                             FROM tblAttendance 
-                            WHERE isAutoCheckout = 1 
+                            WHERE isAutoCheckout = 1 and
+                            designation != 'Deputy General Manager'
                             AND DATE_FORMAT(attendanceDate, '%Y-%m') = ?
                             GROUP BY employeeID
                             HAVING COUNT(*) > 2";
@@ -25,7 +26,7 @@
         // Update isCheckInLocked field in tblEmployee
         $updateCheckInLocked = "UPDATE tblEmployee 
                               SET isCheckInLocked = 1 
-                              WHERE employeeID = ?";
+                              WHERE employeeID = ? and Designation != 'Deputy General Manager'";
         
         $updateLockedStmt = mysqli_prepare($connect_var, $updateCheckInLocked);
         mysqli_stmt_bind_param($updateLockedStmt, "s", $employeeID);
