@@ -7,8 +7,7 @@
                                 employeeID,
                                 COUNT(*) as autoCheckoutCount
                             FROM tblAttendance 
-                            WHERE isAutoCheckout = 1 and
-                            Designation != 'Deputy General Manager'
+                            WHERE isAutoCheckout = 1
                             AND DATE_FORMAT(attendanceDate, '%Y-%m') = ?
                             GROUP BY employeeID
                             HAVING COUNT(*) > 2";
