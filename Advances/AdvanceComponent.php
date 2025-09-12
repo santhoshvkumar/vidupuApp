@@ -19,11 +19,22 @@ class AdvanceComponent {
         ini_set('display_errors', 1);
 
         try {
-            $query = "INSERT INTO tblAdvances (advanceTitle, employeeID, advanceAmount, createdON) VALUES (?, ?, ?, NOW())";
-            $stmt = mysqli_prepare($connect_var, $query);
-            mysqli_stmt_bind_param($stmt, "sii", $this->advanceTitle, $this->employeeID, $this->advanceAmount);
+            $queryAdvanceAlreadyExists = "SELECT * FROM tblAdvances WHERE employeeID = ? AND advanceTitle = ?";
+            $stmt = mysqli_prepare($connect_var, $queryAdvanceAlreadyExists);
+            mysqli_stmt_bind_param($stmt, "si", $this->employeeID, $this->advanceTitle);
             mysqli_stmt_execute($stmt);
-            mysqli_close($connect_var);
+            $result = mysqli_stmt_get_result($stmt);
+            $isAdvanceAlreadyExists = false;
+            if(mysqli_num_rows($result) > 0) {
+                $isAdvanceAlreadyExists = true;
+            }
+            if(mysqli_num_rows($result) == 0) {
+                $query = "INSERT INTO tblAdvances (advanceTitle, employeeID, advanceAmount, createdON) VALUES (?, ?, ?, NOW())";
+                $stmt = mysqli_prepare($connect_var, $query);
+                mysqli_stmt_bind_param($stmt, "sii", $this->advanceTitle, $this->employeeID, $this->advanceAmount);
+                mysqli_stmt_execute($stmt);
+                mysqli_close($connect_var);
+            }
         } catch (Exception $e) {
             echo json_encode(array(
                 "status" => "error",
@@ -32,6 +43,7 @@ class AdvanceComponent {
         }
         echo json_encode(array(
             "status" => "success",
+            "isAdvanceAlreadyExists" => $isAdvanceAlreadyExists,
             "message_text" => "Advance applied successfully"
             ));
         } catch (Exception $e) {
