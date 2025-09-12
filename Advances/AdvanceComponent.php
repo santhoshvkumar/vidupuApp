@@ -35,23 +35,17 @@ class AdvanceComponent {
                 mysqli_stmt_execute($stmt);
                 mysqli_close($connect_var);
             }
+            echo json_encode(array(
+                "status" => "success",
+                "isAdvanceAlreadyExists" => $isAdvanceAlreadyExists,
+                "message_text" => "Advance applied successfully"
+                ));
         } catch (Exception $e) {
             echo json_encode(array(
                 "status" => "error",
                 "message_text" => $e->getMessage()
             ), JSON_FORCE_OBJECT);
-        }
-        echo json_encode(array(
-            "status" => "success",
-            "isAdvanceAlreadyExists" => $isAdvanceAlreadyExists,
-            "message_text" => "Advance applied successfully"
-            ));
-        } catch (Exception $e) {
-            echo json_encode(array(
-                "status" => "error",
-                "message_text" => $e->getMessage()
-            ), JSON_FORCE_OBJECT);
-        }
+        }       
     }
 }
 
