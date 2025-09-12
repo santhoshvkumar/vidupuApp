@@ -1,0 +1,56 @@
+<?php
+
+class AdvanceComponent {
+    public $advanceTitle;
+    public $employeeID;
+    public $advanceAmount;
+
+    public function loadAdvanceDetails($decoded_items) {
+        $this->advanceTitle = $decoded_items['advanceTitle'];
+        $this->employeeID = $decoded_items['employeeID'];
+        $this->advanceAmount = $decoded_items['advanceAmount'];
+        return true;
+    }
+
+    public function applyForAdvance($decoded_items) {
+        include('config.inc');
+        header('Content-Type: application/json');
+        error_reporting(E_ALL);
+        ini_set('display_errors', 1);
+
+        try {
+            $query = "INSERT INTO tblAdvances (advanceTitle, employeeID, advanceAmount, createdON) VALUES (?, ?, ?, NOW())";
+            $stmt = mysqli_prepare($connect_var, $query);
+            mysqli_stmt_bind_param($stmt, "sii", $this->advanceTitle, $this->employeeID, $this->advanceAmount);
+            mysqli_stmt_execute($stmt);
+            mysqli_close($connect_var);
+        } catch (Exception $e) {
+            echo json_encode(array(
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ), JSON_FORCE_OBJECT);
+        }
+        echo json_encode(array(
+            "status" => "success",
+            "message_text" => "Advance applied successfully"
+            ));
+        } catch (Exception $e) {
+            echo json_encode(array(
+                "status" => "error",
+                "message_text" => $e->getMessage()
+            ), JSON_FORCE_OBJECT);
+        }
+    }
+}
+
+function applyForAdvance($decoded_items) {
+    $advanceObject = new AdvanceComponent();
+    if($advanceObject->loadAdvanceDetails($decoded_items)) {
+        $advanceObject->applyForAdvance($decoded_items);
+    } else {
+        echo json_encode(array(
+            "status" => "error",
+            "message_text" => "Invalid input parameters"
+        ), JSON_FORCE_OBJECT);
+    }
+}
