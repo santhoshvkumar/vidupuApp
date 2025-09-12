@@ -25,7 +25,7 @@ $f3->route('POST /GetRefreshmentAllowanceByEmployeeID',
         $decoded_items = json_decode($f3->get('BODY'), true);
         if (!is_null($decoded_items)) {
             $refreshmentObject = new RefreshmentMaster();
-            $refreshmentObject->getRefreshmentAllowancesByEmployeeID($decoded_items);
+            $refreshmentObject->getRefreshmentAllowanceByEmployeeID($decoded_items);
         } else {
             echo json_encode(array(
                 "status" => "error",
