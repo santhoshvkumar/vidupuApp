@@ -109,6 +109,9 @@ require 'WebApp/PendingLeaveRequests/PendingLeaveRequestsComponent.php';
 require 'WebApp/CheckInLocked/CheckInLockedRouter.php';
 require 'WebApp/CheckInLocked/CheckInLockedComponent.php';
 
+require 'Advances/AdvanceRouter.php';
+require 'Advances/AdvanceComponent.php';
+
 // Register all routers
 \EmployeePaySlip\EmployeePaySlipRouter::register($f3);
 
