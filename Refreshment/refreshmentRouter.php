@@ -18,6 +18,27 @@ $f3->route('POST /GetRefreshmentAllowancesByOrganisationID',
 );
 /*****************  End Get Refreshment Allowances By Organisation ID *****************/
 
+/*****************   Get Refreshment Allowances By Employee ID  *******************/
+$f3->route('POST /GetRefreshmentAllowanceByEmployeeID',
+    function($f3) {
+        header('Content-Type: application/json');
+        $decoded_items = json_decode($f3->get('BODY'), true);
+        if (!is_null($decoded_items)) {
+            $refreshmentObject = new RefreshmentMaster();
+            $refreshmentObject->getRefreshmentAllowancesByEmployeeID($decoded_items);
+        } else {
+            echo json_encode(array(
+                "status" => "error",
+                "message_text" => "Invalid input parameters"
+            ));
+        }
+    }
+);
+/*****************  End Get Refreshment Allowances By Employee ID *****************/
+
+
+
+
 /*****************   Calculate Refreshment Allowance  *******************/
 $f3->route('POST /CalculateRefreshmentAllowance',
     function($f3) {
