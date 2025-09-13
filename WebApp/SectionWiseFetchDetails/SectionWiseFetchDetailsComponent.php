@@ -7,6 +7,7 @@ class SectionWiseFetchDetailsComponent{
     public $currentDate;
     public $branchID;
     public $branchName;
+    public $organisationID;
 
     public function loadSectionWiseFetchDetails(array $data){
         if (isset($data['sectionID']) && isset($data['currentMonth']) && isset($data['currentYear'])) {
