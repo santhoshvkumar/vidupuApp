@@ -7,7 +7,7 @@ class AdvanceComponent {
 
     public function loadAdvanceDetails($decoded_items) {
         $this->advanceTitle = $decoded_items['advanceTitle'];
-        $this->employeeID = $decoded_items['employeeID'];
+        $this->employeeID = $decoded_items['employeeId'];
         $this->advanceAmount = $decoded_items['advanceAmount'];
         return true;
     }
