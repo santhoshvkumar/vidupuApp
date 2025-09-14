@@ -24,12 +24,15 @@ class AdvanceComponent {
             mysqli_stmt_bind_param($stmt, "si", $this->employeeID, $this->advanceTitle);
             mysqli_stmt_execute($stmt);
             $result = mysqli_stmt_get_result($stmt);
+            $message_text = "";
             $isAdvanceAlreadyExists = false;
             if(mysqli_num_rows($result) > 0) {
                 $isAdvanceAlreadyExists = true;
+                $message_text = "Advance already exists and Placed for Approval";
             }
             if(mysqli_num_rows($result) == 0) {
                 $query = "INSERT INTO tblAdvances (advanceTitle, employeeID, advanceAmount, createdON) VALUES (?, ?, ?, NOW())";
+                $message_text = "Advance applied successfully";
                 $stmt = mysqli_prepare($connect_var, $query);
                 mysqli_stmt_bind_param($stmt, "sii", $this->advanceTitle, $this->employeeID, $this->advanceAmount);
                 mysqli_stmt_execute($stmt);
@@ -38,7 +41,7 @@ class AdvanceComponent {
             echo json_encode(array(
                 "status" => "success",
                 "isAdvanceAlreadyExists" => $isAdvanceAlreadyExists,
-                "message_text" => "Advance applied successfully"
+                "message_text" => $message_text
                 ));
         } catch (Exception $e) {
             echo json_encode(array(
