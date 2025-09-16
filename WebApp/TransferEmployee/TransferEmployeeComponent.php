@@ -389,7 +389,6 @@ class TransferEmployeeComponent{
     public function loadAutoTransfer(array $data) {
         if (isset($data['dataOfTransfer']) && isset($data['organisationID'])) {
             $this->dataOfTransfer = $data['dataOfTransfer'];
-            $this->organisationID = $data['organisationID'];
             return true;
         }
         return false;
