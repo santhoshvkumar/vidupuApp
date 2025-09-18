@@ -1145,8 +1145,10 @@ class AttendanceOperationMaster{
                 $currentTime = date('H:i:s');
                 if($currentTime > $row['branchCheckInTime']) {
                     $row['checkInBeyondTime'] = true;
+                    $row['checkINLocked'] = 1;
                 } else {
                     $row['checkInBeyondTime'] = false;
+                    $row['checkINLocked'] = 0;
                 }
             }
             
