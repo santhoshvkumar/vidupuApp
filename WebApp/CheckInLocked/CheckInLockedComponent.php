@@ -45,7 +45,7 @@ class CheckInLockedComponent{
 
     public function getEmployeeLockedHistory() {
         include('config.inc');
-        $query = "select * from tblAttendance where DATE_FORMAT(attendanceDate, '%Y-%m') = ? and employeeID=? and isAutoCheckout=1";
+        $query = "select tblA.attendanceID, tblA.attendanceDate, tblA.checkInTime, tblB.branchName, tblA.checkOutTime, tblA.TotalWorkingHour, tblA.isLateCheckIN from tblAttendance tblA INNER JOIN tblBranch tblB on tblB.branchID = tblA.checkInBranchID where DATE_FORMAT(attendanceDate, '%Y-%m') = ? and employeeID=? and isAutoCheckout=1";
         $stmt = mysqli_prepare($connect_var, $query);
         mysqli_stmt_bind_param($stmt, "si", $this->month, $this->employeeID);
         mysqli_stmt_execute($stmt);
