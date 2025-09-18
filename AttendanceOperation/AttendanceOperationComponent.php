@@ -1139,7 +1139,7 @@ class AttendanceOperationMaster{
             $resultForTodayAttendance = mysqli_stmt_get_result($stmtForTodayAttendance);
             $rowForTodayAttendance = mysqli_fetch_assoc($resultForTodayAttendance);
             $todayAttendanceCount = $rowForTodayAttendance['todayAttendanceCount'];
-
+            echo $todayAttendanceCount;
             if($todayAttendanceCount > 0) {
                 // Compare current system time with branch check-in time
                 $currentTime = date('H:i:s');
