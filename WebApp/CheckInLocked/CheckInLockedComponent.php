@@ -19,6 +19,14 @@ class CheckInLockedComponent{
         return true;
     }
 
+    public function loadUnlockCheckInLockedEmployee(array $data) {
+        if(!isset($data['employeeID'])) {
+            return false;
+        }
+        $this->employeeID = $data['employeeID'];
+        return true;
+    }
+
 
 
     public function getAllCheckInLockedEmployees() {
@@ -68,6 +76,20 @@ class CheckInLockedComponent{
             ], JSON_FORCE_OBJECT);
         }
     }
+
+    public function unlockCheckInLockedEmployee() {
+        include('config.inc');
+        $query = "UPDATE tblEmployee SET isCheckInLocked = 0 WHERE employeeID = ?";
+        $stmt = mysqli_prepare($connect_var, $query);
+        mysqli_stmt_bind_param($stmt, "s", $this->employeeID);
+        mysqli_stmt_execute($stmt);
+        mysqli_stmt_close($stmt);
+        mysqli_close($connect_var);
+        echo json_encode([
+            "status" => "success",
+            "message_text" => "Employee unlocked successfully"
+        ], JSON_FORCE_OBJECT);
+    }
 }
 
 function getAllCheckInLockedEmployees($decoded_items) {
@@ -83,6 +105,15 @@ function getAllCheckInLockedEmployeeHistory($decoded_items) {
     $CheckInLockedObject = new CheckInLockedComponent();
     if ($CheckInLockedObject->loadEmployeeLockedHistory($decoded_items)) {
         $CheckInLockedObject->getEmployeeLockedHistory();
+    } else {
+        echo json_encode(array("status"=>"error This value","message_text"=>"Invalid input parameters"),JSON_FORCE_OBJECT);
+    }
+}
+
+function unlockCheckInLockedEmployee($decoded_items) {
+    $CheckInLockedObject = new CheckInLockedComponent();
+    if ($CheckInLockedObject->loadUnlockCheckInLockedEmployee($decoded_items)) {
+        $CheckInLockedObject->unlockCheckInLockedEmployee();
     } else {
         echo json_encode(array("status"=>"error This value","message_text"=>"Invalid input parameters"),JSON_FORCE_OBJECT);
     }
