@@ -1092,9 +1092,11 @@ class AttendanceOperationMaster{
                         b.branchName as branchName,
                         b.branchAddress as branchAddress,
                         b.checkInTime as checkInTime,
-                        b.checkOutTime as checkOutTime
+                        b.checkOutTime as checkOutTime,
+                        tblE.isCheckInLocked as checkINLocked
                     FROM tblmapEmp m
-                    JOIN tblBranch b ON m.branchID = b.branchID
+                    INNER JOIN tblEmployee tblE on tblE.employeeID = m.employeeID
+                    INNER JOIN tblBranch b ON m.branchID = b.branchID
                     WHERE m.employeeID = ?
                     AND m.organisationID = ?
                     LIMIT 1";
