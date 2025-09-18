@@ -1127,7 +1127,7 @@ class AttendanceOperationMaster{
             }
             
             $row = mysqli_fetch_assoc($result);
-            $row['checkInBeyondTime'] = false;
+            $row['checkInBeyondTime'] = 0;
 
             $queryForTodayAttendance = "SELECT COUNT(*) as todayAttendanceCount
                                         FROM tblAttendance 
@@ -1144,10 +1144,10 @@ class AttendanceOperationMaster{
                 // Compare current system time with branch check-in time
                 $currentTime = date('H:i:s');
                 if($currentTime > $row['branchCheckInTime']) {
-                    $row['checkInBeyondTime'] = true;
+                    $row['checkInBeyondTime'] = 1;
                     $row['checkINLocked'] = 1;
                 } else {
-                    $row['checkInBeyondTime'] = false;
+                    $row['checkInBeyondTime'] = 0;
                     $row['checkINLocked'] = 0;
                 }
             }
