@@ -4,6 +4,8 @@ class CheckInLockedComponent{
     public $organisationID;
     public $employeeID;
     public $month;
+    public $excuses;
+    public $createdBy;
     
     public function loadOrganisationID(array $data) {
         $this->organisationID = $data['organisationID'];
@@ -20,10 +22,12 @@ class CheckInLockedComponent{
     }
 
     public function loadUnlockCheckInLockedEmployee(array $data) {
-        if(!isset($data['employeeID'])) {
+        if(!isset($data['employeeID']) && !isset($data['excuses']) && !isset($data['createdBy'])) {
             return false;
         }
         $this->employeeID = $data['employeeID'];
+        $this->excuses = $data['excuses'];
+        $this->createdBy = $data['createdBy'];
         return true;
     }
 
@@ -83,6 +87,12 @@ class CheckInLockedComponent{
         $stmt = mysqli_prepare($connect_var, $query);
         mysqli_stmt_bind_param($stmt, "s", $this->employeeID);
         mysqli_stmt_execute($stmt);
+        $queryInsertExcuse = "INSERT INTO tblExcuseCheckInLock (employeeID, Reason, createdOn, createdBy) VALUES (?, ?, NOW(), ?)";
+        $stmtInsertExcuse = mysqli_prepare($connect_var, $queryInsertExcuse);
+        mysqli_stmt_bind_param($stmtInsertExcuse, "ssi", $this->employeeID, $this->excuses, $this->createdBy);
+        mysqli_stmt_execute($stmtInsertExcuse);
+        mysqli_stmt_close($stmtInsertExcuse);
+      
         mysqli_stmt_close($stmt);
         mysqli_close($connect_var);
         echo json_encode([
