@@ -62,7 +62,6 @@ class CheckInLockedComponent{
         mysqli_stmt_bind_param($stmt, "si", $this->employeeID, $this->month);
         mysqli_stmt_execute($stmt);
         $result = mysqli_stmt_get_result($stmt);
-    }
         $data = [];
         while ($row = mysqli_fetch_assoc($result)) {
             $data[] = $row;
