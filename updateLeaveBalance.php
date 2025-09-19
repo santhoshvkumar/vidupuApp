@@ -7,7 +7,7 @@
     while($row = mysqli_fetch_assoc($rsd)){
         $employeeID = $row['employeeID'];
         $empID = $row['empID'];
-        echo $empID . "<br>";
+        echo $employeeID ."----". $empID . "<br>";
         $query = "select cl_bal from leave_data where staff_code = '$empID' and year = 2025 and leave_code = 'CL'";
         $rsdToRunPrivilageCOunt = mysqli_query($connect_var, $query);
         $row = mysqli_fetch_assoc($rsdToRunPrivilageCOunt);
