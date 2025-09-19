@@ -12,7 +12,7 @@
         $ml_bal = 0;
         $sl_bal = 0;
         echo $employeeID ."----". $empID . "<br>";
-       /*$query = "select cl_bal from leave_data where staff_code = '$empID' and year = 2025 and leave_code = 'CL'";
+       $query = "select cl_bal from leave_data where staff_code = '$empID' and year = 2025 and leave_code = 'CL'";
         $rsdToRunPrivilageCOunt = mysqli_query($connect_var, $query);
         $row = mysqli_fetch_assoc($rsdToRunPrivilageCOunt);
         $cl_bal = $row['cl_bal'];
@@ -22,7 +22,7 @@
             $rsdToUpdate = mysqli_query($connect_var, $updateQuery);
             echo $empID . " " . $cl_bal . "<br>";
         }
-        
+        /*
 
         $query = "select pl_bal from leave_data where staff_code = '$empID' and year = 2025 and leave_code = 'PL'";
         $rsdToRunPrivilageCOunt = mysqli_query($connect_var, $query);
