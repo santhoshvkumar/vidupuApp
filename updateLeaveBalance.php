@@ -12,7 +12,7 @@
         $rsdToRunPrivilageCOunt = mysqli_query($connect_var, $query);
         $row = mysqli_fetch_assoc($rsdToRunPrivilageCOunt);
         $cl_bal = $row['cl_bal'];
-        
+        echo "Casual Leave: " . $cl_bal . "<br>";
         $updateQuery = "update tblLeaveBalance set CasualLeave = '$cl_bal' where employeeID = '$employeeID'";
         $rsdToUpdate = mysqli_query($connect_var, $updateQuery);
         echo $empID . " " . $cl_bal . "<br>";
