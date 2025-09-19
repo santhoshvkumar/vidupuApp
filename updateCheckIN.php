@@ -25,7 +25,7 @@
         // Update isCheckInLocked field in tblEmployee
         $updateCheckInLocked = "UPDATE tblEmployee 
                               SET isCheckInLocked = 1 
-                              WHERE employeeID = ? and Designation != 'Deputy General Manager'";
+                              WHERE employeeID = ? and Designation != 'Deputy General Manager' and Designation != 'Assistant General Manager";
         
         $updateLockedStmt = mysqli_prepare($connect_var, $updateCheckInLocked);
         mysqli_stmt_bind_param($updateLockedStmt, "s", $employeeID);
