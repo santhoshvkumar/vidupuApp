@@ -39,6 +39,7 @@
         $row = mysqli_fetch_assoc($rsdToRunPrivilageCOunt);
         $sl_bal = $row['sl_bal'];
         $updateQuery = "update tblLeaveBalance set CompensatoryOff = '$sl_bal' where employeeID = '$employeeID'";
+        echo $updateQuery . "<br>";
         $rsdToUpdate = mysqli_query($connect_var, $updateQuery);
         echo $empID . " " . $sl_bal . "<br>";
         
