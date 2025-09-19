@@ -22,7 +22,7 @@
             $rsdToUpdate = mysqli_query($connect_var, $updateQuery);
             echo $empID . " " . $cl_bal . "<br>";
         }
-        /*
+        
 
         $query = "select pl_bal from leave_data where staff_code = '$empID' and year = 2025 and leave_code = 'PL'";
         $rsdToRunPrivilageCOunt = mysqli_query($connect_var, $query);
@@ -34,7 +34,7 @@
             $rsdToUpdate = mysqli_query($connect_var, $updateQuery);
             echo $empID . " " . $pl_bal . "<br>";
         }
-        
+        /*
         $rsdToUpdate = mysqli_query($connect_var, $updateQuery);
         echo $empID . " " . $pl_bal . "<br>";
 
