@@ -49,7 +49,7 @@ class MonthlyReportComponent {
     }
 }
 
-public function GetMonthlyReport() {
+function GetMonthlyReport($decoded_items) {
     $MonthlyReportObject = new MonthlyReportComponent();
     if($MonthlyReportObject->loadOrganisationID($decoded_items)) {
         $MonthlyReportObject->GetMonthlyReport($decoded_items);
