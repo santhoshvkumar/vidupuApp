@@ -112,6 +112,10 @@ require 'WebApp/CheckInLocked/CheckInLockedComponent.php';
 require 'Advances/AdvanceRouter.php';
 require 'Advances/AdvanceComponent.php';
 
+
+require 'WebApp/Reports/MonthlyReport/MonthlyReportRouter.php';
+require 'WebApp/Reports/MonthlyReport/MonthlyReportComponent.php';
+
 // Register all routers
 \EmployeePaySlip\EmployeePaySlipRouter::register($f3);
 

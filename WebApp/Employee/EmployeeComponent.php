@@ -206,7 +206,7 @@ class EmployeeComponent{
 
             $ResetPasswordQuery = "
                UPDATE tblEmployee 
-               SET employeePassword = MD5('Password#1') 
+               SET employeePassword = MD5('Password#1'), userToken = '' 
                WHERE empID = ? AND organisationID = ?;";
 
             error_log("ResetPassword query: " . $ResetPasswordQuery);
