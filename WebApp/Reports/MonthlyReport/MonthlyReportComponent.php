@@ -26,15 +26,15 @@ class MonthlyReportComponent {
             while ($row = mysqli_fetch_assoc($result)) {
                 
                 $getEmployeeID = $row['employeeID'];
-
+                $data[] = $row;
                 // $queryGetAttendanceDetails = "select count(*) as TotalPresent, sum(isLateCheckIN) as LateCheckIN, sum(isEarlyCheckOut) as EarlyCheckOut, sum(isAutoCheckout) as AutoCheckout from tblAttendance where DATE_FORMAT(attendanceDate, '%Y-%m') = ? and employeeID=?";
                 // $stmt = mysqli_prepare($connect_var, $queryGetAttendanceDetails);
                 // mysqli_stmt_bind_param($stmt, "si", $this->selectedMonth, $getEmployeeID);
                 // mysqli_stmt_execute($stmt);
                 // $result = mysqli_stmt_get_result($stmt);
                 // $row = mysqli_fetch_assoc($result);
-
                 $data[] = $row;
+                
             }
 
             mysqli_stmt_close($stmt);
