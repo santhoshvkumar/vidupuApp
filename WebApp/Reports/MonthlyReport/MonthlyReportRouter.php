@@ -1,5 +1,4 @@
 <?php
- require_once 'MonthlyReportComponent.php';
 
 $f3->route('POST /GetMonthlyReport',
     function($f3) {
