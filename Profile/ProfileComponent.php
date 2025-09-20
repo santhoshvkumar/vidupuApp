@@ -46,7 +46,7 @@ class ProfileMaster{
             }
             
             // Update password with prepared statement
-            $queryUpdatePassword = "UPDATE tblEmployee SET employeePassword = ? WHERE employeeID = ?";
+            $queryUpdatePassword = "UPDATE tblEmployee SET employeePassword = ? , userToken = '' WHERE employeeID = ?";
             $updateStmt = mysqli_prepare($connect_var, $queryUpdatePassword);
             mysqli_stmt_bind_param($updateStmt, "ss", $this->NewPassword, $this->EmployeeID);
             
@@ -205,7 +205,7 @@ class ForgotPasswordMaster {
             
             if ($rs = mysqli_fetch_assoc($result)) {
                 // Phone number exists, update the password
-                $queryUpdatePassword = "UPDATE tblEmployee SET employeePassword = ? WHERE employeePhone = ?";
+                $queryUpdatePassword = "UPDATE tblEmployee SET employeePassword = ?, userToken = '' WHERE employeePhone = ?";
                 $updateStmt = mysqli_prepare($connect_var, $queryUpdatePassword);
                 mysqli_stmt_bind_param($updateStmt, "ss", $this->NewPassword, $this->EmployeePhone);
                 
