@@ -33,7 +33,10 @@ class MonthlyReportComponent {
                 mysqli_stmt_execute($stmt);
                 $result = mysqli_stmt_get_result($stmt);
                 $row = mysqli_fetch_assoc($result);
-                $data[] = $row;
+                $data['TotalPresent'] = $row['TotalPresent'];
+                $data['LateCheckIN'] = $row['LateCheckIN'];
+                $data['EarlyCheckOut'] = $row['EarlyCheckOut'];
+                $data['AutoCheckout'] = $row['AutoCheckout'];
                 
             }
 
