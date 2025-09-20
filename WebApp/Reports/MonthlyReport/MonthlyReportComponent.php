@@ -29,6 +29,10 @@ class MonthlyReportComponent {
                 $getEmployeeID = $row['employeeID'];
                 $data[$count] = $row;
                 $queryGetAttendanceDetails = "select count(*) as TotalPresent, sum(isLateCheckIN) as LateCheckIN, sum(isEarlyCheckOut) as EarlyCheckOut, sum(isAutoCheckout) as AutoCheckout from tblAttendance where DATE_FORMAT(attendanceDate, '%Y-%m') = ? and employeeID=?";
+                echo "Query 2: " . $queryGetAttendanceDetails . "\n";
+                echo "Parameter 2 - selectedMonth: " . $this->selectedMonth . "\n";
+                echo "Parameter 2 - employeeID: " . $getEmployeeID . "\n";
+               
                 $stmt = mysqli_prepare($connect_var, $queryGetAttendanceDetails);
                 mysqli_stmt_bind_param($stmt, "si", $this->selectedMonth, $getEmployeeID);
                 mysqli_stmt_execute($stmt);
