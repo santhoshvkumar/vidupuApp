@@ -23,21 +23,22 @@ class MonthlyReportComponent {
             mysqli_stmt_bind_param($stmt, "i", $this->organisationID);
             mysqli_stmt_execute($stmt);
             $result = mysqli_stmt_get_result($stmt);
+            $count = 0;
             while ($row = mysqli_fetch_assoc($result)) {
                 
                 $getEmployeeID = $row['employeeID'];
-                $data[] = $row;
+                $data[$count] = $row;
                 $queryGetAttendanceDetails = "select count(*) as TotalPresent, sum(isLateCheckIN) as LateCheckIN, sum(isEarlyCheckOut) as EarlyCheckOut, sum(isAutoCheckout) as AutoCheckout from tblAttendance where DATE_FORMAT(attendanceDate, '%Y-%m') = ? and employeeID=?";
                 $stmt = mysqli_prepare($connect_var, $queryGetAttendanceDetails);
                 mysqli_stmt_bind_param($stmt, "si", $this->selectedMonth, $getEmployeeID);
                 mysqli_stmt_execute($stmt);
                 $result = mysqli_stmt_get_result($stmt);
                 $row = mysqli_fetch_assoc($result);
-                $data['TotalPresent'] = $row['TotalPresent'];
-                $data['LateCheckIN'] = $row['LateCheckIN'];
-                $data['EarlyCheckOut'] = $row['EarlyCheckOut'];
-                $data['AutoCheckout'] = $row['AutoCheckout'];
-                
+                $data[$count]['TotalPresent'] = $row['TotalPresent'];
+                $data[$count]['LateCheckIN'] = $row['LateCheckIN'];
+                $data[$count]['EarlyCheckOut'] = $row['EarlyCheckOut'];
+                $data[$count]['AutoCheckout'] = $row['AutoCheckout'];
+                $count++;
             }
 
             mysqli_stmt_close($stmt);
