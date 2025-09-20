@@ -18,6 +18,20 @@ class MonthlyReportComponent {
         try {
             $data = [];
 
+            $queryHolidayDetails = "SELECT 
+                                        COUNT(*) AS holiday_count_till_today,
+                                        DAY(CURDATE()) AS days_till_today
+                                    FROM tblHoliday
+                                    WHERE DATE_FORMAT(date, '%Y-%m') = ?
+                                    AND date <= CURDATE()";
+            $stmtHolidayDetails = mysqli_prepare($connect_var, $queryHolidayDetails);
+            mysqli_stmt_bind_param($stmtHolidayDetails, "s", $this->selectedMonth);
+            mysqli_stmt_execute($stmtHolidayDetails);
+            $resultHolidayDetails = mysqli_stmt_get_result($stmtHolidayDetails);
+            $rowHolidayDetails = mysqli_fetch_assoc($resultHolidayDetails);
+            $holidayCountTillToday = $rowHolidayDetails['holiday_count_till_today'];
+            $totalWorkingDaysTillToday = $rowHolidayDetails['days_till_today'];
+
             $queryGetEmployeeDetails = "SELECT employeeID, empID, employeeName, Designation FROM tblEmployee WHERE organisationID = ? and isActive = 1";
             $stmt = mysqli_prepare($connect_var, $queryGetEmployeeDetails);
             mysqli_stmt_bind_param($stmt, "i", $this->organisationID);
@@ -35,11 +49,11 @@ class MonthlyReportComponent {
                 $result2 = mysqli_stmt_get_result($stmt2);
                 $rowGetAttendanceDetails = mysqli_fetch_assoc($result2);
                 
-                
-                $data[$count]['TotalPresent'] = $rowGetAttendanceDetails['TotalPresent'];
-                $data[$count]['LateCheckIN'] = $rowGetAttendanceDetails['LateCheckIN'];
-                $data[$count]['EarlyCheckOut'] = $rowGetAttendanceDetails['EarlyCheckOut'];
-                $data[$count]['AutoCheckout'] = $rowGetAttendanceDetails['AutoCheckout'];
+                $data[$count]['TotalWorkingDays'] = (int)($totalWorkingDaysTillToday) - (int)($holidayCountTillToday);
+                $data[$count]['TotalPresent'] = (int)($rowGetAttendanceDetails['TotalPresent']);
+                $data[$count]['LateCheckIN'] = (int)($rowGetAttendanceDetails['LateCheckIN']);
+                $data[$count]['EarlyCheckOut'] = (int)($rowGetAttendanceDetails['EarlyCheckOut']);
+                $data[$count]['AutoCheckout'] = (int)($rowGetAttendanceDetails['AutoCheckout']);
 
 
                 $queryGetLeaveCount = "SELECT
@@ -70,8 +84,16 @@ class MonthlyReportComponent {
                 if ($leaveCount === null) {
                     $leaveCount = 0;
                 }
+                $data[$count]['WorkingDays'] = (int)($totalWorkingDaysTillToday) - (int)($holidayCountTillToday) - (int)$leaveCount;
                 
-                $data[$count]['TotalLeaves'] = $leaveCount;
+                $absentDays = $data[$count]['WorkingDays'] - $data[$count]['TotalPresent'] - $leaveCount;
+                if ($absentDays < 0) {
+                    $absentDays = 0;
+                } else {
+                    $absentDays = $absentDays;
+                }
+                $data[$count]['AbsentDays'] = $absentDays;
+                $data[$count]['TotalLeaves'] = (int)$leaveCount;
                 $count++;
                 
                 mysqli_stmt_close($stmt2);
