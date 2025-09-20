@@ -37,13 +37,13 @@ class MonthlyReportComponent {
                 $data[] = $row;
             }
 
-               
-            }
-            
             mysqli_stmt_close($stmt);
             
             echo json_encode(array("status" => "success", "data" => $data), JSON_FORCE_OBJECT);
-        } catch (Exception $e) {
+               
+        }
+            
+         catch (Exception $e) {
             echo json_encode(array("status" => "error", "message_text" => $e->getMessage()), JSON_FORCE_OBJECT);
         }
 }
