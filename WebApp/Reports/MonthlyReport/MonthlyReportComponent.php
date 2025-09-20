@@ -12,7 +12,7 @@ class MonthlyReportComponent {
         return false;
     }
 
-    public function GetMonthlyReport($decoded_items) {
+    public function GetMonthlyReportComponent($decoded_items) {
         include('config.inc');
         header('Content-Type: application/json');
         try {
@@ -52,7 +52,7 @@ class MonthlyReportComponent {
 function GetMonthlyReport($decoded_items) {
     $MonthlyReportObject = new MonthlyReportComponent();
     if($MonthlyReportObject->loadOrganisationID($decoded_items)) {
-        $MonthlyReportObject->GetMonthlyReport($decoded_items);
+        $MonthlyReportObject->GetMonthlyReportComponent($decoded_items);
     } else {
         echo json_encode(array("status" => "error", "message_text" => "Invalid input parameters"), JSON_FORCE_OBJECT);
     }
