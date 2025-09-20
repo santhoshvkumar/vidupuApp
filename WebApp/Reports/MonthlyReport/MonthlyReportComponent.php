@@ -33,7 +33,7 @@ class MonthlyReportComponent {
                 mysqli_stmt_execute($stmt);
                 $result = mysqli_stmt_get_result($stmt);
                 $row = mysqli_fetch_assoc($result);
-                
+
                 $data[] = $row;
             }
 
@@ -46,8 +46,8 @@ class MonthlyReportComponent {
         } catch (Exception $e) {
             echo json_encode(array("status" => "error", "message_text" => $e->getMessage()), JSON_FORCE_OBJECT);
         }
-    }
 }
+
 
 public function GetMonthlyReport() {
     $MonthlyReportObject = new MonthlyReportComponent();
