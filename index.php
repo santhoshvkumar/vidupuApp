@@ -116,6 +116,11 @@ require 'Advances/AdvanceComponent.php';
 require 'WebApp/Reports/MonthlyReport/MonthlyReportRouter.php';
 require 'WebApp/Reports/MonthlyReport/MonthlyReportComponent.php';
 
+
+// For Auto Transfer 
+require 'WebApp/TransferEmployee/AutoTransferRouter.php';
+require 'WebApp/TransferEmployee/AutoTransferComponent.php';
+
 // Register all routers
 \EmployeePaySlip\EmployeePaySlipRouter::register($f3);
 
