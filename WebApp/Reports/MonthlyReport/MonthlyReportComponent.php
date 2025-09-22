@@ -38,6 +38,7 @@ class MonthlyReportComponent {
             mysqli_stmt_execute($stmt);
             $result = mysqli_stmt_get_result($stmt);
             $count = 0;
+            $data = [];
             while ($row = mysqli_fetch_assoc($result)) {
                 $getEmployeeID = $row['employeeID'];
                 $data[$count] = $row;
@@ -86,7 +87,7 @@ class MonthlyReportComponent {
                 }
                 $data[$count]['WorkingDays'] = (int)($totalWorkingDaysTillToday) - (int)($holidayCountTillToday) - (int)$leaveCount;
                 
-                $absentDays = $data[$count]['WorkingDays'] - $data[$count]['TotalPresent'] - $leaveCount;
+                $absentDays = $data[$count]['TotalWorkingDays'] - $data[$count]['TotalPresent'] - $leaveCount;
                 if ($absentDays < 0) {
                     $absentDays = 0;
                 } else {
@@ -101,12 +102,12 @@ class MonthlyReportComponent {
             }
 
             mysqli_stmt_close($stmt);     
-            echo json_encode(array("status" => "success", "data" => $data), JSON_FORCE_OBJECT);
+            echo json_encode(array("status" => "success", "data" => $data));
                
         }
             
          catch (Exception $e) {
-            echo json_encode(array("status" => "error", "message_text" => $e->getMessage()), JSON_FORCE_OBJECT);
+            echo json_encode(array("status" => "error", "message_text" => $e->getMessage()));
         }
     }
 }
@@ -116,7 +117,7 @@ function GetMonthlyReport($decoded_items) {
     if($MonthlyReportObject->loadOrganisationID($decoded_items)) {
         $MonthlyReportObject->GetMonthlyReportComponent($decoded_items);
     } else {
-        echo json_encode(array("status" => "error", "message_text" => "Invalid input parameters"), JSON_FORCE_OBJECT);
+        echo json_encode(array("status" => "error", "message_text" => "Invalid input parameters"));
     }
 }
 
