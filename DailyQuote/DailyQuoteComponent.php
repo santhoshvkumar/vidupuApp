@@ -2,7 +2,7 @@
 
 class DailyQuoteMaster {
     private $currentDate;
-    private $currentVersion = '1.0.17';
+    private $currentVersion = '1.0.20';
     private $playStoreLink = 'https://play.google.com/store/apps/details?id=com.tnscbank.dailyApp';
     private $isRefreshmentEnabled = true;
     
