@@ -114,26 +114,6 @@ $f3->route('GET /employee/records/@employeeID',
     }
 );
 
-$f3->route('GET /GetTodayCheckIn/@employeeID/@organisationID',
-    function($f3) {
-        header('Content-Type: application/json');
-        $employeeID = $f3->get('PARAMS.employeeID');
-        $organisationID = $f3->get('PARAMS.organisationID');
-        
-        if ($employeeID && $organisationID) {
-            $attendanceOperationObject = new AttendanceOperationMaster();
-            $attendanceOperationObject->getTodayCheckIn($employeeID, $organisationID);
-        } else {
-            echo json_encode(
-                array(
-                    "status" => "error",
-                    "message_text" => "Missing required parameters (employeeID, organisationID)"
-                ),
-                JSON_FORCE_OBJECT
-            );
-        }
-    }
-);
 
 $f3->route('POST /GetTodayCheckIn',
     function($f3) {

@@ -53,8 +53,8 @@ class RefreshmentMaster {
             // Get all employees from tblEmployee
             $query = "SELECT 
                         e.employeeID,
-    e.empID,
-    e.employeeName,
+                        e.empID,
+                        e.employeeName,
                         e.isWashingAllowance,
                         e.isPhysicallyHandicapped,
                         e.isTemporary,
@@ -1113,7 +1113,7 @@ class RefreshmentMaster {
             $empQuery = "SELECT e.employeeID, e.empID, e.employeeName, e.isWashingAllowance, 
                         e.isPhysicallyHandicapped, e.isTemporary, m.organisationID
                         FROM tblEmployee e
-                        LEFT JOIN tblmapEmp m ON e.employeeID = m.employeeID
+                        INNER JOIN tblmapEmp m ON e.employeeID = m.employeeID
                         WHERE e.employeeID = ? AND e.isActive = 1";
             
             $empStmt = mysqli_prepare($connect_var, $empQuery);

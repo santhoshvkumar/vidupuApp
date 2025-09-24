@@ -1087,7 +1087,11 @@ class AttendanceOperationMaster{
         try {
             $query = "SELECT 
                         m.branchID as branchID,
-                        b.checkInTime as branchCheckInTime,
+                        -- Add 1 hour, then force minutes = 15
+                        STR_TO_DATE(
+                            DATE_FORMAT(DATE_ADD(b.checkInTime, INTERVAL 1 HOUR), '%H:15:00'),
+                            '%H:%i:%s'
+                        ) AS branchCheckInTime,
                         b.branchLatitude as branchLatitude,
                         b.branchLongitude as branchLongitude,
                         b.branchName as branchName,
@@ -1127,7 +1131,7 @@ class AttendanceOperationMaster{
             }
             
             $row = mysqli_fetch_assoc($result);
-            $row['checkInBeyondTime'] = 0;
+           
 
             $queryForTodayAttendance = "SELECT COUNT(*) as todayAttendanceCount
                                         FROM tblAttendance 
