@@ -1147,10 +1147,26 @@ class AttendanceOperationMaster{
             if($todayAttendanceCount === 0) {
                 // Compare current system time with branch check-in time
                 $currentTime = date('H:i:s');
-                if($currentTime < $row['branchCheckInTime']) {
-                    $row['checkInBeyondTime'] = 0;
-                    $row['checkINLocked'] = 0;
+                $branchCheckInTime = $row['branchCheckInTime'];
+                
+                // Calculate if current time is more than 1 hour after branch check-in time
+                $currentTimestamp = strtotime($currentTime);
+                $branchCheckInTimestamp = strtotime($branchCheckInTime);
+                $oneHourLater = $branchCheckInTimestamp + (60 * 60); // Add 1 hour in seconds
+                
+                // Check if current time is more than 1 hour after branch check-in time
+                if($currentTimestamp > $oneHourLater) {
+                    $row['checkInBeyondTime'] = 1;
                 } else {
+                    $row['checkInBeyondTime'] = 0;
+                }
+                
+                // Check checkINLocked parameter from database
+                if($row['checkINLocked'] == 1) {
+                    // Keep checkINLocked as 1 if it's already set in database
+                    $row['checkINLocked'] = 1;
+                } else {
+                    // Set both parameters to 0 if checkINLocked is not 1
                     $row['checkInBeyondTime'] = 0;
                     $row['checkINLocked'] = 0;
                 }
