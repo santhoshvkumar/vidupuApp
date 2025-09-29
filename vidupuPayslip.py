@@ -74,10 +74,10 @@ logger = logging.getLogger(__name__)
 
 # Database configuration
 DB_CONFIG = {
-    'host': 'localhost',
-    'user': 'vsk',
-    'password': 'Password#1',
-    'database': 'tnscVidupuApp'
+    'host': 'viduppucluster-instance-1.cbakmcsgaskb.ap-south-1.rds.amazonaws.com',
+    'user': 'viduppuAdmin',
+    'password': 'wbAaY5A3p173Mvp5YpP4',
+    'database': 'viduppu'
 }
 
 # Excel file path (live server)
@@ -109,7 +109,7 @@ class SimplePayslipProcessor:
     def connect_db(self):
         """Connect to MySQL database"""
         try:
-            self.connection = pymysql.connect(host="localhost", user="vsk", password="Password#1", database="tnscVidupuApp")
+            self.connection = pymysql.connect(host="viduppucluster-instance-1.cbakmcsgaskb.ap-south-1.rds.amazonaws.com", user="viduppuAdmin", password="wbAaY5A3p173Mvp5YpP4", database="viduppu")
             logger.info("Database connection established")
             self.load_account_types()
         except Exception as e:
@@ -121,7 +121,7 @@ class SimplePayslipProcessor:
         try:
             if self.connection:
                 self.connection.close()
-            self.connection = pymysql.connect(host="localhost", user="vsk", password="Password#1", database="tnscVidupuApp")
+            self.connection = pymysql.connect(host="viduppucluster-instance-1.cbakmcsgaskb.ap-south-1.rds.amazonaws.com", user="viduppuAdmin", password="wbAaY5A3p173Mvp5YpP4", database="viduppu")
             logger.info("Database reconnected")
             return True
         except Exception as e:
@@ -614,7 +614,7 @@ def generate_payslip(employeeID, Month, Year, OrgID, lop_data=None):
     logger.info("inisde Function")
     # Step 2: Connect to MySQL
     conn = pymysql.connect(
-            host="localhost", user="vsk", password="Password#1", database="tnscVidupuApp"
+            host="viduppucluster-instance-1.cbakmcsgaskb.ap-south-1.rds.amazonaws.com", user="viduppuAdmin", password="wbAaY5A3p173Mvp5YpP4", database="viduppu"
     )
     cursor = conn.cursor(pymysql.cursors.DictCursor)
 
