@@ -1197,8 +1197,8 @@ def generate_payslip(employeeID, Month, Year, OrgID, lop_data=None):
       <td><strong>PF UAN:</strong> {{ pfUAN }}</td>
     </tr>
     <tr>
-      <td><strong>Current LOP:</strong> {{ currentLopDays }}</td>
-      <td><strong>Total LOP:</strong> {{ totalLopDays }}</td>
+     <!-- <td><strong>Current LOP:</strong> {{ currentLopDays }}</td>
+      <td><strong>Total LOP:</strong> {{ totalLopDays }}</td> -->
     </tr>
   </table>
 
