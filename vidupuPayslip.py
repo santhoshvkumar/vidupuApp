@@ -791,7 +791,7 @@ def generate_payslip(employeeID, Month, Year, OrgID, lop_data=None):
     # Step 9: Logo path handling
     logoWebPath = ''
     if orgLogo:
-        logoWebPath = f"https://vidupuapi.kapiital.com/{orgLogo}"
+        logoWebPath = f"https://api.eleave.in/{orgLogo}"
     print(f"<!-- orgLogo: {orgLogo} -->")
     print(f"<!-- logoWebPath: {logoWebPath} -->")
     print(f"<!-- Current Organisation ID: {OrgID} -->")
