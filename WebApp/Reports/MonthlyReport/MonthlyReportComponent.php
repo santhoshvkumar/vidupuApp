@@ -56,25 +56,26 @@ class MonthlyReportComponent {
                 $data[$count]['EarlyCheckOut'] = (int)($rowGetAttendanceDetails['EarlyCheckOut']);
                 $data[$count]['AutoCheckout'] = (int)($rowGetAttendanceDetails['AutoCheckout']);
 
+                $selectedMonth = $this->selectedMonth."-01";
 
                 $queryGetLeaveCount = "SELECT
-                                        SUM(
-                                            CASE
-                                            WHEN typeOfLeave = 'Medical Leave' THEN GREATEST(
+                                            SUM(
+                                                GREATEST(
                                                 0,
-                                                DATEDIFF(LEAST(toDate, CURDATE()), fromDate) + 1
-                                            )
-                                            ELSE leaveDuration
-                                            END
-                                        ) AS leave_days_till_today
-                                        FROM
-                                        tblApplyLeave
-                                        WHERE
-                                        employeeID = ?
-                                        AND status = 'Approved'
-                                        AND DATE_FORMAT(fromDate, '%Y-%m') = ?";
+                                                DATEDIFF(
+                                                    LEAST(LEAST(al.toDate, CURDATE()), LAST_DAY(?)),
+                                                    GREATEST(al.fromDate, ?)
+                                                ) + 1
+                                                )
+                                            ) AS leave_days_till_today
+                                            FROM tblApplyLeave al
+                                            WHERE al.employeeID = ?
+                                            AND al.status = 'Approved'
+                                            -- overlap test with Sept 2025
+                                            AND al.fromDate <= LAST_DAY(?)
+                                            AND (al.toDate IS NULL OR al.toDate >= ?);";
                 $stmt3 = mysqli_prepare($connect_var, $queryGetLeaveCount);
-                mysqli_stmt_bind_param($stmt3, "is", $getEmployeeID, $this->selectedMonth);
+                mysqli_stmt_bind_param($stmt3, "ssiss", $this->selectedMonth, $this->selectedMonth, $getEmployeeID, $this->selectedMonth, $this->selectedMonth);
                 mysqli_stmt_execute($stmt3);
                 $result3 = mysqli_stmt_get_result($stmt3);
                 $rowGetLeaveCount = mysqli_fetch_assoc($result3);
