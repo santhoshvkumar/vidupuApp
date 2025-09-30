@@ -31,7 +31,7 @@ class ResetPasswordComponent{
             }
 
             mysqli_stmt_bind_param($stmt, "s", 
-                $this->employeeID
+                $this->empID
             );
             
             if (!mysqli_stmt_execute($stmt)) {
