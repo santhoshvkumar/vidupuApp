@@ -71,11 +71,11 @@ class MonthlyReportComponent {
                                             FROM tblApplyLeave al
                                             WHERE al.employeeID = ?
                                             AND al.status = 'Approved'
-                                            -- overlap test with Sept 2025
                                             AND al.fromDate <= LAST_DAY(?)
                                             AND (al.toDate IS NULL OR al.toDate >= ?);";
                 $stmt3 = mysqli_prepare($connect_var, $queryGetLeaveCount);
-                mysqli_stmt_bind_param($stmt3, "ssiss", $this->selectedMonth, $this->selectedMonth, $getEmployeeID, $this->selectedMonth, $this->selectedMonth);
+                mysqli_stmt_bind_param($stmt3, "ssiss", $selectedMonth, $selectedMonth, $getEmployeeID, $selectedMonth, $selectedMonth);
+
                 mysqli_stmt_execute($stmt3);
                 $result3 = mysqli_stmt_get_result($stmt3);
                 $rowGetLeaveCount = mysqli_fetch_assoc($result3);
@@ -83,10 +83,17 @@ class MonthlyReportComponent {
                
                 // Handle NULL values
                 $leaveCount = $rowGetLeaveCount['leave_days_till_today'];
+
                 if ($leaveCount === null) {
                     $leaveCount = 0;
                 }
-                $data[$count]['WorkingDays'] = (int)($totalWorkingDaysTillToday) - (int)($holidayCountTillToday) - (int)$leaveCount;
+                $workingDays =  (int)($totalWorkingDaysTillToday) - (int)($holidayCountTillToday) - (int)$leaveCount;
+                if ($workingDays < 0) {
+                    $workingDays = 0;
+                } else {
+                    $workingDays = $workingDays;
+                }
+                $data[$count]['WorkingDays'] = $workingDays;
                 
                 $absentDays = $data[$count]['TotalWorkingDays'] - $data[$count]['TotalPresent'] - $leaveCount;
                 if ($absentDays < 0) {
@@ -103,7 +110,7 @@ class MonthlyReportComponent {
             }
 
             mysqli_stmt_close($stmt);     
-            echo json_encode(array("status" => "success", "data" => $data));
+            echo json_encode(array("status" => "success", "Month" => $selectedMonth, "data" => $data));
                
         }
             
