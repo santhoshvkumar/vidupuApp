@@ -1140,16 +1140,31 @@ class RefreshmentMaster {
             $workingDays = mysqli_fetch_assoc($workingResult);
             $totalWorkingDays = $workingDays ? $workingDays['noOfWorkingDays'] : 0;
 
+            $workingDate = $year."-".$month."-01";
             // Calculate approved leave days
-            $leaveQuery = "SELECT COUNT(*) as leaveDays 
-                          FROM tblApplyLeave l
-                          WHERE l.employeeID = ? AND MONTH(l.fromDate) = ? AND YEAR(l.fromDate) = ? 
-                          AND l.status = 'Approved'";
-            $leaveStmt = mysqli_prepare($connect_var, $leaveQuery);
-            mysqli_stmt_bind_param($leaveStmt, "sii", $employeeID, $month, $year);
-            mysqli_stmt_execute($leaveStmt);
-            $leaveResult = mysqli_stmt_get_result($leaveStmt);
-            $leaveDays = mysqli_fetch_assoc($leaveResult)['leaveDays'];
+            $queryGetLeaveCount = "SELECT
+                                    SUM(
+                                        GREATEST(
+                                        0,
+                                        DATEDIFF(
+                                            LEAST(LEAST(al.toDate, CURDATE()), LAST_DAY(?)),
+                                            GREATEST(al.fromDate, ?)
+                                        ) + 1
+                                        )
+                                    ) AS leave_days_till_today
+                                    FROM tblApplyLeave al
+                                    WHERE al.employeeID = ?
+                                    AND al.status = 'Approved'
+                                    AND al.fromDate <= LAST_DAY(?)
+                                    AND (al.toDate IS NULL OR al.toDate >= ?);";
+             $stmt3 = mysqli_prepare($connect_var, $queryGetLeaveCount);
+             mysqli_stmt_bind_param($stmt3, "ssiss", $workingDate, $workingDate, $employeeID, $workingDate, $workingDate);
+
+             mysqli_stmt_execute($stmt3);
+             $result3 = mysqli_stmt_get_result($stmt3);
+            $rowGetLeaveCount = mysqli_fetch_assoc($result3);
+                
+            $leaveDays = (int)$rowGetLeaveCount['leave_days_till_today'];
 
             // Calculate training days (check-in at training branch - branch ID 56)
             $trainingQuery = "SELECT COUNT(DISTINCT attendanceDate) as trainingDays 
