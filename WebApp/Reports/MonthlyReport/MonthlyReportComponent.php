@@ -32,6 +32,9 @@ class MonthlyReportComponent {
             $holidayCountTillToday = $rowHolidayDetails['holiday_count_till_today'];
             $totalWorkingDaysTillToday = $rowHolidayDetails['days_till_today'];
 
+           
+
+           
             $queryGetEmployeeDetails = "SELECT employeeID, empID, employeeName, Designation FROM tblEmployee WHERE organisationID = ? and isActive = 1";
             $stmt = mysqli_prepare($connect_var, $queryGetEmployeeDetails);
             mysqli_stmt_bind_param($stmt, "i", $this->organisationID);
@@ -50,7 +53,19 @@ class MonthlyReportComponent {
                 $result2 = mysqli_stmt_get_result($stmt2);
                 $rowGetAttendanceDetails = mysqli_fetch_assoc($result2);
                 
-                $data[$count]['TotalWorkingDays'] = (int)($totalWorkingDaysTillToday) - (int)($holidayCountTillToday);
+                $totalWorkingDays = (int)($totalWorkingDaysTillToday) - (int)($holidayCountTillToday);
+                if( $totalWorkingDays < 0){
+                    // Get month and year from selectedMonth (format: YYYY-MM)
+                   $year = (int)substr($this->selectedMonth, 0, 4);
+                   $month = (int)substr($this->selectedMonth, 5, 2);
+                   
+                   // Calculate number of days in the month dynamically
+                   $totalWorkingDaysTillToday = cal_days_in_month(CAL_GREGORIAN, $month, $year);
+               }
+               $totalWorkingDays = $totalWorkingDaysTillToday - $holidayCountTillToday;
+
+                $data[$count]['TotalWorkingDays'] = $totalWorkingDays;
+   
                 $data[$count]['TotalPresent'] = (int)($rowGetAttendanceDetails['TotalPresent']);
                 $data[$count]['LateCheckIN'] = (int)($rowGetAttendanceDetails['LateCheckIN']);
                 $data[$count]['EarlyCheckOut'] = (int)($rowGetAttendanceDetails['EarlyCheckOut']);
