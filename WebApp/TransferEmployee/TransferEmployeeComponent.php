@@ -131,6 +131,20 @@ class TransferEmployeeComponent{
                     mysqli_stmt_execute($queryUpdateMapStatement);
                     mysqli_stmt_close($queryUpdateMapStatement);
                 }
+
+                if( $this->toBranch === '55' || $this->toBranch === '56' || $this->toBranch === '60'){
+                    $queryUpdateEMployee = "UPDATE tblEmployee SET isMultipleCheckIN = 1  WHERE employeeID = ? and organisationID = ?";
+                    $queryUpdateEmployeeStatement = mysqli_prepare($connect_var, $queryUpdateEMployee);
+                    mysqli_stmt_bind_param($queryUpdateEmployeeStatement, "ss", $this->employeeID, $this->organisationID);
+                    mysqli_stmt_execute($queryUpdateEmployeeStatement);
+                    mysqli_stmt_close($queryUpdateEmployeeStatement);
+                } else {
+                    $queryUpdateEMployee = "UPDATE tblEmployee SET isMultipleCheckIN = 0  WHERE employeeID = ? and organisationID = ?";
+                    $queryUpdateEmployeeStatement = mysqli_prepare($connect_var, $queryUpdateEMployee);
+                    mysqli_stmt_bind_param($queryUpdateEmployeeStatement, "ss", $this->employeeID, $this->organisationID);
+                    mysqli_stmt_execute($queryUpdateEmployeeStatement);
+                    mysqli_stmt_close($queryUpdateEmployeeStatement);
+                }
     
                 if ($lastInsertId !== 0) {
                     echo json_encode(array(
