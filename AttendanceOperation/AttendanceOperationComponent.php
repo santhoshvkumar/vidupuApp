@@ -164,7 +164,11 @@ class AttendanceOperationMaster{
                 error_log("Employee $this->empID - BranchID: $this->branchID, BranchCheckInTime: $branchCheckInTime, CurrentTime: $currentTime");
                 
                 // Check if employee is late based on their branch's check-in time
-                if ($currentTime > $branchCheckInTime) {
+                // Convert time strings to timestamps for proper comparison
+                $currentTimestamp = strtotime($currentTime);
+                $branchCheckInTimestamp = strtotime($branchCheckInTime);
+                
+                if ($currentTimestamp > $branchCheckInTimestamp) {
                     $isLateCheckIn = 1; // Mark 1 if late
                 }
             } else {
