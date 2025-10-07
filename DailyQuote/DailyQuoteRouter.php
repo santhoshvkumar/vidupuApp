@@ -19,13 +19,4 @@ $f3->route('GET /VersionCheck',
 );
 /*****************  End Version Check *****************/
 
-/*****************   Submit Newspaper Allowance  *******************/
-$f3->route('POST /SubmitNewspaperAllowance',
-    function($f3){
-        header('Content-Type: application/json');
-        include('SubmitNewspaperAllowance.php');
-    }
-);
-/*****************  End Submit Newspaper Allowance *****************/
-
 ?>
