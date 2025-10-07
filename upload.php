@@ -49,9 +49,17 @@ if (!is_dir($newspaperDir) && !mkdir($newspaperDir, 0755, true)) {
 
 // Check if request contains any data
 if (empty($_POST) && empty($_FILES) && isset($_SERVER['CONTENT_LENGTH']) && $_SERVER['CONTENT_LENGTH'] > 0) {
+    $postMaxSize = ini_get('post_max_size');
+    $uploadMaxSize = ini_get('upload_max_filesize');
     echo json_encode([
         'status' => 'error',
-        'message' => 'The uploaded file exceeds the post_max_size directive in php.ini'
+        'message' => 'The uploaded file exceeds the post_max_size directive in php.ini',
+        'details' => [
+            'post_max_size' => $postMaxSize,
+            'upload_max_filesize' => $uploadMaxSize,
+            'content_length' => $_SERVER['CONTENT_LENGTH'],
+            'suggestion' => 'Please reduce file size or contact administrator to increase PHP limits'
+        ]
     ]);
     exit;
 }
@@ -245,6 +253,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $fileName = $file['name'];
                 $fileSize = $file['size'];
                 $fileType = $file['type'];
+                
+                // Check file size against PHP limits
+                $uploadMaxSize = ini_get('upload_max_filesize');
+                $postMaxSize = ini_get('post_max_size');
+                
+                // Convert limits to bytes
+                function convertToBytes($val) {
+                    $val = trim($val);
+                    $last = strtolower($val[strlen($val)-1]);
+                    $val = (int)$val;
+                    switch($last) {
+                        case 'g':
+                            $val *= 1024;
+                        case 'm':
+                            $val *= 1024;
+                        case 'k':
+                            $val *= 1024;
+                    }
+                    return $val;
+                }
+                
+                $uploadMaxBytes = convertToBytes($uploadMaxSize);
+                $postMaxBytes = convertToBytes($postMaxSize);
+                
+                if ($fileSize > $uploadMaxBytes) {
+                    echo json_encode([
+                        'status' => 'error',
+                        'message' => 'File size exceeds upload limit',
+                        'details' => [
+                            'file_size' => round($fileSize/1024/1024, 2) . ' MB',
+                            'upload_limit' => $uploadMaxSize,
+                            'suggestion' => 'Please reduce file size or contact administrator'
+                        ]
+                    ]);
+                    exit;
+                }
                 
                 $fileNameCmps = explode(".", $fileName);
                 $fileExtension = strtolower(end($fileNameCmps));
