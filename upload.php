@@ -59,6 +59,18 @@ if (empty($_POST) && empty($_FILES) && isset($_SERVER['CONTENT_LENGTH']) && $_SE
 // Use config.inc for database connection parameters
 include('config.inc');
 
+// Define upload error messages
+$uploadErrors = array(
+    UPLOAD_ERR_OK => 'No error',
+    UPLOAD_ERR_INI_SIZE => 'File exceeds upload_max_filesize directive in php.ini',
+    UPLOAD_ERR_FORM_SIZE => 'File exceeds MAX_FILE_SIZE directive in HTML form',
+    UPLOAD_ERR_PARTIAL => 'File was only partially uploaded',
+    UPLOAD_ERR_NO_FILE => 'No file was uploaded',
+    UPLOAD_ERR_NO_TMP_DIR => 'Missing temporary folder',
+    UPLOAD_ERR_CANT_WRITE => 'Failed to write file to disk',
+    UPLOAD_ERR_EXTENSION => 'File upload stopped by extension'
+);
+
 try {
     // Check if connect_var exists from config
     if (!isset($connect_var) || !$connect_var) {
