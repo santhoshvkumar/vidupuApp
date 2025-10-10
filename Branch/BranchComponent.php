@@ -12,6 +12,7 @@ class BranchComponent {
     public $checkInTime;
     public $checkOutTime;
     public $BranchDetailsData;
+    public $BranchUpdateData;
 
     public function loadBranchDetails(array $data) {
         // Check if required fields exist
@@ -108,10 +109,14 @@ class BranchComponent {
     public function UpdateBranch() {
         include('config.inc');
         header('Content-Type: application/json');
-    
+        
+        //Decode Token Start
+        $secratekey = "UpdateParticularBranchByID";
+        $decodeVal = decryptDataFunc($this->BranchUpdateData['BranchUpdateToken'], $secratekey);
+        // DECODE Token End
         try {
             $data = [];
-    
+            $affectedRows = 0;
             $queryUpdateBranch = "UPDATE tblBranch SET 
                 branchUniqueID = ?,
                 branchName = ?,
@@ -135,34 +140,41 @@ class BranchComponent {
             }
             
             mysqli_stmt_bind_param($stmt, "ssissssssii",
-                $this->branchUniqueID,
-                $this->branchName,
-                $this->branchHeadID,
-                $this->branchAddress,
-                $this->checkInTime,
-                $this->checkOutTime,
-                $this->branchLatitude,
-                $this->branchLongitude,
-                $this->branchRadius,
-                $this->organisationID,
-                $this->branchID
+                $decodeVal->branchUniqueID,
+                $decodeVal->branchName,
+                $decodeVal->branchHeadID,
+                $decodeVal->branchAddress,
+                $decodeVal->checkInTime,
+                $decodeVal->checkOutTime,
+                $decodeVal->branchLatitude,
+                $decodeVal->branchLongitude,
+                $decodeVal->branchRadius,
+                $decodeVal->organisationID,
+                $decodeVal->branchID
             );
+
+
 
             if (mysqli_stmt_execute($stmt)) {
                 $affectedRows = mysqli_stmt_affected_rows($stmt);
-                echo json_encode(array(
-                    "status" => "success",
-                    "message" => "Branch updated successfully",
-                    "affected_rows" => $affectedRows
-                ));
+                $responseStatus = "success";
+                $responseMessage = "Branch updated successfully";
+                
             } else {
-                echo json_encode(array(
-                    "status" => "error",
-                    "message" => "Error updating branch: " . mysqli_stmt_error($stmt)
-                ));
+               $responseStatus = "error";
+               $responseMessage = "Error updating branch: " . mysqli_stmt_error($stmt);
             }
             mysqli_stmt_close($stmt);
             mysqli_close($connect_var);
+            //Encode Token Start
+            $payload_info = array(
+                "message"=> $responseMessage,
+                "affected_rows" => $affectedRows,
+                "status" => $responseStatus
+            );
+            $encodeToken = encryptDataFunc($payload_info, $secratekey);
+            //Encode Token End
+            echo json_encode(array("status"=>$responseStatus, "response"=>$encodeToken),JSON_FORCE_OBJECT);
         } catch (Exception $e) {
             echo json_encode([
                 "status" => "error", 
@@ -281,27 +293,16 @@ function CreateBranch($decoded_items) {
 }
 
 function UpdateBranch($decoded_items) {
-    if (isset($_SERVER['CONTENT_TYPE']) && strpos($_SERVER['CONTENT_TYPE'], 'multipart/form-data') !== false) {
-        $BranchObject = new BranchComponent();
-        if ($BranchObject->loadBranchDetails($_POST)) {
-            // Set the branchID from FormData
-            if (isset($_POST['branchID'])) {
-                $BranchObject->branchID = $_POST['branchID'];
-            }
-            $BranchObject->UpdateBranch();
-        } else {
-            echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
-        }
+    // For JSON requests, use the decoded items
+    $BranchObject = new BranchComponent();
+    if ($decoded_items) {
+        $BranchObject->BranchUpdateData = $decoded_items;
+        $BranchObject->UpdateBranch();
     } else {
-        // For JSON requests, use the decoded items
-        $BranchObject = new BranchComponent();
-        if ($BranchObject->loadBranchDetails($decoded_items)) {
-            $BranchObject->UpdateBranch();
-        } else {
-            echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
-        }
+        echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
     }
 }
+
 function GetBranchDetailsByBranchID($decoded_items) {
     if (isset($_SERVER['CONTENT_TYPE']) && strpos($_SERVER['CONTENT_TYPE'], 'multipart/form-data') !== false) {
         $BranchObject = new BranchComponent();
