@@ -11,6 +11,7 @@ class BranchComponent {
     public $organisationID;
     public $checkInTime;
     public $checkOutTime;
+    public $BranchDetailsData;
 
     public function loadBranchDetails(array $data) {
         // Check if required fields exist
@@ -173,34 +174,44 @@ class BranchComponent {
     public function GetBranchesByOrganisation() {
         include('config.inc');
         header('Content-Type: application/json');
-    
+         //Decode Token Start
+         $secratekey = "GetAllBranchByOrganisationIDWeb";
+         $decodeVal = decryptDataFunc($this->BranchDetailsData['BranchDetailsToken'], $secratekey);
+         // DECODE Token End
         try {
             $data = [];
     
             $queryGetBranchesByOrg = "SELECT * FROM tblBranch WHERE organisationID = ? ORDER BY branchID DESC";
             $stmt = mysqli_prepare($connect_var, $queryGetBranchesByOrg);
-            mysqli_stmt_bind_param($stmt, "i", $this->organisationID);
-
+            mysqli_stmt_bind_param($stmt, "i", $decodeVal->organisationID);
+            $resonseCount = 0;
             if (mysqli_stmt_execute($stmt)) {
                 $result = mysqli_stmt_get_result($stmt);
                 $branches = array();
                 while ($row = mysqli_fetch_assoc($result)) {
                     $branches[] = $row;
                 }
+                $responseStatus = "success";
+                $responseMessage = "Branches fetched successfully";
+                $resonseCount = count($branches);
                 
-                echo json_encode(array(
-                    "status" => "success",
-                    "data" => $branches,
-                    "count" => count($branches)
-                ));
+               
             } else {
-                echo json_encode(array(
-                    "status" => "error",
-                    "message" => "Error fetching branches by organisation"
-                ));
+                $responseStatus = "error";
+                $responseMessage = "Error fetching branches by organisation";
             }
             mysqli_stmt_close($stmt);
             mysqli_close($connect_var);
+            //Encode Token Start
+            $payload_info = array(
+                "data"=>$branches,
+                "message"=> $responseMessage,
+                "count" => $resonseCount,
+                "status" => $responseStatus
+            );
+            $encodeToken = encryptDataFunc($payload_info, $secratekey);
+            //Encode Token End
+            echo json_encode(array("status"=>$responseStatus, "response"=>$encodeToken),JSON_FORCE_OBJECT);
         } catch (Exception $e) {
             echo json_encode([
                 "status" => "error", 
@@ -312,8 +323,8 @@ function GetBranchDetailsByBranchID($decoded_items) {
 
 function GetBranchesByOrganisation($decoded_items) {
     $BranchObject = new BranchComponent();
-    if (isset($decoded_items['organisationID'])) {
-        $BranchObject->organisationID = $decoded_items['organisationID'];
+    if ($decoded_items) {
+        $BranchObject->BranchDetailsData = $decoded_items;
         $BranchObject->GetBranchesByOrganisation();
     } else {
         echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
