@@ -11,6 +11,13 @@ error_reporting(-1);
 $f3 = require('lib/base.php');
 $f3->config('config.ini');
 
+require '_common/EncryptDecrypt.php';
+
+/****** JWT ENCRPT DECRPT MODULE  *****/
+require 'EncodeJson/EncodeTokenJsonComponent.php';
+require 'EncodeJson/EncodeTokenJsonRouter.php';
+
+
 // Load all required components and routers
 require 'UserLogin/UserLoginRouter.php';
 require 'UserLogin/UserLoginComponent.php';
