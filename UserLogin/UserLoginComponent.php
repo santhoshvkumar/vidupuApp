@@ -11,6 +11,10 @@ class UserMaster{
     public $UserToken;
     public $isDefaultPassword;  
     public $UserPassword;
+
+    // Finalised Variable Declartions for Login User
+    public $LoginUserTempInfoData;
+
     public function loadLoginUser(array $data){
         $this->UserName = $data['EmployeePhone'];
         $this->UserPassword = md5($data['EmployeePassword']);
@@ -27,6 +31,14 @@ class UserMaster{
         error_reporting( E_ALL );
         ini_set('display_errors', 1);
         $differentDevice = false;
+        $responseStatus = "Failure";
+        $responseMessage = 'User Login Failed';
+
+         //Decode Token Start
+        $secratekey = "LoginUserTempInfoKey";
+        $decodeVal = decryptDataFunc($this->LoginUserTempInfoData['LoginDetailsToken'], $secratekey);
+        // DECODE Token End
+ 
         try
         {
             // Check if password is the default password....added for password mandatory update
@@ -43,11 +55,12 @@ class UserMaster{
                 INNER JOIN tblLeaveBalance tblLB ON tblLB.employeeID = tblE.employeeID
                 INNER JOIN tblmapEmp tblM ON tblM.employeeID = tblE.employeeID
                 INNER JOIN tblBranch tblB ON tblB.branchID = tblM.branchID
-                  WHERE tblE.employeePhone=? AND tblE.employeePassword=?";
+                  WHERE tblE.employeePhone=? AND tblE.employeePassword=MD5(?)";
             
             $stmt = mysqli_prepare($connect_var, $queryUserLogin);
-            
-            mysqli_stmt_bind_param($stmt, "ss", $this->UserName, $this->UserPassword);
+            mysqli_stmt_bind_param($stmt, "ss", $decodeVal->EmployeePhone, $decodeVal->EmployeePassword);
+
+
             
             mysqli_stmt_execute($stmt);
             
@@ -91,13 +104,13 @@ class UserMaster{
                     
                     $fignerPrint = $rs['deviceFingerprint'];
                     // Update UserToken in database if deviceFingerprint is null and deviceFingerprint is set
-                    if($fignerPrint == null && isset($this->deviceFingerprint)){
-                        $updateToken = "UPDATE tblEmployee SET deviceFingerprint = '$this->deviceFingerprint', userToken = '$this->UserToken' 
+                    if($fignerPrint == null && isset($decodeVal->deviceFingerprint)){
+                        $updateToken = "UPDATE tblEmployee SET deviceFingerprint = '$decodeVal->deviceFingerprint', userToken = '$decodeVal->UserToken' 
                                   WHERE employeeID = '" . $rs['employeeID'] . "'";
                         mysqli_query($connect_var, $updateToken);
                     }
                     $count++;
-                    if($fignerPrint != null && $fignerPrint !== $this->deviceFingerprint){
+                    if($fignerPrint != null && $fignerPrint !== $decodeVal->deviceFingerprint){
                         $differentDevice = true;
                         $count=0;
                     }
@@ -108,16 +121,34 @@ class UserMaster{
         
         mysqli_close($connect_var);
 
-        if($count>0)
-            echo json_encode(array("status"=>"success","record_count"=>$count,"result"=>$resultArr));
+        if($count>0){
+            $responseStatus = "success";
+            $responseMessage = "User Login Success";
+        }
+            //echo json_encode(array("status"=>"success","record_count"=>$count,"result"=>$resultArr));
         else
             if($differentDevice){
-                echo json_encode(array("status"=>"failure","record_count"=>$count,"message_text"=>"This is not your registered device, Kindly contact HRD Section for more information"),JSON_FORCE_OBJECT);
+                $responseStatus = "failure";
+                $responseMessage = "This is not your registered device, Kindly contact HRD Section for more information";
+                $resultArr = [];
+                //echo json_encode(array("status"=>"failure","record_count"=>$count,"message_text"=>"This is not your registered device, Kindly contact HRD Section for more information"),JSON_FORCE_OBJECT);
             }
             else{
-                echo json_encode(array("status"=>"failure","record_count"=>$count,"message_text"=>"Kindly Check your Credentials"),JSON_FORCE_OBJECT);
+                $responseStatus = "failure";
+                $responseMessage = "Kindly Check your Credentials";
+                $resultArr = [];
+                //echo json_encode(array("status"=>"failure","record_count"=>$count,"message_text"=>"Kindly Check your Credentials"),JSON_FORCE_OBJECT);
             }
-        }   
+             //Encode Token Start
+            $payload_info = array(
+                "data"=>$resultArr,
+                "message"=> $responseMessage
+            );
+            $encodeToken = encryptDataFunc($payload_info, $secratekey);
+            //Encode Token End
+            echo json_encode(array("status"=>$responseStatus, "response"=>$encodeToken),JSON_FORCE_OBJECT);
+        }
+       
         catch(PDOException $e) {
             echo json_encode(array("status"=>"error","message_text"=>$e->getMessage()),JSON_FORCE_OBJECT);
         }
@@ -128,10 +159,10 @@ class UserMaster{
 
 function loginUserTemp(array $data){
     $userObject = new UserMaster;
-    if($userObject->loadLoginUser($data)){
+    if($data) {
+        $userObject->LoginUserTempInfoData = $data;
         $userObject->LoginUserTempInfo();
-    }
-    else {
+    } else {
          echo json_encode(array("status"=>"error On Login User temp Info","message_text"=>"Invalid Input Parameters"),JSON_FORCE_OBJECT);
     }
 }
