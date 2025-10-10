@@ -5,6 +5,7 @@ class AttendanceOperationMaster{
     public $empID;
     public $branchID;
     public $organisationID;
+    public $dateOfCheckout;
 
     public function loadCancelLeave($decoded_items){
         $this->applyLeaveID = $decoded_items['applyLeaveID'];
