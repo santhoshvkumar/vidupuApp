@@ -11,6 +11,7 @@ class BranchComponent {
     public $organisationID;
     public $checkInTime;
     public $checkOutTime;
+    public $BranchCreateData;
     public $BranchDetailsData;
     public $BranchUpdateData;
 
@@ -54,7 +55,11 @@ class BranchComponent {
     
         try {
             $data = [];
-    
+            //Decode Token Start
+            $secratekey = "CreateNewBranchFromWeb";
+            $decodeVal = decryptDataFunc($this->BranchCreateData['BranchCreateToken'], $secratekey);
+            $latestBranchCreatedID = 0;
+            // DECODE Token End
             $queryCreateBranch = "INSERT INTO tblBranch (
                 branchUniqueID, branchName, branchHeadID, branchAddress, checkInTime, checkOutTime,
                 branchLatitude, branchLongitude, branchRadius, organisationID
@@ -70,34 +75,39 @@ class BranchComponent {
             }
             
             mysqli_stmt_bind_param($stmt, "ssissssssi",
-                $this->branchUniqueID,
-                $this->branchName,
-                $this->branchHeadID,
-                $this->branchAddress,
-                $this->checkInTime,
-                $this->checkOutTime,
-                $this->branchLatitude,
-                $this->branchLongitude,
-                $this->branchRadius,
-                $this->organisationID
+                $decodeVal->branchUniqueID,
+                $decodeVal->branchName,
+                $decodeVal->branchHeadID,
+                $decodeVal->branchAddress,
+                $decodeVal->checkInTime,
+                $decodeVal->checkOutTime,
+                $decodeVal->branchLatitude,
+                $decodeVal->branchLongitude,
+                $decodeVal->branchRadius,
+                $decodeVal->organisationID
             );
 
             if (mysqli_stmt_execute($stmt)) {
                 $latestBranchCreatedID = mysqli_insert_id($connect_var);
-                
-                echo json_encode(array(
-                    "status" => "success",
-                    "message" => "Branch created successfully",
-                    "branchID" => $latestBranchCreatedID
-                ));
+                $responseStatus = "success";
+                $responseMessage = "Branch created successfully";
+                $latestBranchCreatedID = mysqli_insert_id($connect_var);
             } else {
-                echo json_encode(array(
-                    "status" => "error",
-                    "message" => "Error creating branch: " . mysqli_stmt_error($stmt)
-                ));
+                $responseStatus = "error";
+                $responseMessage = "Error creating branch: " . mysqli_stmt_error($stmt);
+                $latestBranchCreatedID = 0;
             }
             mysqli_stmt_close($stmt);
             mysqli_close($connect_var);
+            //Encode Token Start
+            $payload_info = array(
+                "message"=> $responseMessage,
+                "branchID" => $latestBranchCreatedID,
+                "status" => $responseStatus
+            );
+            $encodeToken = encryptDataFunc($payload_info, $secratekey);
+            //Encode Token End
+            echo json_encode(array("status"=>$responseStatus, "response"=>$encodeToken),JSON_FORCE_OBJECT);
         } catch (Exception $e) {
             echo json_encode([
                 "status" => "error", 
@@ -273,23 +283,14 @@ class BranchComponent {
 
 // Helper functions to create instances and call methods
 function CreateBranch($decoded_items) {
-    if (isset($_SERVER['CONTENT_TYPE']) && strpos($_SERVER['CONTENT_TYPE'], 'multipart/form-data') !== false) {
-        // For FormData, use $_POST instead of decoded JSON
         $BranchObject = new BranchComponent();
-        if ($BranchObject->loadBranchDetails($_POST)) {
+        if ($decoded_items) {
+            $BranchObject->BranchCreateData = $decoded_items;
             $BranchObject->CreateBranch();
         } else {
             echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
         }
-    } else {
-        // For JSON requests, use the decoded items
-        $BranchObject = new BranchComponent();
-        if ($BranchObject->loadBranchDetails($decoded_items)) {
-            $BranchObject->CreateBranch();
-        } else {
-            echo json_encode(array("status" => "error", "message_text" => "Invalid Input Parameters"), JSON_FORCE_OBJECT);
-        }
-    }
+    
 }
 
 function UpdateBranch($decoded_items) {
