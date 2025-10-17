@@ -1,30 +1,10 @@
 <?php 
 class LeaveRestriction{
-    public $restrictLeaveID;
-    public $restrictLeaveDate;
-    public $Reason;
-    public $createdOn;
-    public $createdBy;
-    public $isPublish;
-
-    public function loadLeaveRestriction(array $data){
-        if(isset($data['restrictLeaveID'])){
-            $this->restrictLeaveID = $data['restrictLeaveID'];
-        }
-        if(isset($data['restrictLeaveDate'])){
-            $this->restrictLeaveDate = $data['restrictLeaveDate'];
-        }
-        if(isset($data['Reason'])){
-            $this->Reason = $data['Reason'];
-        }
-        if(isset($data['createdBy'])){
-            $this->createdBy = $data['createdBy'];
-        }
-        if(isset($data['isPublish'])){
-            $this->isPublish = $data['isPublish'];
-        }
-        return true;
-    }
+    public $updateLeaveRestrictionData;
+    public $getAllRestrictedLeavesData;
+    public $createRestrictedLeaveData;
+    public $publishRestrictedLeaveData;
+    public $unPublishRestrictedLeaveData;
 
     public function createRestrictedLeave(){
         include('config.inc');
@@ -33,32 +13,44 @@ class LeaveRestriction{
         ini_set('display_errors', 1);
         
         try {
+            //Decode Token Start
+            $secratekey = "CreateRestrictedLeaveFromWeb";
+            $decodeVal = decryptDataFunc($this->createRestrictedLeaveData['CreateRestrictedLeaveToken'], $secratekey);
+            // DECODE Token End
             $queryCreate = "INSERT INTO tblRestrictLeave (restrictLeaveDate, Reason, createdBy, isPublish) 
                            VALUES (?, ?, ?, ?)";
             
             $stmt = mysqli_prepare($connect_var, $queryCreate);
             
-            $isPublish = isset($this->isPublish) ? $this->isPublish : 0;
-            $createdBy = isset($this->createdBy) ? $this->createdBy : 0;
+            $isPublish = isset($decodeVal->isPublish) ? $decodeVal->isPublish : 0;
+            $createdBy = isset($decodeVal->createdBy) ? $decodeVal->createdBy : 0;
             
-            mysqli_stmt_bind_param($stmt, "ssii", $this->restrictLeaveDate, $this->Reason, $createdBy, $isPublish);
+            mysqli_stmt_bind_param($stmt, "ssii", $decodeVal->restrictLeaveDate, $decodeVal->Reason, $createdBy, $isPublish);
             
             $result = mysqli_stmt_execute($stmt);
             
             if($result){
                 $restrictLeaveID = mysqli_insert_id($connect_var);
-                echo json_encode(array("status"=>"success","message_text"=>"Restricted leave created successfully","restrictLeaveID"=>$restrictLeaveID));
+                $responseStatus = "success";
+                $responseMessage = "Restricted leave created successfully";
+                $responseRestrictLeaveID = $restrictLeaveID;
             } else {
-                echo json_encode(array("status"=>"failure","message_text"=>"Failed to create restricted leave"));
+                $responseStatus = "failure";
+                $responseMessage = "Failed to create restricted leave";
+                $responseRestrictLeaveID = 0;
             }
-            
-            mysqli_close($connect_var);
+            $payload_info = array(
+                "message_text"=> $responseMessage,
+                "restrictLeaveID"=> $responseRestrictLeaveID,
+                "status"=> $responseStatus
+            );
+            $encodeToken = encryptDataFunc($payload_info, $secratekey);
+            echo json_encode(array("status"=>$responseStatus, "response"=>$encodeToken),JSON_FORCE_OBJECT);
         }   
         catch(Exception $e) {
             echo json_encode(array("status"=>"error","message_text"=>$e->getMessage()),JSON_FORCE_OBJECT);
         }
     }
-
     public function getAllRestrictedLeaves(){
         include('config.inc');
         header('Content-Type: application/json');
@@ -66,12 +58,25 @@ class LeaveRestriction{
         ini_set('display_errors', 1);
         
         try {
+            //Decode Token Start
+            $secratekey = "GetAllRestrictedLeavesFromWeb";
+            $decodeVal = decryptDataFunc($this->getAllRestrictedLeavesData['GetAllRestrictedLeavesToken'], $secratekey);
+            // Validate decoded data
+            if (!$decodeVal || !isset($decodeVal->organisationID)) {
+                throw new Exception("Invalid or missing token data");
+            }
+            
             $querySelect = "SELECT restrictLeaveID, restrictLeaveDate, Reason, createdOn, createdBy, isPublish 
                            FROM tblRestrictLeave 
+                           WHERE organisationID = ?
                            ORDER BY createdOn DESC";
             
             $stmt = mysqli_prepare($connect_var, $querySelect);
+            if (!$stmt) {
+                throw new Exception("Database prepare failed: " . mysqli_error($connect_var));
+            }
             
+            mysqli_stmt_bind_param($stmt, "s", $decodeVal->organisationID);
             mysqli_stmt_execute($stmt);
             
             $result = mysqli_stmt_get_result($stmt);
@@ -93,56 +98,27 @@ class LeaveRestriction{
             mysqli_close($connect_var);
             
             if($count > 0){
-                echo json_encode(array("status"=>"success","record_count"=>$count,"result"=>$resultArr));
+                $responseStatus = "success";
+                $responseMessage = "";
+                $responseCount = $count;
+                $responseData = $resultArr;
+               
             } else {
-                echo json_encode(array("status"=>"success","record_count"=>$count,"result"=>array(),"message_text"=>"No restricted leaves found"));
+                $responseStatus = "success";
+                $responseMessage = "No restricted leaves found";
+                $responseCount = $count;
+                $responseData = array();
+              
             }
-        }   
-        catch(Exception $e) {
-            echo json_encode(array("status"=>"error","message_text"=>$e->getMessage()),JSON_FORCE_OBJECT);
-        }
-    }
-
-    public function getAllPublishedRestrictedLeave(){
-        include('config.inc');
-        header('Content-Type: application/json');
-        error_reporting( E_ALL );
-        ini_set('display_errors', 1);
-        
-        try {
-            $querySelect = "SELECT restrictLeaveID, restrictLeaveDate, Reason, createdOn, createdBy, isPublish 
-                           FROM tblRestrictLeave 
-                           WHERE isPublish = 1 
-                           ORDER BY createdOn DESC";
-            
-            $stmt = mysqli_prepare($connect_var, $querySelect);
-            
-            mysqli_stmt_execute($stmt);
-            
-            $result = mysqli_stmt_get_result($stmt);
-            
-            $resultArr = array();
-            $count = 0;
-            
-            while($rs = mysqli_fetch_assoc($result)){
-                $resultArr[] = array(
-                    'restrictLeaveID' => $rs['restrictLeaveID'],
-                    'restrictLeaveDate' => $rs['restrictLeaveDate'],
-                    'Reason' => $rs['Reason'],
-                    'createdOn' => $rs['createdOn'],
-                    'createdBy' => $rs['createdBy'],
-                    'isPublish' => $rs['isPublish']
-                );
-                $count++;
-            }
-            
-            mysqli_close($connect_var);
-            
-            if($count > 0){
-                echo json_encode(array("status"=>"success","record_count"=>$count,"result"=>$resultArr));
-            } else {
-                echo json_encode(array("status"=>"success","record_count"=>$count,"result"=>array(),"message_text"=>"No published restricted leaves found"));
-            }
+            $payload_info = array(
+                "message_text"=> $responseMessage,
+                "record_count"=> $responseCount,
+                "result"=> $responseData,
+                "status"=> $responseStatus
+            );
+            //Encode Token End
+            $encodeToken = encryptDataFunc($payload_info, $secratekey);
+            echo json_encode(array("status"=>$responseStatus, "response"=>$encodeToken),JSON_FORCE_OBJECT);
         }   
         catch(Exception $e) {
             echo json_encode(array("status"=>"error","message_text"=>$e->getMessage()),JSON_FORCE_OBJECT);
@@ -156,23 +132,34 @@ class LeaveRestriction{
         ini_set('display_errors', 1);
         
         try {
+            //Decode Token Start
+            $secratekey = "UpdateRestrictedLeaveFromWeb";
+            $decodeVal = decryptDataFunc($this->updateLeaveRestrictionData['UpdateRestrictedLeaveToken'], $secratekey);
+            // DECODE Token End
             $queryUpdate = "UPDATE tblRestrictLeave SET restrictLeaveDate = ?, Reason = ?, isPublish = ? 
                            WHERE restrictLeaveID = ?";
             
             $stmt = mysqli_prepare($connect_var, $queryUpdate);
             
-            $isPublish = isset($this->isPublish) ? $this->isPublish : 0;
+            $isPublish = isset($decodeVal->isPublish) ? $decodeVal->isPublish : 0;
             
-            mysqli_stmt_bind_param($stmt, "ssii", $this->restrictLeaveDate, $this->Reason, $isPublish, $this->restrictLeaveID);
+            mysqli_stmt_bind_param($stmt, "ssii", $decodeVal->restrictLeaveDate, $decodeVal->Reason, $isPublish, $decodeVal->restrictLeaveID);
             
             $result = mysqli_stmt_execute($stmt);
             
             if($result && mysqli_affected_rows($connect_var) > 0){
-                echo json_encode(array("status"=>"success","message_text"=>"Restricted leave updated successfully"));
+                $responseStatus = "success";
+                $responseMessage = "Restricted leave updated successfully";
             } else {
-                echo json_encode(array("status"=>"failure","message_text"=>"Failed to update restricted leave or record not found"));
+                $responseStatus = "failure";
+                $responseMessage = "Failed to update restricted leave or record not found";
             }
-            
+            $payload_info = array(
+                "message_text"=> $responseMessage,
+                "status"=> $responseStatus
+            );
+            $encodeToken = encryptDataFunc($payload_info, $secratekey);
+            echo json_encode(array("status"=>$responseStatus, "response"=>$encodeToken),JSON_FORCE_OBJECT);
             mysqli_close($connect_var);
         }   
         catch(Exception $e) {
@@ -180,34 +167,7 @@ class LeaveRestriction{
         }
     }
 
-    public function deleteLeaveRestriction(){
-        include('config.inc');
-        header('Content-Type: application/json');
-        error_reporting( E_ALL );
-        ini_set('display_errors', 1);
-        
-        try {
-            $queryDelete = "DELETE FROM tblRestrictLeave WHERE restrictLeaveID = ?";
-            
-            $stmt = mysqli_prepare($connect_var, $queryDelete);
-            
-            mysqli_stmt_bind_param($stmt, "i", $this->restrictLeaveID);
-            
-            $result = mysqli_stmt_execute($stmt);
-            
-            if($result && mysqli_affected_rows($connect_var) > 0){
-                echo json_encode(array("status"=>"success","message_text"=>"Restricted leave deleted successfully"));
-            } else {
-                echo json_encode(array("status"=>"failure","message_text"=>"Failed to delete restricted leave or record not found"));
-            }
-            
-            mysqli_close($connect_var);
-        }   
-        catch(Exception $e) {
-            echo json_encode(array("status"=>"error","message_text"=>$e->getMessage()),JSON_FORCE_OBJECT);
-        }
-    }
-
+ 
     public function publishRestrictedLeave(){
         include('config.inc');
         header('Content-Type: application/json');
@@ -215,21 +175,32 @@ class LeaveRestriction{
         ini_set('display_errors', 1);
         
         try {
+            //Decode Token Start
+            $secratekey = "PublishRestrictedLeaveFromWeb";
+            $decodeVal = decryptDataFunc($this->publishRestrictedLeaveData['PublishRestrictedLeaveToken'], $secratekey);
+            // DECODE Token End
             $queryUpdate = "UPDATE tblRestrictLeave SET isPublish = 1 
                            WHERE restrictLeaveID = ?";
             
             $stmt = mysqli_prepare($connect_var, $queryUpdate);
             
-            mysqli_stmt_bind_param($stmt, "i", $this->restrictLeaveID);
+            mysqli_stmt_bind_param($stmt, "i", $decodeVal->restrictLeaveID);
             
             $result = mysqli_stmt_execute($stmt);
             
             if($result && mysqli_affected_rows($connect_var) > 0){
-                echo json_encode(array("status"=>"success","message_text"=>"Restricted leave published successfully"));
+                $responseStatus = "success";
+                $responseMessage = "Restricted leave published successfully";
             } else {
-                echo json_encode(array("status"=>"failure","message_text"=>"Failed to publish restricted leave or record not found"));
+                $responseStatus = "failure";
+                $responseMessage = "Failed to publish restricted leave or record not found";
             }
-            
+            $payload_info = array(
+                "message_text"=> $responseMessage,
+                "status"=> $responseStatus
+            );
+            $encodeToken = encryptDataFunc($payload_info, $secratekey);
+            echo json_encode(array("status"=>$responseStatus, "response"=>$encodeToken),JSON_FORCE_OBJECT);
             mysqli_close($connect_var);
         }   
         catch(Exception $e) {
@@ -244,21 +215,32 @@ class LeaveRestriction{
         ini_set('display_errors', 1);
         
         try {
+            //Decode Token Start
+            $secratekey = "UnpublishRestrictedLeaveFromWeb";
+            $decodeVal = decryptDataFunc($this->unPublishRestrictedLeaveData['UnpublishRestrictedLeaveToken'], $secratekey);
+            // DECODE Token End
             $queryUpdate = "UPDATE tblRestrictLeave SET isPublish = 0 
                            WHERE restrictLeaveID = ?";
             
             $stmt = mysqli_prepare($connect_var, $queryUpdate);
             
-            mysqli_stmt_bind_param($stmt, "i", $this->restrictLeaveID);
+            mysqli_stmt_bind_param($stmt, "i", $decodeVal->restrictLeaveID);
             
             $result = mysqli_stmt_execute($stmt);
             
             if($result && mysqli_affected_rows($connect_var) > 0){
-                echo json_encode(array("status"=>"success","message_text"=>"Restricted leave unpublished successfully"));
-            } else {
-                echo json_encode(array("status"=>"failure","message_text"=>"Failed to unpublish restricted leave or record not found"));
+                $responseStatus = "success";
+                $responseMessage = "Restricted leave unpublished successfully";
+             } else {
+                $responseStatus = "failure";
+                $responseMessage = "Failed to unpublish restricted leave or record not found";
             }
-            
+            $payload_info = array(
+                "message_text"=> $responseMessage,
+                "status"=> $responseStatus
+            );
+            $encodeToken = encryptDataFunc($payload_info, $secratekey);
+            echo json_encode(array("status"=>$responseStatus, "response"=>$encodeToken),JSON_FORCE_OBJECT);
             mysqli_close($connect_var);
         }   
         catch(Exception $e) {
@@ -268,9 +250,10 @@ class LeaveRestriction{
 }
 
 // Create Restricted Leave
-function createRestrictedLeaveTemp(array $data){
+function createRestrictedLeaveTemp($decoded_items){
     $leaveRestrictionObject = new LeaveRestriction;
-    if($leaveRestrictionObject->loadLeaveRestriction($data)){
+    if($decoded_items) {
+        $leaveRestrictionObject->createRestrictedLeaveData = $decoded_items;
         $leaveRestrictionObject->createRestrictedLeave();
     }
     else {
@@ -279,23 +262,24 @@ function createRestrictedLeaveTemp(array $data){
 }
 
 // Get All Restricted Leaves
-function getAllRestrictedLeavesTemp(array $data){
+function getAllRestrictedLeavesTemp($decoded_items){
     $leaveRestrictionObject = new LeaveRestriction;
+    if($decoded_items) {
+        $leaveRestrictionObject->getAllRestrictedLeavesData = $decoded_items;
+        $leaveRestrictionObject->getAllRestrictedLeaves();
+    }
+    else {
+         echo json_encode(array("status"=>"error On Get All Restricted Leaves","message_text"=>"Invalid Input Parameters"),JSON_FORCE_OBJECT);
+    }
     // For fetching all records, we don't need to validate parameters
-    $leaveRestrictionObject->getAllRestrictedLeaves();
-}
-
-// Get All Published Restricted Leave
-function getAllPublishedRestrictedLeaveTemp(array $data){
-    $leaveRestrictionObject = new LeaveRestriction;
-    // For fetching all published records, we don't need to validate parameters
-    $leaveRestrictionObject->getAllPublishedRestrictedLeave();
+   
 }
 
 // Update Restricted Leave
-function updateLeaveRestrictionTemp(array $data){
+function updateLeaveRestrictionTemp($decoded_items){
     $leaveRestrictionObject = new LeaveRestriction;
-    if($leaveRestrictionObject->loadLeaveRestriction($data)){
+    if($decoded_items) {
+        $leaveRestrictionObject->updateLeaveRestrictionData = $decoded_items;
         $leaveRestrictionObject->updateLeaveRestriction();
     }
     else {
@@ -303,21 +287,12 @@ function updateLeaveRestrictionTemp(array $data){
     }
 }
 
-// Delete Restricted Leave
-function deleteLeaveRestrictionTemp(array $data){
-    $leaveRestrictionObject = new LeaveRestriction;
-    if($leaveRestrictionObject->loadLeaveRestriction($data)){
-        $leaveRestrictionObject->deleteLeaveRestriction();
-    }
-    else {
-         echo json_encode(array("status"=>"error On Delete Restricted Leave","message_text"=>"Invalid Input Parameters"),JSON_FORCE_OBJECT);
-    }
-}
 
 // Publish Restricted Leave
-function publishRestrictedLeaveTemp(array $data){
+function publishRestrictedLeaveTemp($decoded_items){
     $leaveRestrictionObject = new LeaveRestriction;
-    if($leaveRestrictionObject->loadLeaveRestriction($data)){
+    if($decoded_items) {
+        $leaveRestrictionObject->publishRestrictedLeaveData = $decoded_items;
         $leaveRestrictionObject->publishRestrictedLeave();
     }
     else {
@@ -326,12 +301,12 @@ function publishRestrictedLeaveTemp(array $data){
 }
 
 // Unpublish Restricted Leave
-function unPublishRestrictedLeaveTemp(array $data){
+function unPublishRestrictedLeaveTemp($decoded_items){
     $leaveRestrictionObject = new LeaveRestriction;
-    if($leaveRestrictionObject->loadLeaveRestriction($data)){
+    if($decoded_items) {
+        $leaveRestrictionObject->unPublishRestrictedLeaveData = $decoded_items;
         $leaveRestrictionObject->unPublishRestrictedLeave();
-    }
-    else {
+    } else {
          echo json_encode(array("status"=>"error On Unpublish Restricted Leave","message_text"=>"Invalid Input Parameters"),JSON_FORCE_OBJECT);
     }
 }
